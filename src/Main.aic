@@ -1,0 +1,11 @@
+.const
+    INT 0
+    INT 1
+    NULL
+    BOOL true
+    BOOL false ; this is a comment
+
+.main
+start:
+    ADD $3, #2, #2
+    HALT

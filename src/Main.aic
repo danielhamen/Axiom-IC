@@ -1,11 +1,11 @@
 .const
-    INT 0
-    INT 1
     NULL
     BOOL true
-    BOOL false ; this is a comment
+    BOOL false
+    STR ~"\n"
 
 .main
 start:
-    ADD $3, #2, #2
+    ADD $0, #2, #2
+    PRINT $0
     HALT

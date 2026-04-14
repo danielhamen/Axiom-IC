@@ -24,7 +24,7 @@ int main() {
 
     aic::register_operations();
 
-    std::vector<std::vector<std::string>> tokens = aic::tokenize(in);
+    std::vector<aic::Token> tokens = aic::tokenize(in);
     aic::Program vm = aic::parse(tokens);
 
     const auto t0 = std::chrono::steady_clock::now();

@@ -1,6 +1,7 @@
 #include "tokenizer.hpp"
 
 #include "../core/types.hpp"
+#include "../util/symbols.hpp"
 
 #include <cctype>
 #include <iostream>
@@ -8,44 +9,86 @@
 
 namespace aic {
 
-std::vector<std::vector<std::string>> tokenize(const std::string& in) {
-    std::vector<std::vector<std::string>> tokens;
-    std::vector<std::string> current_line;
+std::string token_type_to_string(TokenType type) {
+    switch (type) {
+        case TokenType::Identifier:
+            return "Identifier";
+        case TokenType::Directive:
+            return "Directive";
+        case TokenType::Integer:
+            return "Integer";
+        case TokenType::String:
+            return "String";
+        case TokenType::Dollar:
+            return "Dollar";
+        case TokenType::Hash:
+            return "Hash";
+        case TokenType::At:
+            return "At";
+        case TokenType::Amp:
+            return "Amp";
+        case TokenType::Comma:
+            return "Comma";
+        case TokenType::Colon:
+            return "Colon";
+        case TokenType::Newline:
+            return "Newline";
+        case TokenType::EndOfFile:
+            return "EndOfFile";
+        case TokenType::Invalid:
+            return "Invalid";
+    }
+
+    throw std::runtime_error("Unknown TokenType");
+}
+
+std::vector<Token> tokenize(const std::string& in) {
+    std::vector<Token> tokens;
 
     size_t idx = 0;
     size_t len = in.size();
+    size_t line = 1;
+    size_t column = 1;
 
     while (idx < len) {
         char ch = in[idx];
         char nextch = idx + 1 < len ? in[idx + 1] : '\0';
 
         if (ch == '\n') {
-            if (!current_line.empty()) {
-                tokens.push_back(current_line);
-                current_line.clear();
-            }
+            tokens.push_back(Token{TokenType::Newline, "\\n", line, column});
             idx++;
+            line++;
+            column = 1;
             continue;
         }
 
         if (std::isspace(static_cast<unsigned char>(ch))) {
             idx++;
+            column++;
             continue;
         }
 
         if (ch == '~' && nextch == '"') {
+            const size_t tok_line = line;
+            const size_t tok_col = column;
             idx += 2;
+            column += 2;
             size_t j = idx;
             std::string contents = "";
             while (j < len) {
                 char jch = in[j];
 
                 if (jch == '\\') {
+                    if (j + 1 >= len) {
+                        throw std::runtime_error("Unterminated escape sequence in string");
+                    }
+
                     char esch = in[j + 1];
                     esch = escape_char(esch);
                     contents += esch;
 
                     j += 2;
+                    column += 2;
                     continue;
                 }
 
@@ -59,68 +102,92 @@ std::vector<std::vector<std::string>> tokenize(const std::string& in) {
 
                 contents += jch;
                 j++;
+                column++;
 
                 if (j == len) {
                     throw std::runtime_error("String not terminated");
                 }
             }
 
-            current_line.push_back(contents);
+            tokens.push_back(Token{TokenType::String, contents, tok_line, tok_col});
             idx = j + 1;
+            column++;
             continue;
         }
 
         if (ch == ';') {
-            while (idx < len && in[idx] != '\n') idx++;
+            while (idx < len && in[idx] != '\n') {
+                idx++;
+                column++;
+            }
             continue;
         }
 
         if (std::isalpha(static_cast<unsigned char>(ch)) || ch == '.') {
+            const size_t tok_col = column;
+            size_t start = idx;
             size_t j = idx;
             while (j < len && (std::isalnum(static_cast<unsigned char>(in[j])) || in[j] == '_' || in[j] == '.')) {
                 j++;
             }
-            current_line.push_back(in.substr(idx, j - idx));
+
+            std::string lexeme = in.substr(start, j - start);
+            TokenType type = TokenType::Identifier;
+            if (lexeme.starts_with(".") && is_symbol(lexeme.substr(1))) {
+                type = TokenType::Directive;
+            }
+
+            tokens.push_back(Token{type, lexeme, line, tok_col});
             idx = j;
+            column = tok_col + (j - start);
             continue;
         }
 
         if (std::isdigit(static_cast<unsigned char>(ch))) {
+            const size_t tok_col = column;
+            size_t start = idx;
             size_t j = idx;
             while (j < len && std::isdigit(static_cast<unsigned char>(in[j]))) {
                 j++;
             }
-            current_line.push_back(in.substr(idx, j - idx));
+            tokens.push_back(Token{TokenType::Integer, in.substr(start, j - start), line, tok_col});
             idx = j;
+            column = tok_col + (j - start);
             continue;
         }
 
         if (ch == '$' || ch == '#' || ch == '@' || ch == '&' || ch == ',' || ch == ':') {
-            current_line.push_back(std::string(1, ch));
+            TokenType type = TokenType::Invalid;
+            if (ch == '$') type = TokenType::Dollar;
+            else if (ch == '#') type = TokenType::Hash;
+            else if (ch == '@') type = TokenType::At;
+            else if (ch == '&') type = TokenType::Amp;
+            else if (ch == ',') type = TokenType::Comma;
+            else if (ch == ':') type = TokenType::Colon;
+
+            tokens.push_back(Token{type, std::string(1, ch), line, column});
             idx++;
+            column++;
             continue;
         }
 
-        current_line.push_back(std::string(1, ch));
+        tokens.push_back(Token{TokenType::Invalid, std::string(1, ch), line, column});
         idx++;
+        column++;
     }
 
-    if (!current_line.empty()) {
-        tokens.push_back(current_line);
-    }
+    tokens.push_back(Token{TokenType::EndOfFile, "", line, column});
 
     return tokens;
 }
 
-void print_tokens(std::vector<std::vector<std::string>> tokens) {
-    for (std::vector<std::string> tokenline : tokens) {
-        std::cout << "[";
-        for (std::string token : tokenline) {
-            std::cout << "'" << token << "'"
-                      << " ";
-        }
-
-        std::cout << "]" << std::endl;
+void print_tokens(const std::vector<Token>& tokens) {
+    for (const Token& token : tokens) {
+        std::cout << "Token(type=" << token_type_to_string(token.type)
+                  << ", lexeme='" << token.lexeme
+                  << "', line=" << token.line
+                  << ", column=" << token.column
+                  << ")" << std::endl;
     }
 }
 

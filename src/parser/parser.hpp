@@ -1,12 +1,12 @@
 #pragma once
 
 #include "../core/program.hpp"
+#include "tokenizer.hpp"
 
-#include <string>
 #include <vector>
 
 namespace aic {
 
-Program parse(std::vector<std::vector<std::string>> tokens);
+Program parse(const std::vector<Token>& tokens);
 
 } // namespace aic

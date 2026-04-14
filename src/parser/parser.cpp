@@ -11,6 +11,12 @@ namespace aic {
 
 namespace {
 
+enum class ParseMode {
+    None,
+    ConstSection,
+    FunctionBody
+};
+
 [[noreturn]] void throw_parse_error(const Token& token, const std::string& message) {
     throw std::runtime_error("Parse error at line " + std::to_string(token.line) +
                              ", column " + std::to_string(token.column) +
@@ -57,7 +63,11 @@ Value parse_immediate_literal(const Token& token) {
     throw_parse_error(token, "Unsupported immediate literal after '#': " + token.lexeme);
 }
 
-void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive) {
+bool is_const_declaration(const std::string& token) {
+    return token == "INT" || token == "FLOAT" || token == "BOOL" || token == "NULL" || token == "STR";
+}
+
+void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive, ParseMode& parse_mode) {
     if (line.empty()) {
         return;
     }
@@ -74,15 +84,18 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             }
 
             current_directive = Directive::Constant;
+            parse_mode = ParseMode::ConstSection;
             return;
         }
 
         if (directive == "include") {
             current_directive = Directive::Include;
+            parse_mode = ParseMode::None;
             throw_parse_error(head_token, "`include` directives are not yet implemented");
         }
 
         current_directive = Directive::Function;
+        parse_mode = ParseMode::FunctionBody;
         vm.fc = vm.functions.size();
 
         std::string fn_name = directive;
@@ -99,6 +112,10 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
     }
 
     if (line.size() >= 2 && head_token.type == TokenType::Identifier && line.at(1).type == TokenType::Colon) {
+        if (current_directive != Directive::Function || parse_mode != ParseMode::FunctionBody) {
+            throw_parse_error(head_token, "Label declaration is only valid inside a function body");
+        }
+
         if (line.size() > 2) {
             throw_parse_error(line.at(2), "Too many elements to unpack in label.");
         }
@@ -106,11 +123,14 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         std::string label_name = head;
 
         Function* curr_fn = vm.functions.at(vm.fc);
+        if (curr_fn->labels.find(label_name) != curr_fn->labels.end()) {
+            throw_parse_error(head_token, "Label redefinition in function '" + curr_fn->name + "': " + label_name);
+        }
         curr_fn->labels[label_name] = curr_fn->ins.size();
         return;
     }
 
-    if (current_directive == Directive::Constant) {
+    if (parse_mode == ParseMode::ConstSection) {
         std::string type = head;
         if (type == "INT") {
             if (line.size() < 2 || line[1].type != TokenType::Integer) {
@@ -161,6 +181,14 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         }
 
         return;
+    }
+
+    if (parse_mode == ParseMode::FunctionBody && is_const_declaration(head)) {
+        throw_parse_error(head_token, "Constant declarations are only valid inside the `.const` section");
+    }
+
+    if (current_directive != Directive::Function || parse_mode != ParseMode::FunctionBody) {
+        throw_parse_error(head_token, "Instruction encountered before any function directive");
     }
 
     std::string ins_opname = head;
@@ -265,11 +293,12 @@ Program parse(const std::vector<Token>& tokens) {
     Program vm;
     vm.pc = 0;
     Directive current_directive = Directive::None;
+    ParseMode parse_mode = ParseMode::None;
 
     std::vector<Token> line;
     for (const Token& tok : tokens) {
         if (tok.type == TokenType::Newline || tok.type == TokenType::EndOfFile) {
-            parse_line(line, vm, current_directive);
+            parse_line(line, vm, current_directive, parse_mode);
             line.clear();
 
             if (tok.type == TokenType::EndOfFile) {

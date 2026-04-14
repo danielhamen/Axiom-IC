@@ -219,23 +219,23 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
     Instruction ins;
     ins.op = ins_op.kind;
 
-    size_t j = 1;
-    size_t param_idx = 0;
     Operand null_op{OperandKind::None};
     ins.x = null_op;
     ins.y = null_op;
     ins.z = null_op;
+    std::vector<Operand> parsed_operands;
+    size_t j = 1;
 
-    while (j < line.size()) {
-        const Token& tok = line[j];
+    auto parse_operand_at = [&](size_t& index) -> Operand {
+        const Token& tok = line[index];
         Operand op{};
 
         if (tok.type == TokenType::Dollar || tok.type == TokenType::Hash || tok.type == TokenType::At || tok.type == TokenType::Amp) {
-            if (j + 1 >= line.size()) {
+            if (index + 1 >= line.size()) {
                 throw_parse_error(tok, "Missing value after operand prefix.");
             }
 
-            const Token& next = line[j + 1];
+            const Token& next = line[index + 1];
             if (tok.type == TokenType::Dollar) {
                 if (next.type != TokenType::Integer) {
                     throw_parse_error(next, "Expected integer literal after '$'");
@@ -260,37 +260,67 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
                 op.value = parse_non_negative_index(next, "Address index");
             }
 
-            j += 2;
-        }
-        else if (tok.type == TokenType::Identifier && is_symbol(tok.lexeme)) {
-            op.kind = OperandKind::Label;
-            op.strval = tok.lexeme;
-            j += 1;
-        }
-        else if (tok.type == TokenType::Comma) {
-            param_idx++;
-            j += 1;
-            continue;
-        }
-        else if (tok.type == TokenType::Invalid) {
-            throw_parse_error(tok, "Invalid token: " + tok.lexeme);
-        }
-        else {
-            throw_parse_error(tok, "Unknown token in instruction/parameter parsing: " + tok.lexeme);
+            index += 2;
+            return op;
         }
 
-        if (param_idx == 0) {
-            ins.x = op;
+        if (tok.type == TokenType::Identifier && is_symbol(tok.lexeme)) {
+            op.kind = OperandKind::Label;
+            op.strval = tok.lexeme;
+            index += 1;
+            return op;
         }
-        else if (param_idx == 1) {
-            ins.y = op;
+
+        if (tok.type == TokenType::Comma) {
+            throw_parse_error(tok, "Unexpected comma in operand list.");
         }
-        else if (param_idx == 2) {
-            ins.z = op;
+
+        if (tok.type == TokenType::Invalid) {
+            throw_parse_error(tok, "Invalid token: " + tok.lexeme);
         }
-        else {
-            throw_parse_error(tok, "Too many operands in instruction.");
+
+        throw_parse_error(tok, "Unknown token in instruction/parameter parsing: " + tok.lexeme);
+    };
+
+    if (j < line.size()) {
+        if (line[j].type == TokenType::Comma) {
+            throw_parse_error(line[j], "Operand list cannot start with a comma.");
         }
+
+        while (j < line.size()) {
+            if (parsed_operands.size() >= 3) {
+                throw_parse_error(line[j], "Unexpected token after final operand: " + line[j].lexeme);
+            }
+
+            parsed_operands.push_back(parse_operand_at(j));
+
+            if (j >= line.size()) {
+                break;
+            }
+
+            const Token& separator = line[j];
+            if (separator.type != TokenType::Comma) {
+                throw_parse_error(separator, "Unexpected token after final operand: " + separator.lexeme);
+            }
+
+            j += 1;
+            if (j >= line.size()) {
+                throw_parse_error(separator, "Operand list cannot end with a comma.");
+            }
+            if (line[j].type == TokenType::Comma) {
+                throw_parse_error(line[j], "Consecutive commas are not allowed in operand list.");
+            }
+        }
+    }
+
+    if (parsed_operands.size() > 0) {
+        ins.x = parsed_operands[0];
+    }
+    if (parsed_operands.size() > 1) {
+        ins.y = parsed_operands[1];
+    }
+    if (parsed_operands.size() > 2) {
+        ins.z = parsed_operands[2];
     }
 
     size_t expected_arity = ins_op.arity;

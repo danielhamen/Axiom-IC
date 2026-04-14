@@ -11,6 +11,12 @@ namespace aic {
 
 namespace {
 
+enum class ParseMode {
+    None,
+    ConstSection,
+    FunctionBody
+};
+
 [[noreturn]] void throw_parse_error(const Token& token, const std::string& message) {
     throw std::runtime_error(format_error_context(ErrorPhase::Parse,
                                                   message,
@@ -18,11 +24,29 @@ namespace {
                                                   static_cast<int>(token.column)));
 }
 
+int64_t parse_int64_literal(const Token& token, const std::string& usage) {
+    try {
+        return std::stoll(token.lexeme);
+    } catch (const std::invalid_argument&) {
+        throw_parse_error(token, "Invalid integer literal for " + usage + ": '" + token.lexeme + "'");
+    } catch (const std::out_of_range&) {
+        throw_parse_error(token, "Integer literal out of range for " + usage + ": '" + token.lexeme + "'");
+    }
+}
+
+int64_t parse_non_negative_index(const Token& token, const std::string& usage) {
+    int64_t value = parse_int64_literal(token, usage);
+    if (value < 0) {
+        throw_parse_error(token, usage + " must be non-negative, got '" + token.lexeme + "'");
+    }
+    return value;
+}
+
 Value parse_immediate_literal(const Token& token) {
     Value out{};
     if (token.type == TokenType::Integer) {
         out.kind = ValueKind::Integer;
-        out.i = std::stoll(token.lexeme);
+        out.i = parse_int64_literal(token, "immediate integer");
         return out;
     }
 
@@ -58,7 +82,11 @@ Value parse_immediate_literal(const Token& token) {
     throw_parse_error(token, "Unsupported immediate literal after '#': " + token.lexeme);
 }
 
-void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive) {
+bool is_const_declaration(const std::string& token) {
+    return token == "INT" || token == "FLOAT" || token == "BOOL" || token == "NULL" || token == "STR";
+}
+
+void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive, ParseMode& parse_mode) {
     if (line.empty()) {
         return;
     }
@@ -75,15 +103,18 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             }
 
             current_directive = Directive::Constant;
+            parse_mode = ParseMode::ConstSection;
             return;
         }
 
         if (directive == "include") {
             current_directive = Directive::Include;
+            parse_mode = ParseMode::None;
             throw_parse_error(head_token, "`include` directives are not yet implemented");
         }
 
         current_directive = Directive::Function;
+        parse_mode = ParseMode::FunctionBody;
         vm.fc = vm.functions.size();
 
         std::string fn_name = directive;
@@ -100,6 +131,10 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
     }
 
     if (line.size() >= 2 && head_token.type == TokenType::Identifier && line.at(1).type == TokenType::Colon) {
+        if (current_directive != Directive::Function || parse_mode != ParseMode::FunctionBody) {
+            throw_parse_error(head_token, "Label declaration is only valid inside a function body");
+        }
+
         if (line.size() > 2) {
             throw_parse_error(line.at(2), "Too many elements to unpack in label.");
         }
@@ -107,18 +142,21 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         std::string label_name = head;
 
         Function* curr_fn = vm.functions.at(vm.fc);
+        if (curr_fn->labels.find(label_name) != curr_fn->labels.end()) {
+            throw_parse_error(head_token, "Label redefinition in function '" + curr_fn->name + "': " + label_name);
+        }
         curr_fn->labels[label_name] = curr_fn->ins.size();
         return;
     }
 
-    if (current_directive == Directive::Constant) {
+    if (parse_mode == ParseMode::ConstSection) {
         std::string type = head;
         if (type == "INT") {
             if (line.size() < 2 || line[1].type != TokenType::Integer) {
                 throw_parse_error(head_token, "INT requires an integer literal");
             }
 
-            int param = std::stoi(line[1].lexeme);
+            int64_t param = parse_int64_literal(line[1], ".const INT");
             Value v;
             v.kind = ValueKind::Integer;
             v.i = param;
@@ -164,6 +202,14 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         return;
     }
 
+    if (parse_mode == ParseMode::FunctionBody && is_const_declaration(head)) {
+        throw_parse_error(head_token, "Constant declarations are only valid inside the `.const` section");
+    }
+
+    if (current_directive != Directive::Function || parse_mode != ParseMode::FunctionBody) {
+        throw_parse_error(head_token, "Instruction encountered before any function directive");
+    }
+
     std::string ins_opname = head;
     auto it = operation_by_name.find(ins_opname);
     if (it == operation_by_name.end()) {
@@ -174,29 +220,29 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
     Instruction ins;
     ins.op = ins_op.kind;
 
-    size_t j = 1;
-    size_t param_idx = 0;
     Operand null_op{OperandKind::None};
     ins.x = null_op;
     ins.y = null_op;
     ins.z = null_op;
+    std::vector<Operand> parsed_operands;
+    size_t j = 1;
 
-    while (j < line.size()) {
-        const Token& tok = line[j];
+    auto parse_operand_at = [&](size_t& index) -> Operand {
+        const Token& tok = line[index];
         Operand op{};
 
         if (tok.type == TokenType::Dollar || tok.type == TokenType::Hash || tok.type == TokenType::At || tok.type == TokenType::Amp) {
-            if (j + 1 >= line.size()) {
+            if (index + 1 >= line.size()) {
                 throw_parse_error(tok, "Missing value after operand prefix.");
             }
 
-            const Token& next = line[j + 1];
+            const Token& next = line[index + 1];
             if (tok.type == TokenType::Dollar) {
                 if (next.type != TokenType::Integer) {
                     throw_parse_error(next, "Expected integer literal after '$'");
                 }
                 op.kind = OperandKind::Slot;
-                op.value = std::stoi(next.lexeme);
+                op.value = parse_non_negative_index(next, "Slot index");
             } else if (tok.type == TokenType::Hash) {
                 op.kind = OperandKind::Immediate;
                 op.immediate = parse_immediate_literal(next);
@@ -206,46 +252,76 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
                     throw_parse_error(next, "Expected integer literal after '@'");
                 }
                 op.kind = OperandKind::Constant;
-                op.value = std::stoi(next.lexeme);
+                op.value = parse_non_negative_index(next, "Constant index");
             } else if (tok.type == TokenType::Amp) {
                 if (next.type != TokenType::Integer) {
                     throw_parse_error(next, "Expected integer literal after '&'");
                 }
                 op.kind = OperandKind::Address;
-                op.value = std::stoi(next.lexeme);
+                op.value = parse_non_negative_index(next, "Address index");
             }
 
-            j += 2;
-        }
-        else if (tok.type == TokenType::Identifier && is_symbol(tok.lexeme)) {
-            op.kind = OperandKind::Label;
-            op.strval = tok.lexeme;
-            j += 1;
-        }
-        else if (tok.type == TokenType::Comma) {
-            param_idx++;
-            j += 1;
-            continue;
-        }
-        else if (tok.type == TokenType::Invalid) {
-            throw_parse_error(tok, "Invalid token: " + tok.lexeme);
-        }
-        else {
-            throw_parse_error(tok, "Unknown token in instruction/parameter parsing: " + tok.lexeme);
+            index += 2;
+            return op;
         }
 
-        if (param_idx == 0) {
-            ins.x = op;
+        if (tok.type == TokenType::Identifier && is_symbol(tok.lexeme)) {
+            op.kind = OperandKind::Label;
+            op.strval = tok.lexeme;
+            index += 1;
+            return op;
         }
-        else if (param_idx == 1) {
-            ins.y = op;
+
+        if (tok.type == TokenType::Comma) {
+            throw_parse_error(tok, "Unexpected comma in operand list.");
         }
-        else if (param_idx == 2) {
-            ins.z = op;
+
+        if (tok.type == TokenType::Invalid) {
+            throw_parse_error(tok, "Invalid token: " + tok.lexeme);
         }
-        else {
-            throw_parse_error(tok, "Too many operands in instruction.");
+
+        throw_parse_error(tok, "Unknown token in instruction/parameter parsing: " + tok.lexeme);
+    };
+
+    if (j < line.size()) {
+        if (line[j].type == TokenType::Comma) {
+            throw_parse_error(line[j], "Operand list cannot start with a comma.");
         }
+
+        while (j < line.size()) {
+            if (parsed_operands.size() >= 3) {
+                throw_parse_error(line[j], "Unexpected token after final operand: " + line[j].lexeme);
+            }
+
+            parsed_operands.push_back(parse_operand_at(j));
+
+            if (j >= line.size()) {
+                break;
+            }
+
+            const Token& separator = line[j];
+            if (separator.type != TokenType::Comma) {
+                throw_parse_error(separator, "Unexpected token after final operand: " + separator.lexeme);
+            }
+
+            j += 1;
+            if (j >= line.size()) {
+                throw_parse_error(separator, "Operand list cannot end with a comma.");
+            }
+            if (line[j].type == TokenType::Comma) {
+                throw_parse_error(line[j], "Consecutive commas are not allowed in operand list.");
+            }
+        }
+    }
+
+    if (parsed_operands.size() > 0) {
+        ins.x = parsed_operands[0];
+    }
+    if (parsed_operands.size() > 1) {
+        ins.y = parsed_operands[1];
+    }
+    if (parsed_operands.size() > 2) {
+        ins.z = parsed_operands[2];
     }
 
     size_t expected_arity = ins_op.arity;
@@ -269,11 +345,12 @@ Program parse(const std::vector<Token>& tokens) {
     Program vm;
     vm.pc = 0;
     Directive current_directive = Directive::None;
+    ParseMode parse_mode = ParseMode::None;
 
     std::vector<Token> line;
     for (const Token& tok : tokens) {
         if (tok.type == TokenType::Newline || tok.type == TokenType::EndOfFile) {
-            parse_line(line, vm, current_directive);
+            parse_line(line, vm, current_directive, parse_mode);
             line.clear();
 
             if (tok.type == TokenType::EndOfFile) {

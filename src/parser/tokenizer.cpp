@@ -145,10 +145,20 @@ std::vector<Token> tokenize(const std::string& in) {
             continue;
         }
 
-        if (std::isdigit(static_cast<unsigned char>(ch))) {
+        const bool starts_signed_number =
+            (ch == '-' || ch == '+') &&
+            idx + 1 < len &&
+            (std::isdigit(static_cast<unsigned char>(nextch)) ||
+             (nextch == '.' && idx + 2 < len && std::isdigit(static_cast<unsigned char>(in[idx + 2]))));
+
+        if (std::isdigit(static_cast<unsigned char>(ch)) || starts_signed_number) {
             const size_t tok_col = column;
             size_t start = idx;
             size_t j = idx;
+            if (starts_signed_number) {
+                j++;
+            }
+
             while (j < len && std::isdigit(static_cast<unsigned char>(in[j]))) {
                 j++;
             }

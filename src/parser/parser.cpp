@@ -17,11 +17,29 @@ namespace {
                              ": " + message);
 }
 
+int64_t parse_int64_literal(const Token& token, const std::string& usage) {
+    try {
+        return std::stoll(token.lexeme);
+    } catch (const std::invalid_argument&) {
+        throw_parse_error(token, "Invalid integer literal for " + usage + ": '" + token.lexeme + "'");
+    } catch (const std::out_of_range&) {
+        throw_parse_error(token, "Integer literal out of range for " + usage + ": '" + token.lexeme + "'");
+    }
+}
+
+int64_t parse_non_negative_index(const Token& token, const std::string& usage) {
+    int64_t value = parse_int64_literal(token, usage);
+    if (value < 0) {
+        throw_parse_error(token, usage + " must be non-negative, got '" + token.lexeme + "'");
+    }
+    return value;
+}
+
 Value parse_immediate_literal(const Token& token) {
     Value out{};
     if (token.type == TokenType::Integer) {
         out.kind = ValueKind::Integer;
-        out.i = std::stoll(token.lexeme);
+        out.i = parse_int64_literal(token, "immediate integer");
         return out;
     }
 
@@ -117,7 +135,7 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
                 throw_parse_error(head_token, "INT requires an integer literal");
             }
 
-            int param = std::stoi(line[1].lexeme);
+            int64_t param = parse_int64_literal(line[1], ".const INT");
             Value v;
             v.kind = ValueKind::Integer;
             v.i = param;
@@ -195,7 +213,7 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
                     throw_parse_error(next, "Expected integer literal after '$'");
                 }
                 op.kind = OperandKind::Slot;
-                op.value = std::stoi(next.lexeme);
+                op.value = parse_non_negative_index(next, "Slot index");
             } else if (tok.type == TokenType::Hash) {
                 op.kind = OperandKind::Immediate;
                 op.immediate = parse_immediate_literal(next);
@@ -205,13 +223,13 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
                     throw_parse_error(next, "Expected integer literal after '@'");
                 }
                 op.kind = OperandKind::Constant;
-                op.value = std::stoi(next.lexeme);
+                op.value = parse_non_negative_index(next, "Constant index");
             } else if (tok.type == TokenType::Amp) {
                 if (next.type != TokenType::Integer) {
                     throw_parse_error(next, "Expected integer literal after '&'");
                 }
                 op.kind = OperandKind::Address;
-                op.value = std::stoi(next.lexeme);
+                op.value = parse_non_negative_index(next, "Address index");
             }
 
             j += 2;

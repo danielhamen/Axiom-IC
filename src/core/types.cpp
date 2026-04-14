@@ -1,5 +1,7 @@
 #include "types.hpp"
 
+#include <sstream>
+
 namespace aic {
 
 std::unordered_map<std::string, OperandKind> operand_kind_map = {
@@ -10,6 +12,88 @@ std::unordered_map<std::string, OperandKind> operand_kind_map = {
     {"Label", OperandKind::Label},
     {"Address", OperandKind::Address},
 };
+
+std::string operation_kind_to_string(OperationKind kind) {
+    switch (kind) {
+        case OperationKind::ADD:
+            return "ADD";
+        case OperationKind::SUB:
+            return "SUB";
+        case OperationKind::MUL:
+            return "MUL";
+        case OperationKind::DIV:
+            return "DIV";
+        case OperationKind::MOD:
+            return "MOD";
+        case OperationKind::HALT:
+            return "HALT";
+        case OperationKind::JMP:
+            return "JMP";
+        case OperationKind::PRINT:
+            return "PRINT";
+    }
+
+    throw std::runtime_error("Unmatched OperationKind");
+}
+
+std::string value_kind_to_string(ValueKind kind) {
+    switch (kind) {
+        case ValueKind::Integer:
+            return "Integer";
+        case ValueKind::Float:
+            return "Float";
+        case ValueKind::String:
+            return "String";
+        case ValueKind::Boolean:
+            return "Boolean";
+        case ValueKind::Null:
+            return "Null";
+    }
+
+    throw std::runtime_error("Unmatched ValueKind");
+}
+
+std::string error_phase_to_string(ErrorPhase phase) {
+    switch (phase) {
+        case ErrorPhase::Tokenize:
+            return "tokenize";
+        case ErrorPhase::Parse:
+            return "parse";
+        case ErrorPhase::Exec:
+            return "exec";
+    }
+
+    throw std::runtime_error("Unmatched ErrorPhase");
+}
+
+std::string format_error_context(ErrorPhase phase,
+                                 const std::string& message,
+                                 int line,
+                                 int column,
+                                 const std::string& function_name,
+                                 const std::string& opcode,
+                                 size_t pc) {
+    std::ostringstream out;
+    out << "[" << error_phase_to_string(phase) << "] " << message;
+
+    if (line >= 0 && column >= 0) {
+        out << " (line " << line << ", column " << column << ")";
+    }
+
+    if (!function_name.empty()) {
+        out << " (fn=" << function_name << ")";
+    }
+
+    if (!opcode.empty()) {
+        out << " (op=" << opcode << ")";
+    }
+
+    if (pc != static_cast<size_t>(-1)) {
+        out << " (pc=" << pc << ")";
+    }
+
+    return out.str();
+}
 
 char escape_char(char in) {
     switch (in) {
@@ -71,6 +155,26 @@ void FunctionList::insert(Function& fn) {
 
 const size_t FunctionList::size() {
     return functions.size();
+}
+
+std::string Operand::to_str() const {
+    if (kind == OperandKind::Immediate && has_immediate) {
+        return std::format("Operand(kind={}, immediate={})", kindstr(), immediate.to_str());
+    }
+
+    if (kind == OperandKind::Label) {
+        return std::format("Operand(kind={}, value={})", kindstr(), strval);
+    }
+
+    return std::format("Operand(kind={}, value={})", kindstr(), value);
+}
+
+std::string Instruction::to_string() const {
+    return std::format("Instruction(op={}, x={}, y={}, z={})",
+                       operation_kind_to_string(op),
+                       x.to_str(),
+                       y.to_str(),
+                       z.to_str());
 }
 
 } // namespace aic

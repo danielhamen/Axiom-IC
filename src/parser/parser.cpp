@@ -12,9 +12,10 @@ namespace aic {
 namespace {
 
 [[noreturn]] void throw_parse_error(const Token& token, const std::string& message) {
-    throw std::runtime_error("Parse error at line " + std::to_string(token.line) +
-                             ", column " + std::to_string(token.column) +
-                             ": " + message);
+    throw std::runtime_error(format_error_context(ErrorPhase::Parse,
+                                                  message,
+                                                  static_cast<int>(token.line),
+                                                  static_cast<int>(token.column)));
 }
 
 Value parse_immediate_literal(const Token& token) {
@@ -248,12 +249,15 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
     }
 
     size_t expected_arity = ins_op.arity;
-    size_t recieved_arity =
+    size_t received_arity =
         (ins.x.is_none() ? 0 : 1) +
         (ins.y.is_none() ? 0 : 1) +
         (ins.z.is_none() ? 0 : 1);
-    if (expected_arity != recieved_arity) {
-        throw_parse_error(head_token, "Error: '" + ins_op.name + "' takes exactly " + std::to_string(expected_arity) + " arguments. Recieved " + std::to_string(recieved_arity));
+    if (expected_arity != received_arity) {
+        throw_parse_error(head_token,
+                          "Instruction '" + ins_op.name + "' takes exactly " +
+                              std::to_string(expected_arity) + " operand(s); received " +
+                              std::to_string(received_arity));
     }
 
     vm.functions.at(vm.fc)->ins.push_back(ins);

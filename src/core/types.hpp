@@ -27,6 +27,12 @@ enum class OperationKind : int16_t {
     PRINT
 };
 
+enum class ErrorPhase : uint8_t {
+    Tokenize,
+    Parse,
+    Exec
+};
+
 struct Operation {
     OperationKind kind;
     std::string name;
@@ -96,9 +102,7 @@ struct Operand {
         return kind == OperandKind::None;
     }
 
-    std::string to_str() const {
-        return std::format("Operand(kind={0}, value={1}, strval=2)", kindstr(), value, strval);
-    }
+    std::string to_str() const;
 
     std::string kindstr() const {
         for (auto entry : operand_kind_map) {
@@ -115,7 +119,20 @@ struct Instruction {
     Operand x;
     Operand y;
     Operand z;
+
+    std::string to_string() const;
 };
+
+std::string operation_kind_to_string(OperationKind kind);
+std::string value_kind_to_string(ValueKind kind);
+std::string error_phase_to_string(ErrorPhase phase);
+std::string format_error_context(ErrorPhase phase,
+                                 const std::string& message,
+                                 int line = -1,
+                                 int column = -1,
+                                 const std::string& function_name = "",
+                                 const std::string& opcode = "",
+                                 size_t pc = static_cast<size_t>(-1));
 
 struct Function {
     std::vector<Instruction> ins;

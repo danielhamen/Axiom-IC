@@ -5,6 +5,30 @@
 
 namespace aic {
 
+namespace {
+
+[[noreturn]] void throw_exec_error(Program& program, const std::string& message, const Instruction* ins = nullptr) {
+    std::string fn_name;
+    if (program.fc < program.functions.size()) {
+        fn_name = program.functions.at(program.fc)->name;
+    }
+
+    std::string opcode;
+    if (ins != nullptr) {
+        opcode = operation_kind_to_string(ins->op);
+    }
+
+    throw std::runtime_error(format_error_context(ErrorPhase::Exec,
+                                                  message,
+                                                  -1,
+                                                  -1,
+                                                  fn_name,
+                                                  opcode,
+                                                  program.pc));
+}
+
+} // namespace
+
 Value& Program::slot(size_t index) {
     if (index >= memory.size()) {
         memory.resize(index + 1);
@@ -93,20 +117,19 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::JMP: {
         if (x.kind != OperandKind::Label) {
-            Function* current_function = functions.at(fc);
-            throw runtime_error_with_context(current_function, pc, "Expected label operand after JMP");
+            throw_exec_error(*this,
+                             "Operand kind mismatch: expected Label for JMP destination, actual " + x.kindstr(),
+                             &ins);
         }
 
         Function* current_function = functions.at(fc);
         const auto& labels = current_function->labels;
         const std::string& label_name = x.strval;
 
-        if (!labels.contains(label_name)) {
-            throw runtime_error_with_context(
-                current_function,
-                pc,
-                std::format("Jump to unresolved label '{}'", label_name));
-        }
+        if (!labels.contains(label_name))
+            throw_exec_error(*this,
+                             "Undefined label reference '" + label_name + "' in current function scope",
+                             &ins);
 
         size_t dst_pc = labels.at(label_name);
         if (dst_pc >= current_function->ins.size()) {
@@ -122,7 +145,9 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::PRINT: {
         if (x.is_none() || !y.is_none() || !z.is_none())
-            throw std::runtime_error("PRINT must have exactly one parameter.");
+            throw_exec_error(*this,
+                             "Operand count mismatch for PRINT: expected exactly one operand",
+                             &ins);
 
         Value v = read_operand(x);
         std::cout << v.to_str();
@@ -131,13 +156,14 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     default:
-        throw std::runtime_error("Unmatched operation found in resolve()");
+        throw_exec_error(*this, "Unhandled operation in resolve()", &ins);
     }
 }
 
 void Program::exec() {
     if (!functions.exists("main")) {
-        throw std::runtime_error("Runtime error: missing '.main' entry point");
+        throw std::runtime_error(format_error_context(ErrorPhase::Exec,
+                                                      "Missing '.main' entry point"));
     }
 
     pc = 0;
@@ -187,15 +213,16 @@ Value Program::read_operand(const Operand& op) {
             break;
         case OperandKind::Constant:
             if (op.value >= constants.size()) {
-                throw std::runtime_error("Cannot index constant map at index " +
-                    std::to_string(op.value) +
-                    " as it exceeds the bounds of the constant vector.");
+                throw_exec_error(*this,
+                                 "Constant index out of bounds: requested " + std::to_string(op.value) +
+                                     ", constant count " + std::to_string(constants.size()));
             }
 
             v = constants.at(op.value);
             break;
         default:
-            throw std::runtime_error("Operand cannot be resolved in read_operand");
+            throw_exec_error(*this,
+                             "Unsupported operand kind in read_operand: " + op.kindstr());
     }
 
     return v;
@@ -204,7 +231,9 @@ Value Program::read_operand(const Operand& op) {
 Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
     Value v = read_operand(op);
     if (v.kind != enforced_type) {
-        throw std::runtime_error("Unexepected type.");
+        throw_exec_error(*this,
+                         "Type mismatch: expected " + value_kind_to_string(enforced_type) +
+                             ", actual " + value_kind_to_string(v.kind));
     }
 
     return v;
@@ -212,7 +241,8 @@ Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
 
 void Program::write_operand(const Operand& op, const Value& v) {
     if (op.kind != OperandKind::Slot) {
-        throw std::runtime_error("write_operand requires a slot destination");
+        throw_exec_error(*this,
+                         "Operand kind mismatch: expected Slot destination, actual " + op.kindstr());
     }
 
     slot(op.value) = v;

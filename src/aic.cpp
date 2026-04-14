@@ -2,6 +2,7 @@
 #include <ctime>
 #include <iostream>
 #include <numeric>
+#include <stdexcept>
 #include <unordered_map>
 #include <format>
 #include <vector>
@@ -19,7 +20,14 @@ enum class Directive : int8_t {
 };
 
 enum class OperationKind : int16_t {
-    ADD, HALT, PRINT
+    // Arithmetic
+    ADD, SUB, MUL, DIV, MOD,
+
+    // Control flow
+    HALT, JMP,
+
+    // I/O
+    PRINT
 };
 
 struct Operation {
@@ -28,13 +36,44 @@ struct Operation {
     size_t arity;
 };
 
-vector<Operation> operation_list;
+unordered_map<string, Operation> operation_by_name;
 
 void register_operations() {
     Operation OP_ADD{
         OperationKind::ADD,
         "ADD",
         3
+    };
+
+    Operation OP_SUB{
+        OperationKind::SUB,
+        "SUB",
+        3
+    };
+
+    Operation OP_MUL{
+        OperationKind::MUL,
+        "MUL",
+        3
+    };
+
+    Operation OP_DIV{
+        OperationKind::DIV,
+        "DIV",
+        3
+    };
+
+
+    Operation OP_MOD{
+        OperationKind::MOD,
+        "MOD",
+        3
+    };
+
+    Operation OP_JMP{
+        OperationKind::JMP,
+        "JMP",
+        1
     };
 
     Operation OP_HALT{
@@ -49,9 +88,16 @@ void register_operations() {
         1
     };
 
-    operation_list.push_back(OP_ADD);
-    operation_list.push_back(OP_HALT);
-    operation_list.push_back(OP_PRINT);
+    operation_by_name["ADD"] = OP_ADD;
+    operation_by_name["SUB"] = OP_SUB;
+    operation_by_name["MUL"] = OP_MUL;
+    operation_by_name["DIV"] = OP_DIV;
+    operation_by_name["MOD"] = OP_MOD;
+
+    operation_by_name["HALT"] = OP_HALT;
+    operation_by_name["JMP"] = OP_JMP;
+
+    operation_by_name["PRINT"] = OP_PRINT;
 }
 
 char escape_char(char in) {
@@ -112,7 +158,7 @@ struct Operand {
 };
 
 struct Instruction {
-    Operation op;
+    OperationKind op;
     Operand x;
     Operand y;
     Operand z;
@@ -127,9 +173,9 @@ enum class ValueKind : uint8_t {
 
 struct Value {
     ValueKind kind;
-    string s;
-    int i;
-    bool b;
+    string s{};
+    int64_t i = 0;
+    bool b = false;
 
     bool is_str() const { return kind == ValueKind::String; }
     bool is_int() const { return kind == ValueKind::Integer; }
@@ -146,21 +192,81 @@ struct Value {
             case ValueKind::Integer:
                 return to_string(i);
         }
+
+        throw runtime_error("Unmatched ValueKind");
     }
 };
 
+/**
+ * Represents an in-code function
+ */
 struct Function {
     vector<Instruction> ins;
     string name;
     unordered_map<string, size_t> labels;
 };
 
+/**
+ * Represents a function list with operations to lookup
+ */
+struct FunctionList {
+private:
+    vector<Function> functions;
+
+public:
+    bool exists(string fn_name) {
+        for (auto& fn : functions) {
+            if (fn_name == fn.name) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    Function* find(string fn_name) {
+        for (auto& fn : functions) {
+            if (fn_name == fn.name) {
+                return &fn;
+            }
+        }
+
+        return nullptr;
+    }
+
+    Function* at(size_t idx) {
+        if (idx >= functions.size()) {
+            throw runtime_error("Error referencing function at index " + to_string(idx) + " as it exceeds the size of the function map");
+        }
+
+        return &functions.at(idx);
+    }
+
+    size_t index_of(string fn_name) {
+        for (int i = 0; i < functions.size(); i++) {
+            auto& fn = functions.at(i);
+            if (fn_name == fn.name) {
+                return i;
+            }
+        }
+
+        throw runtime_error("Error indexing function that does not exist");
+    }
+
+    void insert(Function& fn) {
+        functions.push_back(fn);
+    }
+
+    const size_t size() {
+        return functions.size();
+    }
+};
 
 struct Program {
     size_t pc; // program counter
     size_t fc; // function counter (current function)
     bool halted = false;
-    vector<Function> functions;
+    FunctionList functions;
     vector<Value> constants;
     vector<Value> memory;
 
@@ -178,19 +284,17 @@ struct Program {
      * Most instructions increment the program counter
      * and it is not necessary to increment the pc after resolve
      */
-    void resolve(Instruction ins) {
-        Operation op = ins.op;
-        Operand x = ins.x;
-        Operand y = ins.y;
-        Operand z = ins.z;
+    void resolve(const Instruction& ins) {
+        const OperationKind& op = ins.op;
+        const Operand& x = ins.x;
+        const Operand& y = ins.y;
+        const Operand& z = ins.z;
 
-        switch (op.kind) {
+        switch (op) {
         case OperationKind::ADD:{
-            if (x.is_none() || y.is_none() || z.is_none())
-                throw runtime_error("ADD must have exactly three parameters.");
-
-            Value lhs = read_operand(y);
-            Value rhs = read_operand(z);
+            // get lhs and rhs values while enforcing types
+            Value lhs = read_operand_strict(y, ValueKind::Integer);
+            Value rhs = read_operand_strict(z, ValueKind::Integer);
 
             Value out{};
             out.kind = ValueKind::Integer;
@@ -199,10 +303,79 @@ struct Program {
             write_operand(x, out);
             pc++;
             return;
+        }
+        case OperationKind::MUL: {
+            // get lhs and rhs values while enforcing types
+            Value lhs = read_operand_strict(y, ValueKind::Integer);
+            Value rhs = read_operand_strict(z, ValueKind::Integer);
 
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i * rhs.i;
+
+            write_operand(x, out);
+            pc++;
+            return;
+        }
+        case OperationKind::SUB:{
+            // get lhs and rhs values while enforcing types
+            Value lhs = read_operand_strict(y, ValueKind::Integer);
+            Value rhs = read_operand_strict(z, ValueKind::Integer);
+
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i - rhs.i;
+
+            write_operand(x, out);
+            pc++;
+            return;
+        }
+        case OperationKind::DIV:{
+            // get lhs and rhs values while enforcing types
+            Value lhs = read_operand_strict(y, ValueKind::Integer);
+            Value rhs = read_operand_strict(z, ValueKind::Integer);
+
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i / rhs.i;
+
+            write_operand(x, out);
+            pc++;
+            return;
+        }
+        case OperationKind::MOD:{
+            // get lhs and rhs values while enforcing types
+            Value lhs = read_operand_strict(y, ValueKind::Integer);
+            Value rhs = read_operand_strict(z, ValueKind::Integer);
+
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i % rhs.i;
+
+            write_operand(x, out);
+            pc++;
+            return;
         }
         case OperationKind::HALT:{
             halted = true;
+            return;
+        }
+        case OperationKind::JMP:{
+            // ensure address
+            if (x.kind != OperandKind::Label) {
+                throw runtime_error("Expected Label after JMP");
+            }
+
+            const auto& labels = functions.at(fc)->labels;
+            const string& label_name = x.strval;
+
+            // ensure label exists
+            if (!labels.contains(label_name))
+                throw runtime_error("Reference to label that does not exist in the current scope");
+
+            size_t dst_pc = labels.at(label_name);
+            pc = dst_pc;
+
             return;
         }
         case OperationKind::PRINT:{
@@ -224,12 +397,22 @@ struct Program {
      * Executes the program
      */
     void exec() {
+        if (!functions.exists("main")) {
+            throw runtime_error("Error no '.main' entry point");
+        }
+
+        fc = functions.index_of("main");
+
         while (!halted) {
-            const Instruction& ins = functions.at(fc).ins.at(pc);
+            const Instruction& ins = functions.at(fc)->ins.at(pc);
             resolve(ins);
         }
     }
 
+    /**
+     * returns the actual Value of an operand and decodes
+     * it by its type ('@' for const, '$' for slot, etc)
+     */
     Value read_operand(const Operand& op) {
         Value v{};
 
@@ -245,10 +428,30 @@ struct Program {
                 v.i = op.value;
                 break;
             case OperandKind::Constant:
+                // check constant index is within bounds of constant vector
+                if (op.value >= constants.size()) {
+                    throw runtime_error("Cannot index constant map at index " +
+                        to_string(op.value) +
+                        " as it exceeds the bounds of the constant vector.");
+                }
+
                 v = constants.at(op.value);
                 break;
             default:
                 throw runtime_error("Operand cannot be resolved in read_operand");
+        }
+
+        return v;
+    }
+
+    /**
+     * same as `read_operand` but if the value is not `enforced_type`,
+     * error will occcur
+     */
+    Value read_operand_strict(const Operand& op, ValueKind enforced_type) {
+        Value v = read_operand(op);
+        if (v.kind != enforced_type) {
+            throw runtime_error("Unexepected type.");
         }
 
         return v;
@@ -363,7 +566,7 @@ vector<vector<string>> tokenize(const string& in) {
         }
 
         // single-character tokens ($, #, ,, :)
-        if (ch == '$' || ch == '#' || ch == ',' || ch == ':') {
+        if (ch == '$' || ch == '#' || ch == '@' || ch == '&' || ch == ',' || ch == ':') {
             current_line.push_back(string(1, ch));
             idx++;
             continue;
@@ -420,7 +623,7 @@ Program parse(vector<vector<string>> tokens) {
 
     size_t idx = 0;
     while (idx < tokens.size()) {
-        vector<string> line = tokens[idx];
+        const vector<string>& line = tokens[idx];
 
         // line empty
         if (line.empty()) {
@@ -473,12 +676,12 @@ Program parse(vector<vector<string>> tokens) {
                 unordered_map<string, size_t> fn_labels;
 
                 // initialize function with blank parameters
-                Function fn(
+                Function fn{
                     fn_ins,
                     fn_name,
                     fn_labels
-                );
-                vm.functions.push_back(fn);
+                };
+                vm.functions.insert(fn);
 
                 idx++;
                 continue;
@@ -495,8 +698,8 @@ Program parse(vector<vector<string>> tokens) {
             string label_name = head;
 
             // set label to be the next instruction after label in current function
-            Function& curr_fn = vm.functions.at(vm.fc);
-            curr_fn.labels[label_name] = curr_fn.ins.size();
+            Function* curr_fn = vm.functions.at(vm.fc);
+            curr_fn->labels[label_name] = curr_fn->ins.size();
 
             idx++;
             continue;
@@ -519,6 +722,10 @@ Program parse(vector<vector<string>> tokens) {
                 v.i = param;
                 vm.constants.push_back(v);
             } else if (type == "BOOL") {
+                if (line.size() != 2 || (line[1] != "true" && line[1] != "false")) {
+                    throw runtime_error("BOOL requires true or false");
+                }
+
                 bool param = line[1] == "true";
                 Value v;
                 v.kind = ValueKind::Boolean;
@@ -544,17 +751,14 @@ Program parse(vector<vector<string>> tokens) {
 
         // should exist a physical instruction now
         string ins_opname = head;
-        Operation ins_op;
-        // find ins_op
-        for (Operation op : operation_list) {
-            if (op.name == ins_opname) {
-                ins_op = op;
-                break;
-            }
+        auto it = operation_by_name.find(ins_opname);
+        if (it == operation_by_name.end()) {
+            throw runtime_error("Unknown instruction: " + ins_opname);
         }
+        const Operation& ins_op = it->second;
 
         Instruction ins;
-        ins.op = ins_op;
+        ins.op = ins_op.kind;
 
         // get parameter values
         size_t j = 1; // start at 1 to skip opname
@@ -625,8 +829,18 @@ Program parse(vector<vector<string>> tokens) {
             }
         }
 
+        // enforce operation arity
+        size_t expected_arity = ins_op.arity;
+        size_t recieved_arity =
+            (ins.x.is_none() ? 0 : 1) +
+            (ins.y.is_none() ? 0 : 1) +
+            (ins.z.is_none() ? 0 : 1);
+        if (expected_arity != recieved_arity) {
+            throw runtime_error("Error: '" + ins_op.name + "' takes exactly " + to_string(expected_arity) + " arguments. Recieved " + to_string(recieved_arity));
+        }
+
         // append instruction
-        vm.functions[vm.fc].ins.push_back(ins);
+        vm.functions.at(vm.fc)->ins.push_back(ins);
 
         idx++;
     }
@@ -649,11 +863,13 @@ int main() {
         in += line + "\n";
     }
 
+    // regisater all operations
+    register_operations();
+
     vector<vector<string>> tokens = tokenize(in);
     Program vm = parse(tokens);
 
     const auto t0 = steady_clock::now();
-
     vm.exec();
 
     const auto t1 = steady_clock::now();

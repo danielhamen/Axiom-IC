@@ -3,9 +3,15 @@
     BOOL true
     BOOL false
     STR ~"\n"
+    INT 2
 
 .main
 start:
-    ADD $0, #2, #2
+    MOD $0, @4, #2
     PRINT $0
+    PRINT @3
+    HALT
+
+.my_fn
+    PRINT @2
     HALT

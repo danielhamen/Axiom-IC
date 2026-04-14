@@ -17,6 +17,46 @@ namespace {
                              ": " + message);
 }
 
+Value parse_immediate_literal(const Token& token) {
+    Value out{};
+    if (token.type == TokenType::Integer) {
+        out.kind = ValueKind::Integer;
+        out.i = std::stoll(token.lexeme);
+        return out;
+    }
+
+    if (token.type == TokenType::Float) {
+        out.kind = ValueKind::Float;
+        out.f = std::stod(token.lexeme);
+        return out;
+    }
+
+    if (token.type == TokenType::String) {
+        out.kind = ValueKind::String;
+        out.s = token.lexeme;
+        return out;
+    }
+
+    if (token.type == TokenType::Identifier && token.lexeme == "true") {
+        out.kind = ValueKind::Boolean;
+        out.b = true;
+        return out;
+    }
+
+    if (token.type == TokenType::Identifier && token.lexeme == "false") {
+        out.kind = ValueKind::Boolean;
+        out.b = false;
+        return out;
+    }
+
+    if (token.type == TokenType::Identifier && (token.lexeme == "NULL" || token.lexeme == "null")) {
+        out.kind = ValueKind::Null;
+        return out;
+    }
+
+    throw_parse_error(token, "Unsupported immediate literal after '#': " + token.lexeme);
+}
+
 void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive) {
     if (line.empty()) {
         return;
@@ -82,6 +122,16 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             v.kind = ValueKind::Integer;
             v.i = param;
             vm.constants.push_back(v);
+        } else if (type == "FLOAT") {
+            if (line.size() < 2 || line[1].type != TokenType::Float) {
+                throw_parse_error(head_token, "FLOAT requires a float literal");
+            }
+
+            double param = std::stod(line[1].lexeme);
+            Value v;
+            v.kind = ValueKind::Float;
+            v.f = param;
+            vm.constants.push_back(v);
         } else if (type == "BOOL") {
             if (line.size() != 2 || (line[1].lexeme != "true" && line[1].lexeme != "false")) {
                 throw_parse_error(head_token, "BOOL requires true or false");
@@ -140,20 +190,26 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             }
 
             const Token& next = line[j + 1];
-            if (next.type != TokenType::Integer) {
-                throw_parse_error(next, "Expected integer literal after operand prefix");
-            }
-
             if (tok.type == TokenType::Dollar) {
+                if (next.type != TokenType::Integer) {
+                    throw_parse_error(next, "Expected integer literal after '$'");
+                }
                 op.kind = OperandKind::Slot;
                 op.value = std::stoi(next.lexeme);
             } else if (tok.type == TokenType::Hash) {
                 op.kind = OperandKind::Immediate;
-                op.value = std::stoi(next.lexeme);
+                op.immediate = parse_immediate_literal(next);
+                op.has_immediate = true;
             } else if (tok.type == TokenType::At) {
+                if (next.type != TokenType::Integer) {
+                    throw_parse_error(next, "Expected integer literal after '@'");
+                }
                 op.kind = OperandKind::Constant;
                 op.value = std::stoi(next.lexeme);
             } else if (tok.type == TokenType::Amp) {
+                if (next.type != TokenType::Integer) {
+                    throw_parse_error(next, "Expected integer literal after '&'");
+                }
                 op.kind = OperandKind::Address;
                 op.value = std::stoi(next.lexeme);
             }

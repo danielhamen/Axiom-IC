@@ -10,6 +10,7 @@ enum class TokenType {
     Identifier,
     Directive,
     Integer,
+    Float,
     String,
     Dollar,
     Hash,

@@ -138,8 +138,12 @@ Value Program::read_operand(const Operand& op) {
             v = slot(op.value);
             break;
         case OperandKind::Immediate:
-            v.kind = ValueKind::Integer;
-            v.i = op.value;
+            if (op.has_immediate) {
+                v = op.immediate;
+            } else {
+                v.kind = ValueKind::Integer;
+                v.i = op.value;
+            }
             break;
         case OperandKind::Constant:
             if (op.value >= constants.size()) {

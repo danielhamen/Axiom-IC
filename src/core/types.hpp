@@ -46,10 +46,51 @@ enum class OperandKind : uint8_t {
 
 extern std::unordered_map<std::string, OperandKind> operand_kind_map;
 
+enum class ValueKind : uint8_t {
+    Integer,
+    Float,
+    String,
+    Boolean,
+    Null
+};
+
+struct Value {
+    ValueKind kind;
+    std::string s{};
+    int64_t i = 0;
+    double f = 0.0;
+    bool b = false;
+
+    bool is_str() const { return kind == ValueKind::String; }
+    bool is_int() const { return kind == ValueKind::Integer; }
+    bool is_float() const { return kind == ValueKind::Float; }
+    bool is_bool() const { return kind == ValueKind::Boolean; }
+    bool is_null() const { return kind == ValueKind::Null; }
+
+    std::string to_str() const {
+        switch (kind) {
+            case ValueKind::String:
+                return s;
+            case ValueKind::Boolean:
+                return b ? "true" : "false";
+            case ValueKind::Null:
+                return "null";
+            case ValueKind::Float:
+                return std::to_string(f);
+            case ValueKind::Integer:
+                return std::to_string(i);
+        }
+
+        throw std::runtime_error("Unmatched ValueKind");
+    }
+};
+
 struct Operand {
     OperandKind kind;
     int64_t value{};
     std::string strval;
+    Value immediate{};
+    bool has_immediate = false;
 
     bool is_none() const {
         return kind == OperandKind::None;
@@ -74,40 +115,6 @@ struct Instruction {
     Operand x;
     Operand y;
     Operand z;
-};
-
-enum class ValueKind : uint8_t {
-    Integer,
-    String,
-    Boolean,
-    Null
-};
-
-struct Value {
-    ValueKind kind;
-    std::string s{};
-    int64_t i = 0;
-    bool b = false;
-
-    bool is_str() const { return kind == ValueKind::String; }
-    bool is_int() const { return kind == ValueKind::Integer; }
-    bool is_bool() const { return kind == ValueKind::Boolean; }
-    bool is_null() const { return kind == ValueKind::Null; }
-
-    std::string to_str() const {
-        switch (kind) {
-            case ValueKind::String:
-                return s;
-            case ValueKind::Boolean:
-                return b ? "true" : "false";
-            case ValueKind::Null:
-                return "null";
-            case ValueKind::Integer:
-                return std::to_string(i);
-        }
-
-        throw std::runtime_error("Unmatched ValueKind");
-    }
 };
 
 struct Function {

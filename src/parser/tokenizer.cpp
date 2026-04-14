@@ -17,6 +17,8 @@ std::string token_type_to_string(TokenType type) {
             return "Directive";
         case TokenType::Integer:
             return "Integer";
+        case TokenType::Float:
+            return "Float";
         case TokenType::String:
             return "String";
         case TokenType::Dollar:
@@ -150,7 +152,17 @@ std::vector<Token> tokenize(const std::string& in) {
             while (j < len && std::isdigit(static_cast<unsigned char>(in[j]))) {
                 j++;
             }
-            tokens.push_back(Token{TokenType::Integer, in.substr(start, j - start), line, tok_col});
+
+            TokenType num_type = TokenType::Integer;
+            if (j < len && in[j] == '.' && j + 1 < len && std::isdigit(static_cast<unsigned char>(in[j + 1]))) {
+                num_type = TokenType::Float;
+                j++; // consume dot
+                while (j < len && std::isdigit(static_cast<unsigned char>(in[j]))) {
+                    j++;
+                }
+            }
+
+            tokens.push_back(Token{num_type, in.substr(start, j - start), line, tok_col});
             idx = j;
             column = tok_col + (j - start);
             continue;

@@ -12,6 +12,14 @@ Value& Program::slot(size_t index) {
     return memory[index];
 }
 
+namespace {
+std::runtime_error runtime_error_with_context(const Function* function, size_t pc, const std::string& message) {
+    const std::string function_name = function == nullptr ? "<invalid-function>" : function->name;
+    return std::runtime_error(
+        std::format("Runtime error in function '{}' at pc={}: {}", function_name, pc, message));
+}
+} // namespace
+
 void Program::resolve(const Instruction& ins) {
     const OperationKind& op = ins.op;
     const Operand& x = ins.x;
@@ -85,16 +93,29 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::JMP: {
         if (x.kind != OperandKind::Label) {
-            throw std::runtime_error("Expected Label after JMP");
+            Function* current_function = functions.at(fc);
+            throw runtime_error_with_context(current_function, pc, "Expected label operand after JMP");
         }
 
-        const auto& labels = functions.at(fc)->labels;
+        Function* current_function = functions.at(fc);
+        const auto& labels = current_function->labels;
         const std::string& label_name = x.strval;
 
-        if (!labels.contains(label_name))
-            throw std::runtime_error("Reference to label that does not exist in the current scope");
+        if (!labels.contains(label_name)) {
+            throw runtime_error_with_context(
+                current_function,
+                pc,
+                std::format("Jump to unresolved label '{}'", label_name));
+        }
 
         size_t dst_pc = labels.at(label_name);
+        if (dst_pc >= current_function->ins.size()) {
+            throw runtime_error_with_context(
+                current_function,
+                pc,
+                std::format("Jump to invalid label '{}' (target pc={} out of range)", label_name, dst_pc));
+        }
+
         pc = dst_pc;
 
         return;
@@ -116,13 +137,32 @@ void Program::resolve(const Instruction& ins) {
 
 void Program::exec() {
     if (!functions.exists("main")) {
-        throw std::runtime_error("Error no '.main' entry point");
+        throw std::runtime_error("Runtime error: missing '.main' entry point");
     }
 
+    pc = 0;
+    halted = false;
     fc = functions.index_of("main");
 
+    Function* main_function = functions.at(fc);
+    if (main_function->ins.empty()) {
+        throw std::runtime_error("Runtime error: '.main' function contains no instructions");
+    }
+
     while (!halted) {
-        const Instruction& ins = functions.at(fc)->ins.at(pc);
+        if (fc >= functions.size()) {
+            throw runtime_error_with_context(nullptr, pc, std::format("Invalid function index {}", fc));
+        }
+
+        Function* current_function = functions.at(fc);
+        if (pc >= current_function->ins.size()) {
+            throw runtime_error_with_context(
+                current_function,
+                pc,
+                std::format("Instruction pointer out of range (function size={})", current_function->ins.size()));
+        }
+
+        const Instruction& ins = current_function->ins.at(pc);
         resolve(ins);
     }
 }

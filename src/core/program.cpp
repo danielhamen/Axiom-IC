@@ -1,7 +1,9 @@
 #include "program.hpp"
 
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <utility>
 
 namespace aic {
 
@@ -55,6 +57,132 @@ size_t read_non_negative_integer_operand(Program& program,
     }
 
     return static_cast<size_t>(v.i);
+}
+
+double numeric_value_as_double(Program& program, const Operand& op, const Instruction& ins, const std::string& usage) {
+    Value v = program.read_operand(op);
+    if (v.kind == ValueKind::Integer) {
+        return static_cast<double>(v.i);
+    }
+    if (v.kind == ValueKind::Float) {
+        return v.f;
+    }
+
+    throw_exec_error(program,
+                     usage + " expects Integer or Float, got " + value_kind_to_string(v.kind),
+                     &ins);
+}
+
+Value read_vector_strict(Program& program, const Operand& op) {
+    return program.read_operand_strict(op, ValueKind::Vector);
+}
+
+Value read_matrix_strict(Program& program, const Operand& op) {
+    return program.read_operand_strict(op, ValueKind::Matrix);
+}
+
+void ensure_same_vector_size(Program& program,
+                             const Value& a,
+                             const Value& b,
+                             const Instruction& ins,
+                             const std::string& operation_name) {
+    if (a.vec.size() != b.vec.size()) {
+        throw_exec_error(program,
+                         operation_name + " requires vectors of equal length, got " +
+                             std::to_string(a.vec.size()) + " and " + std::to_string(b.vec.size()),
+                         &ins);
+    }
+}
+
+double determinant_recursive(const std::vector<double>& data, size_t n) {
+    if (n == 1) {
+        return data[0];
+    }
+
+    if (n == 2) {
+        return data[0] * data[3] - data[1] * data[2];
+    }
+
+    double det = 0.0;
+    for (size_t col = 0; col < n; col++) {
+        std::vector<double> minor;
+        minor.reserve((n - 1) * (n - 1));
+        for (size_t r = 1; r < n; r++) {
+            for (size_t c = 0; c < n; c++) {
+                if (c == col) {
+                    continue;
+                }
+                minor.push_back(data[r * n + c]);
+            }
+        }
+
+        const double sign = (col % 2 == 0) ? 1.0 : -1.0;
+        det += sign * data[col] * determinant_recursive(minor, n - 1);
+    }
+    return det;
+}
+
+Value invert_square_matrix(const Value& matrix_value) {
+    const size_t n = matrix_value.rows;
+    std::vector<double> augmented(n * n * 2, 0.0);
+    for (size_t r = 0; r < n; r++) {
+        for (size_t c = 0; c < n; c++) {
+            augmented[r * (2 * n) + c] = matrix_value.matrix[r * n + c];
+            augmented[r * (2 * n) + (n + c)] = (r == c) ? 1.0 : 0.0;
+        }
+    }
+
+    for (size_t pivot = 0; pivot < n; pivot++) {
+        size_t best_row = pivot;
+        double best_abs = std::fabs(augmented[pivot * (2 * n) + pivot]);
+        for (size_t r = pivot + 1; r < n; r++) {
+            double candidate = std::fabs(augmented[r * (2 * n) + pivot]);
+            if (candidate > best_abs) {
+                best_abs = candidate;
+                best_row = r;
+            }
+        }
+
+        if (best_abs == 0.0) {
+            Value null_out{};
+            null_out.kind = ValueKind::Null;
+            return null_out;
+        }
+
+        if (best_row != pivot) {
+            for (size_t c = 0; c < 2 * n; c++) {
+                std::swap(augmented[pivot * (2 * n) + c], augmented[best_row * (2 * n) + c]);
+            }
+        }
+
+        double pivot_value = augmented[pivot * (2 * n) + pivot];
+        for (size_t c = 0; c < 2 * n; c++) {
+            augmented[pivot * (2 * n) + c] /= pivot_value;
+        }
+
+        for (size_t r = 0; r < n; r++) {
+            if (r == pivot) {
+                continue;
+            }
+
+            double factor = augmented[r * (2 * n) + pivot];
+            for (size_t c = 0; c < 2 * n; c++) {
+                augmented[r * (2 * n) + c] -= factor * augmented[pivot * (2 * n) + c];
+            }
+        }
+    }
+
+    Value out{};
+    out.kind = ValueKind::Matrix;
+    out.rows = n;
+    out.cols = n;
+    out.matrix.resize(n * n);
+    for (size_t r = 0; r < n; r++) {
+        for (size_t c = 0; c < n; c++) {
+            out.matrix[r * n + c] = augmented[r * (2 * n) + (n + c)];
+        }
+    }
+    return out;
 }
 } // namespace
 
@@ -301,6 +429,413 @@ void Program::resolve(const Instruction& ins) {
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = static_cast<int64_t>(list_value.list.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::INT_LIST_NEW: {
+        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "INT_LIST_NEW size");
+        Value out{};
+        out.kind = ValueKind::IntegerList;
+        out.int_list.assign(initial_size, 0);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::INT_LIST_PUSH: {
+        Value list_value = read_operand_strict(x, ValueKind::IntegerList);
+        Value element = read_operand_strict(y, ValueKind::Integer);
+        list_value.int_list.push_back(element.i);
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::INT_LIST_GET: {
+        Value list_value = read_operand_strict(y, ValueKind::IntegerList);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "INT_LIST_GET index");
+        if (index >= list_value.int_list.size()) {
+            throw_exec_error(*this,
+                             "INT_LIST_GET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.int_list.size()),
+                             &ins);
+        }
+
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = list_value.int_list[index];
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::INT_LIST_SET: {
+        Value list_value = read_operand_strict(x, ValueKind::IntegerList);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "INT_LIST_SET index");
+        if (index >= list_value.int_list.size()) {
+            throw_exec_error(*this,
+                             "INT_LIST_SET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.int_list.size()),
+                             &ins);
+        }
+
+        Value element = read_operand_strict(z, ValueKind::Integer);
+        list_value.int_list[index] = element.i;
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::INT_LIST_LEN: {
+        Value list_value = read_operand_strict(y, ValueKind::IntegerList);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(list_value.int_list.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::FLOAT_LIST_NEW: {
+        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "FLOAT_LIST_NEW size");
+        Value out{};
+        out.kind = ValueKind::FloatList;
+        out.float_list.assign(initial_size, 0.0);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::FLOAT_LIST_PUSH: {
+        Value list_value = read_operand_strict(x, ValueKind::FloatList);
+        list_value.float_list.push_back(numeric_value_as_double(*this, y, ins, "FLOAT_LIST_PUSH element"));
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::FLOAT_LIST_GET: {
+        Value list_value = read_operand_strict(y, ValueKind::FloatList);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "FLOAT_LIST_GET index");
+        if (index >= list_value.float_list.size()) {
+            throw_exec_error(*this,
+                             "FLOAT_LIST_GET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.float_list.size()),
+                             &ins);
+        }
+
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = list_value.float_list[index];
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::FLOAT_LIST_SET: {
+        Value list_value = read_operand_strict(x, ValueKind::FloatList);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "FLOAT_LIST_SET index");
+        if (index >= list_value.float_list.size()) {
+            throw_exec_error(*this,
+                             "FLOAT_LIST_SET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.float_list.size()),
+                             &ins);
+        }
+
+        list_value.float_list[index] = numeric_value_as_double(*this, z, ins, "FLOAT_LIST_SET value");
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::FLOAT_LIST_LEN: {
+        Value list_value = read_operand_strict(y, ValueKind::FloatList);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(list_value.float_list.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_NEW: {
+        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "VEC_NEW size");
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.assign(initial_size, 0.0);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_PUSH: {
+        Value vec_value = read_vector_strict(*this, x);
+        vec_value.vec.push_back(numeric_value_as_double(*this, y, ins, "VEC_PUSH element"));
+        write_operand(x, vec_value);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_GET: {
+        Value vec_value = read_vector_strict(*this, y);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "VEC_GET index");
+        if (index >= vec_value.vec.size()) {
+            throw_exec_error(*this,
+                             "VEC_GET index out of bounds: " + std::to_string(index) +
+                                 " for vector size " + std::to_string(vec_value.vec.size()),
+                             &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = vec_value.vec[index];
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_SET: {
+        Value vec_value = read_vector_strict(*this, x);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "VEC_SET index");
+        if (index >= vec_value.vec.size()) {
+            throw_exec_error(*this,
+                             "VEC_SET index out of bounds: " + std::to_string(index) +
+                                 " for vector size " + std::to_string(vec_value.vec.size()),
+                             &ins);
+        }
+        vec_value.vec[index] = numeric_value_as_double(*this, z, ins, "VEC_SET value");
+        write_operand(x, vec_value);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_LEN: {
+        Value vec_value = read_vector_strict(*this, y);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(vec_value.vec.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_ADD: {
+        Value lhs = read_vector_strict(*this, y);
+        Value rhs = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, lhs, rhs, ins, "VEC_ADD");
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(lhs.vec.size());
+        for (size_t i = 0; i < lhs.vec.size(); i++) {
+            out.vec[i] = lhs.vec[i] + rhs.vec[i];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_SUB: {
+        Value lhs = read_vector_strict(*this, y);
+        Value rhs = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, lhs, rhs, ins, "VEC_SUB");
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(lhs.vec.size());
+        for (size_t i = 0; i < lhs.vec.size(); i++) {
+            out.vec[i] = lhs.vec[i] - rhs.vec[i];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_SCALE: {
+        Value lhs = read_vector_strict(*this, y);
+        double scale = numeric_value_as_double(*this, z, ins, "VEC_SCALE scale");
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(lhs.vec.size());
+        for (size_t i = 0; i < lhs.vec.size(); i++) {
+            out.vec[i] = lhs.vec[i] * scale;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_DOT: {
+        Value lhs = read_vector_strict(*this, y);
+        Value rhs = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, lhs, rhs, ins, "VEC_DOT");
+        double dot = 0.0;
+        for (size_t i = 0; i < lhs.vec.size(); i++) {
+            dot += lhs.vec[i] * rhs.vec[i];
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = dot;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_CROSS: {
+        Value lhs = read_vector_strict(*this, y);
+        Value rhs = read_vector_strict(*this, z);
+        if (lhs.vec.size() != 3 || rhs.vec.size() != 3) {
+            throw_exec_error(*this, "VEC_CROSS requires two 3D vectors", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec = {
+            lhs.vec[1] * rhs.vec[2] - lhs.vec[2] * rhs.vec[1],
+            lhs.vec[2] * rhs.vec[0] - lhs.vec[0] * rhs.vec[2],
+            lhs.vec[0] * rhs.vec[1] - lhs.vec[1] * rhs.vec[0]
+        };
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_MAG: {
+        Value vec_value = read_vector_strict(*this, y);
+        double sum = 0.0;
+        for (double value : vec_value.vec) {
+            sum += value * value;
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = std::sqrt(sum);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_NORM: {
+        Value vec_value = read_vector_strict(*this, y);
+        double sum = 0.0;
+        for (double value : vec_value.vec) {
+            sum += value * value;
+        }
+        double mag = std::sqrt(sum);
+        if (mag == 0.0) {
+            throw_exec_error(*this, "VEC_NORM cannot normalize a zero vector", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(vec_value.vec.size());
+        for (size_t i = 0; i < vec_value.vec.size(); i++) {
+            out.vec[i] = vec_value.vec[i] / mag;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_NEW: {
+        size_t rows = read_non_negative_integer_operand(*this, y, ins, "MAT_NEW rows");
+        size_t cols = read_non_negative_integer_operand(*this, z, ins, "MAT_NEW cols");
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = rows;
+        out.cols = cols;
+        out.matrix.assign(rows * cols, 0.0);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_GET: {
+        Value matrix_value = read_matrix_strict(*this, y);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "MAT_GET index");
+        if (index >= matrix_value.matrix.size()) {
+            throw_exec_error(*this,
+                             "MAT_GET index out of bounds: " + std::to_string(index) +
+                                 " for matrix size " + std::to_string(matrix_value.matrix.size()),
+                             &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = matrix_value.matrix[index];
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_SET: {
+        Value matrix_value = read_matrix_strict(*this, x);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "MAT_SET index");
+        if (index >= matrix_value.matrix.size()) {
+            throw_exec_error(*this,
+                             "MAT_SET index out of bounds: " + std::to_string(index) +
+                                 " for matrix size " + std::to_string(matrix_value.matrix.size()),
+                             &ins);
+        }
+        matrix_value.matrix[index] = numeric_value_as_double(*this, z, ins, "MAT_SET value");
+        write_operand(x, matrix_value);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_ROWS: {
+        Value matrix_value = read_matrix_strict(*this, y);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(matrix_value.rows);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_COLS: {
+        Value matrix_value = read_matrix_strict(*this, y);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(matrix_value.cols);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_MUL: {
+        Value a = read_matrix_strict(*this, y);
+        Value b = read_matrix_strict(*this, z);
+        if (a.cols != b.rows) {
+            throw_exec_error(*this,
+                             "MAT_MUL dimension mismatch: lhs is " + std::to_string(a.rows) +
+                                 "x" + std::to_string(a.cols) + ", rhs is " +
+                                 std::to_string(b.rows) + "x" + std::to_string(b.cols),
+                             &ins);
+        }
+
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = a.rows;
+        out.cols = b.cols;
+        out.matrix.assign(out.rows * out.cols, 0.0);
+        for (size_t r = 0; r < out.rows; r++) {
+            for (size_t c = 0; c < out.cols; c++) {
+                double sum = 0.0;
+                for (size_t k = 0; k < a.cols; k++) {
+                    sum += a.matrix[r * a.cols + k] * b.matrix[k * b.cols + c];
+                }
+                out.matrix[r * out.cols + c] = sum;
+            }
+        }
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_TRANSPOSE: {
+        Value in = read_matrix_strict(*this, y);
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = in.cols;
+        out.cols = in.rows;
+        out.matrix.assign(out.rows * out.cols, 0.0);
+        for (size_t r = 0; r < in.rows; r++) {
+            for (size_t c = 0; c < in.cols; c++) {
+                out.matrix[c * out.cols + r] = in.matrix[r * in.cols + c];
+            }
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_DET: {
+        Value in = read_matrix_strict(*this, y);
+        if (in.rows != in.cols) {
+            throw_exec_error(*this, "MAT_DET requires a square matrix", &ins);
+        }
+
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = determinant_recursive(in.matrix, in.rows);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_INV: {
+        Value in = read_matrix_strict(*this, y);
+        if (in.rows != in.cols) {
+            throw_exec_error(*this, "MAT_INV requires a square matrix", &ins);
+        }
+
+        Value out = invert_square_matrix(in);
         write_operand(x, out);
         pc++;
         return;

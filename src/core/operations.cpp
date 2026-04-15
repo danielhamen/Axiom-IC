@@ -8,7 +8,7 @@ namespace aic {
 
 namespace {
 
-constexpr std::array<OperationDefinition, 18> kOperationTable{{
+constexpr std::array<OperationDefinition, 49> kOperationTable{{
     {OperationKind::ADD, "ADD", 3, "arithmetic"},
     {OperationKind::SUB, "SUB", 3, "arithmetic"},
     {OperationKind::MUL, "MUL", 3, "arithmetic"},
@@ -27,6 +27,37 @@ constexpr std::array<OperationDefinition, 18> kOperationTable{{
     {OperationKind::LIST_GET, "LIST_GET", 3, "list"},
     {OperationKind::LIST_SET, "LIST_SET", 3, "list"},
     {OperationKind::LIST_LEN, "LIST_LEN", 2, "list"},
+    {OperationKind::INT_LIST_NEW, "INT_LIST_NEW", 2, "list"},
+    {OperationKind::INT_LIST_PUSH, "INT_LIST_PUSH", 2, "list"},
+    {OperationKind::INT_LIST_GET, "INT_LIST_GET", 3, "list"},
+    {OperationKind::INT_LIST_SET, "INT_LIST_SET", 3, "list"},
+    {OperationKind::INT_LIST_LEN, "INT_LIST_LEN", 2, "list"},
+    {OperationKind::FLOAT_LIST_NEW, "FLOAT_LIST_NEW", 2, "list"},
+    {OperationKind::FLOAT_LIST_PUSH, "FLOAT_LIST_PUSH", 2, "list"},
+    {OperationKind::FLOAT_LIST_GET, "FLOAT_LIST_GET", 3, "list"},
+    {OperationKind::FLOAT_LIST_SET, "FLOAT_LIST_SET", 3, "list"},
+    {OperationKind::FLOAT_LIST_LEN, "FLOAT_LIST_LEN", 2, "list"},
+    {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
+    {OperationKind::VEC_PUSH, "VEC_PUSH", 2, "vector"},
+    {OperationKind::VEC_GET, "VEC_GET", 3, "vector"},
+    {OperationKind::VEC_SET, "VEC_SET", 3, "vector"},
+    {OperationKind::VEC_LEN, "VEC_LEN", 2, "vector"},
+    {OperationKind::VEC_ADD, "VEC_ADD", 3, "vector"},
+    {OperationKind::VEC_SUB, "VEC_SUB", 3, "vector"},
+    {OperationKind::VEC_SCALE, "VEC_SCALE", 3, "vector"},
+    {OperationKind::VEC_DOT, "VEC_DOT", 3, "vector"},
+    {OperationKind::VEC_CROSS, "VEC_CROSS", 3, "vector"},
+    {OperationKind::VEC_MAG, "VEC_MAG", 2, "vector"},
+    {OperationKind::VEC_NORM, "VEC_NORM", 2, "vector"},
+    {OperationKind::MAT_NEW, "MAT_NEW", 3, "matrix"},
+    {OperationKind::MAT_GET, "MAT_GET", 3, "matrix"},
+    {OperationKind::MAT_SET, "MAT_SET", 3, "matrix"},
+    {OperationKind::MAT_ROWS, "MAT_ROWS", 2, "matrix"},
+    {OperationKind::MAT_COLS, "MAT_COLS", 2, "matrix"},
+    {OperationKind::MAT_MUL, "MAT_MUL", 3, "matrix"},
+    {OperationKind::MAT_TRANSPOSE, "MAT_TRANSPOSE", 2, "matrix"},
+    {OperationKind::MAT_DET, "MAT_DET", 2, "matrix"},
+    {OperationKind::MAT_INV, "MAT_INV", 2, "matrix"},
 }};
 
 } // namespace

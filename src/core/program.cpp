@@ -883,7 +883,7 @@ void Program::resolve(const Instruction& ins) {
 
         Value out{};
         out.kind = ValueKind::Integer;
-        out.i = in.s.length();
+        out.i = static_cast<int64_t>(in.s.length());
 
         write_operand(x, out);
         pc++;

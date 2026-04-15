@@ -1,6 +1,7 @@
 #include "program.hpp"
 
 #include <cmath>
+#include <random>
 #include <iostream>
 #include <stdexcept>
 #include <utility>
@@ -43,6 +44,24 @@ std::runtime_error runtime_error_with_context(const Function* function, size_t p
     const std::string function_name = function == nullptr ? "<invalid-function>" : function->name;
     return std::runtime_error(
         std::format("Runtime error in function '{}' at pc={}: {}", function_name, pc, message));
+}
+
+/**
+ * Generate random decimal from 0 and 1
+ */
+float random_decimal(Program& program) {
+    static std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+    return dis(program.rng);
+}
+
+int64_t random_int(Program& program, int64_t min, int64_t max) {
+    std::uniform_int_distribution<int64_t> dis(min, max);
+    return dis(program.rng);
+}
+
+float random_range(Program& program, float min, float max) {
+    std::uniform_real_distribution<float> dis(min, max);
+    return dis(program.rng);
 }
 
 size_t read_non_negative_integer_operand(Program& program,
@@ -189,6 +208,9 @@ Value invert_square_matrix(const Value& matrix_value) {
     return out;
 }
 } // namespace
+
+
+std::mt19937 aic::Program::rng(std::random_device{}());
 
 void Program::resolve(const Instruction& ins) {
     const OperationKind& op = ins.op;
@@ -862,6 +884,54 @@ void Program::resolve(const Instruction& ins) {
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = in.s.length();
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::RAND_RANDOM: {
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = random_decimal(*this);
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::RAND_INT: {
+        Value minv = read_operand(y);
+        Value maxv = read_operand(z);
+
+        if (minv.kind != ValueKind::Integer || maxv.kind != ValueKind::Integer) {
+            throw_exec_error(*this, "RAND_INT requires integer min and max");
+        }
+
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = random_int(*this, minv.i, maxv.i);
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::RAND_RANGE: {
+        Value minv = read_operand(y);
+        Value maxv = read_operand(z);
+
+        float minf;
+        float maxf;
+
+        if (minv.kind == ValueKind::Integer) minf = static_cast<float>(minv.i);
+        else if (minv.kind == ValueKind::Float) minf = minv.f;
+        else throw_exec_error(*this, "RAND_RANGE requires numeric min");
+
+        if (maxv.kind == ValueKind::Integer) maxf = static_cast<float>(maxv.i);
+        else if (maxv.kind == ValueKind::Float) maxf = maxv.f;
+        else throw_exec_error(*this, "RAND_RANGE requires numeric max");
+
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = random_range(*this, minf, maxf);
 
         write_operand(x, out);
         pc++;

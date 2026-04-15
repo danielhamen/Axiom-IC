@@ -115,6 +115,16 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "MAT_DET";
         case OperationKind::MAT_INV:
             return "MAT_INV";
+        case OperationKind::STR_CONCAT:
+            return "STR_CONCAT";
+        case OperationKind::STR_LEN:
+            return "STR_LEN";
+        case OperationKind::RAND_RANDOM:
+            return "RAND_RANDOM";
+        case OperationKind::RAND_RANGE:
+            return "RAND_RANGE";
+        case OperationKind::RAND_INT:
+            return "RAND_INT";
     }
 
     throw std::runtime_error("Unmatched OperationKind");

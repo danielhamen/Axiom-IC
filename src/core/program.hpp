@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 
+#include <random>
 #include <vector>
 
 namespace aic {
@@ -23,6 +24,7 @@ struct Program {
     std::vector<Value> memory;
     std::vector<Value> stack;
     std::vector<CallFrame> call_stack;
+    static std::mt19937 rng;
 
     Value& slot(size_t index);
     void resolve(const Instruction& ins);

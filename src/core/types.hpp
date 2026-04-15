@@ -138,7 +138,6 @@ enum class OperationKind : int16_t {
     RAND_RANDOM, // TODO
     RAND_INT, // TODO
     RAND_RANGE, // TODO
-    RAND_NOISE, // TODO
 };
 
 enum class ErrorPhase : uint8_t {

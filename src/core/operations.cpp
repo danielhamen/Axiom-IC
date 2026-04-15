@@ -8,7 +8,7 @@ namespace aic {
 
 namespace {
 
-constexpr std::array<OperationDefinition, 51> kOperationTable{{
+constexpr std::array<OperationDefinition, 54> kOperationTable{{
     // ARITHMETIC
     {OperationKind::ADD, "ADD", 3, "arithmetic"},
     {OperationKind::SUB, "SUB", 3, "arithmetic"},
@@ -79,6 +79,11 @@ constexpr std::array<OperationDefinition, 51> kOperationTable{{
     // STRINGS
     {OperationKind::STR_CONCAT, "STR_CONCAT", 3, "string"},
     {OperationKind::STR_LEN, "STR_LEN", 2, "string"},
+
+    // RANDOM
+    {OperationKind::RAND_RANDOM, "RAND_RANDOM", 1, "random"},
+    {OperationKind::RAND_INT, "RAND_INT", 3, "random"},
+    {OperationKind::RAND_RANGE, "RAND_RANGE", 3, "random"},
 }};
 
 } // namespace

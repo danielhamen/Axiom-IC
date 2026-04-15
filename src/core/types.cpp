@@ -336,16 +336,12 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "JMP_GT";
         case OperationKind::JMP_GTE:
             return "JMP_GTE";
-        case OperationKind::LOAD:
-            return "LOAD";
+        case OperationKind::COPY:
+            return "COPY";
         case OperationKind::STORE:
             return "STORE";
-        case OperationKind::MOVE:
-            return "MOVE";
         case OperationKind::SWAP:
             return "SWAP";
-        case OperationKind::DUP:
-            return "DUP";
         case OperationKind::CLEAR:
             return "CLEAR";
         case OperationKind::SIGN:

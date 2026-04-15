@@ -260,11 +260,9 @@ enum class OperationKind : int16_t {
      * MEMORY/STACK
      * ============
      */
-    LOAD,
+    COPY,
     STORE,
-    MOVE,
     SWAP,
-    DUP,
     CLEAR,
 
     /**

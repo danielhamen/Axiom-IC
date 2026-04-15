@@ -2007,24 +2007,15 @@ void Program::resolve(const Instruction& ins) {
         }
         return;
     }
-    case OperationKind::LOAD: {
-        if (y.kind != OperandKind::Address) {
-            throw_exec_error(*this, "LOAD expects Address source", &ins);
-        }
-        write_operand(x, slot(y.value));
-        pc++;
-        return;
-    }
     case OperationKind::STORE: {
-        if (x.kind != OperandKind::Address) {
-            throw_exec_error(*this, "STORE expects Address destination", &ins);
+        if (x.kind != OperandKind::Slot) {
+            throw_exec_error(*this, "STORE expects Slot destination", &ins);
         }
         slot(x.value) = read_operand(y);
         pc++;
         return;
     }
-    case OperationKind::MOVE:
-    case OperationKind::DUP: {
+    case OperationKind::COPY: {
         write_operand(x, read_operand(y));
         pc++;
         return;

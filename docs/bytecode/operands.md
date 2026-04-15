@@ -2,19 +2,19 @@
 
 ## ADD
 
-## Vector operations
+## List operations
 
-### `VNEW $dst, #size`
-Create a vector with `size` elements initialized to `null` and store it in slot `$dst`.
+### `LIST_NEW $dst, #size`
+Create a list with `size` elements initialized to `null` and store it in slot `$dst`.
 
-### `VPUSH $vec, <value>`
-Append `<value>` to the vector in `$vec`.
+### `LIST_PUSH $list, <value>`
+Append `<value>` to the list in `$list`.
 
-### `VGET $dst, $vec, #index`
-Read an element from `$vec[index]` and place it in `$dst`.
+### `LIST_GET $dst, $list, #index`
+Read an element from `$list[index]` and place it in `$dst`.
 
-### `VSET $vec, #index, <value>`
-Update `$vec[index]` to `<value>`.
+### `LIST_SET $list, #index, <value>`
+Update `$list[index]` to `<value>`.
 
-### `VLEN $dst, $vec`
-Store the current vector length in `$dst` as an integer.
+### `LIST_LEN $dst, $list`
+Store the current list length in `$dst` as an integer.

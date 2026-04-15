@@ -245,13 +245,13 @@ void Program::resolve(const Instruction& ins) {
         pc = frame.return_pc;
         return;
     }
-    case OperationKind::VNEW: {
-        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "VNEW size");
+    case OperationKind::LIST_NEW: {
+        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "LIST_NEW size");
 
         Value out{};
-        out.kind = ValueKind::Vector;
-        out.vec.resize(initial_size);
-        for (auto& item : out.vec) {
+        out.kind = ValueKind::List;
+        out.list.resize(initial_size);
+        for (auto& item : out.list) {
             item.kind = ValueKind::Null;
         }
 
@@ -259,48 +259,48 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
-    case OperationKind::VPUSH: {
-        Value vec_value = read_operand_strict(x, ValueKind::Vector);
+    case OperationKind::LIST_PUSH: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
         Value element = read_operand(y);
-        vec_value.vec.push_back(element);
-        write_operand(x, vec_value);
+        list_value.list.push_back(element);
+        write_operand(x, list_value);
         pc++;
         return;
     }
-    case OperationKind::VGET: {
-        Value vec_value = read_operand_strict(y, ValueKind::Vector);
-        size_t index = read_non_negative_integer_operand(*this, z, ins, "VGET index");
-        if (index >= vec_value.vec.size()) {
+    case OperationKind::LIST_GET: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "LIST_GET index");
+        if (index >= list_value.list.size()) {
             throw_exec_error(*this,
-                             "VGET index out of bounds: " + std::to_string(index) +
-                                 " for vector size " + std::to_string(vec_value.vec.size()),
+                             "LIST_GET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.list.size()),
                              &ins);
         }
 
-        write_operand(x, vec_value.vec[index]);
+        write_operand(x, list_value.list[index]);
         pc++;
         return;
     }
-    case OperationKind::VSET: {
-        Value vec_value = read_operand_strict(x, ValueKind::Vector);
-        size_t index = read_non_negative_integer_operand(*this, y, ins, "VSET index");
-        if (index >= vec_value.vec.size()) {
+    case OperationKind::LIST_SET: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_SET index");
+        if (index >= list_value.list.size()) {
             throw_exec_error(*this,
-                             "VSET index out of bounds: " + std::to_string(index) +
-                                 " for vector size " + std::to_string(vec_value.vec.size()),
+                             "LIST_SET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.list.size()),
                              &ins);
         }
 
-        vec_value.vec[index] = read_operand(z);
-        write_operand(x, vec_value);
+        list_value.list[index] = read_operand(z);
+        write_operand(x, list_value);
         pc++;
         return;
     }
-    case OperationKind::VLEN: {
-        Value vec_value = read_operand_strict(y, ValueKind::Vector);
+    case OperationKind::LIST_LEN: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
         Value out{};
         out.kind = ValueKind::Integer;
-        out.i = static_cast<int64_t>(vec_value.vec.size());
+        out.i = static_cast<int64_t>(list_value.list.size());
         write_operand(x, out);
         pc++;
         return;

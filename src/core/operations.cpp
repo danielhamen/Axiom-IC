@@ -22,11 +22,11 @@ constexpr std::array<OperationDefinition, 18> kOperationTable{{
     {OperationKind::CALL, "CALL", 1, "function"},
     {OperationKind::RET, "RET", 0, "function"},
     {OperationKind::RETVAL, "RETVAL", 1, "function"},
-    {OperationKind::VNEW, "VNEW", 2, "vector"},
-    {OperationKind::VPUSH, "VPUSH", 2, "vector"},
-    {OperationKind::VGET, "VGET", 3, "vector"},
-    {OperationKind::VSET, "VSET", 3, "vector"},
-    {OperationKind::VLEN, "VLEN", 2, "vector"},
+    {OperationKind::LIST_NEW, "LIST_NEW", 2, "list"},
+    {OperationKind::LIST_PUSH, "LIST_PUSH", 2, "list"},
+    {OperationKind::LIST_GET, "LIST_GET", 3, "list"},
+    {OperationKind::LIST_SET, "LIST_SET", 3, "list"},
+    {OperationKind::LIST_LEN, "LIST_LEN", 2, "list"},
 }};
 
 } // namespace

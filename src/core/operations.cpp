@@ -8,35 +8,50 @@ namespace aic {
 
 namespace {
 
-constexpr std::array<OperationDefinition, 49> kOperationTable{{
+constexpr std::array<OperationDefinition, 51> kOperationTable{{
+    // ARITHMETIC
     {OperationKind::ADD, "ADD", 3, "arithmetic"},
     {OperationKind::SUB, "SUB", 3, "arithmetic"},
     {OperationKind::MUL, "MUL", 3, "arithmetic"},
     {OperationKind::DIV, "DIV", 3, "arithmetic"},
     {OperationKind::MOD, "MOD", 3, "arithmetic"},
+
+    // CONTROL FLOW
     {OperationKind::JMP, "JMP", 1, "control_flow"},
     {OperationKind::HALT, "HALT", 0, "control_flow"},
+
+    // IO
     {OperationKind::PRINT, "PRINT", 1, "io"},
+
+    // FUNCTIONS & STACK
     {OperationKind::PUSH, "PUSH", 1, "stack"},
     {OperationKind::POP, "POP", 1, "stack"},
     {OperationKind::CALL, "CALL", 1, "function"},
     {OperationKind::RET, "RET", 0, "function"},
     {OperationKind::RETVAL, "RETVAL", 1, "function"},
+
+    // LISTS
     {OperationKind::LIST_NEW, "LIST_NEW", 2, "list"},
     {OperationKind::LIST_PUSH, "LIST_PUSH", 2, "list"},
     {OperationKind::LIST_GET, "LIST_GET", 3, "list"},
     {OperationKind::LIST_SET, "LIST_SET", 3, "list"},
     {OperationKind::LIST_LEN, "LIST_LEN", 2, "list"},
+
+    // INTEGER LIST
     {OperationKind::INT_LIST_NEW, "INT_LIST_NEW", 2, "list"},
     {OperationKind::INT_LIST_PUSH, "INT_LIST_PUSH", 2, "list"},
     {OperationKind::INT_LIST_GET, "INT_LIST_GET", 3, "list"},
     {OperationKind::INT_LIST_SET, "INT_LIST_SET", 3, "list"},
     {OperationKind::INT_LIST_LEN, "INT_LIST_LEN", 2, "list"},
+
+    // FLOAT LIST
     {OperationKind::FLOAT_LIST_NEW, "FLOAT_LIST_NEW", 2, "list"},
     {OperationKind::FLOAT_LIST_PUSH, "FLOAT_LIST_PUSH", 2, "list"},
     {OperationKind::FLOAT_LIST_GET, "FLOAT_LIST_GET", 3, "list"},
     {OperationKind::FLOAT_LIST_SET, "FLOAT_LIST_SET", 3, "list"},
     {OperationKind::FLOAT_LIST_LEN, "FLOAT_LIST_LEN", 2, "list"},
+
+    // VECTOR
     {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
     {OperationKind::VEC_PUSH, "VEC_PUSH", 2, "vector"},
     {OperationKind::VEC_GET, "VEC_GET", 3, "vector"},
@@ -49,6 +64,8 @@ constexpr std::array<OperationDefinition, 49> kOperationTable{{
     {OperationKind::VEC_CROSS, "VEC_CROSS", 3, "vector"},
     {OperationKind::VEC_MAG, "VEC_MAG", 2, "vector"},
     {OperationKind::VEC_NORM, "VEC_NORM", 2, "vector"},
+
+    // MATRIX
     {OperationKind::MAT_NEW, "MAT_NEW", 3, "matrix"},
     {OperationKind::MAT_GET, "MAT_GET", 3, "matrix"},
     {OperationKind::MAT_SET, "MAT_SET", 3, "matrix"},
@@ -58,6 +75,10 @@ constexpr std::array<OperationDefinition, 49> kOperationTable{{
     {OperationKind::MAT_TRANSPOSE, "MAT_TRANSPOSE", 2, "matrix"},
     {OperationKind::MAT_DET, "MAT_DET", 2, "matrix"},
     {OperationKind::MAT_INV, "MAT_INV", 2, "matrix"},
+
+    // STRINGS
+    {OperationKind::STR_CONCAT, "STR_CONCAT", 3, "string"},
+    {OperationKind::STR_LEN, "STR_LEN", 2, "string"},
 }};
 
 } // namespace

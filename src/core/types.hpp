@@ -18,7 +18,9 @@ enum class Directive : int8_t {
 
 enum class OperationKind : int16_t {
     /**
+     * ==========
      * ARITHMETIC
+     * ==========
      */
     ADD,
     SUB,
@@ -27,37 +29,71 @@ enum class OperationKind : int16_t {
     MOD,
 
     /**
+     * ============
      * CONTROL FLOW
+     * ============
      */
     HALT,
     JMP,
 
-    /** I/O */
+    /**
+     * =====
+     *  I/O
+     * =====
+     */
     PRINT,
 
-    /** FUNCTIONS */
+
+    /**
+     * =========
+     * FUNCTIONS
+     * =========
+     */
     PUSH,
     POP,
     CALL,
     RET,
     RETVAL,
 
-    /** LIST OPERATIONS */
+
+    /**
+     * ===============
+     * LIST OPERATIONS
+     * ===============
+     */
     LIST_NEW,
     LIST_PUSH,
     LIST_GET,
     LIST_SET,
     LIST_LEN,
+
+    /**
+     * ============
+     * INTEGER LIST
+     * ============
+     */
     INT_LIST_NEW,
     INT_LIST_PUSH,
     INT_LIST_GET,
     INT_LIST_SET,
     INT_LIST_LEN,
+
+    /**
+     * ==========
+     * FLOAT LIST
+     * ==========
+     */
     FLOAT_LIST_NEW,
     FLOAT_LIST_PUSH,
     FLOAT_LIST_GET,
     FLOAT_LIST_SET,
     FLOAT_LIST_LEN,
+
+    /**
+     * =======
+     * VECTORS
+     * =======
+     */
     VEC_NEW,
     VEC_PUSH,
     VEC_GET,
@@ -70,6 +106,12 @@ enum class OperationKind : int16_t {
     VEC_CROSS,
     VEC_MAG,
     VEC_NORM,
+
+    /**
+     * ========
+     * MATRICES
+     * ========
+     */
     MAT_NEW,
     MAT_GET,
     MAT_SET,
@@ -78,7 +120,25 @@ enum class OperationKind : int16_t {
     MAT_MUL,
     MAT_TRANSPOSE,
     MAT_DET,
-    MAT_INV
+    MAT_INV,
+
+    /**
+     * =======
+     * STRINGS
+     * =======
+     */
+    STR_LEN, // TODO
+    STR_CONCAT, // TODO
+
+    /**
+     * ======
+     * RANDOM
+     * ======
+     */
+    RAND_RANDOM, // TODO
+    RAND_INT, // TODO
+    RAND_RANGE, // TODO
+    RAND_NOISE, // TODO
 };
 
 enum class ErrorPhase : uint8_t {

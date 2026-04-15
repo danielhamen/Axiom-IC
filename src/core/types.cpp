@@ -341,7 +341,25 @@ Function* FunctionList::find(std::string fn_name) {
     return nullptr;
 }
 
+const Function* FunctionList::find(std::string fn_name) const {
+    for (const auto& fn : functions) {
+        if (fn_name == fn.name) {
+            return &fn;
+        }
+    }
+
+    throw std::runtime_error("Error finding function that does not exist");
+}
+
 Function* FunctionList::at(size_t idx) {
+    if (idx >= functions.size()) {
+        throw std::runtime_error("Error referencing function at index " + std::to_string(idx) + " as it exceeds the size of the function map");
+    }
+
+    return &functions.at(idx);
+}
+
+const Function* FunctionList::at(size_t idx) const {
     if (idx >= functions.size()) {
         throw std::runtime_error("Error referencing function at index " + std::to_string(idx) + " as it exceeds the size of the function map");
     }
@@ -364,7 +382,7 @@ void FunctionList::insert(Function& fn) {
     functions.push_back(fn);
 }
 
-const size_t FunctionList::size() {
+const size_t FunctionList::size() const {
     return functions.size();
 }
 

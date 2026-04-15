@@ -388,10 +388,12 @@ private:
 public:
     bool exists(std::string fn_name);
     Function* find(std::string fn_name);
+    const Function* find(std::string fn_name) const;
     Function* at(size_t idx);
+    const Function* at(size_t idx) const;
     size_t index_of(std::string fn_name);
     void insert(Function& fn);
-    const size_t size();
+    const size_t size() const;
 };
 
 } // namespace aic

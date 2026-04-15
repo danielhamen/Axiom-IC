@@ -2,7 +2,10 @@
 
 #include "types.hpp"
 
+#include <chrono>
 #include <random>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace aic {
@@ -28,6 +31,21 @@ struct Program {
 
     Value& slot(size_t index);
     void resolve(const Instruction& ins);
+    struct ExecutionStats {
+        std::unordered_map<OperationKind, size_t> opcode_counts;
+        std::unordered_map<OperationKind, std::chrono::nanoseconds> opcode_time;
+        std::unordered_map<std::string, std::chrono::nanoseconds> function_time;
+        std::unordered_map<std::string, size_t> function_instruction_counts;
+    };
+
+    struct ExecutionOptions {
+        bool profile = false;
+        bool opcode_stats = false;
+        bool trace_time = false;
+        ExecutionStats* stats = nullptr;
+    };
+
+    void exec(const ExecutionOptions& options);
     void exec();
     Value read_operand(const Operand& op);
     Value read_operand_strict(const Operand& op, ValueKind enforced_type);

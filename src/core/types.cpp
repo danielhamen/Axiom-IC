@@ -1,6 +1,7 @@
 #include "types.hpp"
 
 #include <sstream>
+#include <format>
 
 namespace aic {
 

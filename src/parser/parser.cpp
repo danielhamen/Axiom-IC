@@ -3,6 +3,7 @@
 #include "../core/operations.hpp"
 #include "../util/symbols.hpp"
 
+#include <cctype>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -86,6 +87,42 @@ bool is_const_declaration(const std::string& token) {
     return token == "INT" || token == "FLOAT" || token == "BOOL" || token == "NULL" || token == "STR";
 }
 
+bool try_parse_argument(const Token& token, int64_t& out_index) {
+    if (token.type != TokenType::Identifier) {
+        return false;
+    }
+
+    const std::string& lexeme = token.lexeme;
+    if (!lexeme.starts_with("arg") || lexeme.size() <= 3) {
+        return false;
+    }
+
+    for (size_t i = 3; i < lexeme.size(); i++) {
+        if (!std::isdigit(static_cast<unsigned char>(lexeme[i]))) {
+            return false;
+        }
+    }
+
+    try {
+        out_index = std::stoll(lexeme.substr(3));
+    } catch (const std::invalid_argument&) {
+        throw_parse_error(token, "Invalid argument index token: " + lexeme);
+    } catch (const std::out_of_range&) {
+        throw_parse_error(token, "Argument index out of range: " + lexeme);
+    }
+    return true;
+}
+
+std::string parse_function_name_token(const Token& token) {
+    if (token.type == TokenType::Directive) {
+        return token.lexeme.substr(1);
+    }
+    if (token.type == TokenType::Identifier) {
+        return token.lexeme;
+    }
+    throw_parse_error(token, "Expected function name");
+}
+
 void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive, ParseMode& parse_mode) {
     if (line.empty()) {
         return;
@@ -113,11 +150,43 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             throw_parse_error(head_token, "`include` directives are not yet implemented");
         }
 
+        if (directive == "fn") {
+            if (line.size() != 2) {
+                throw_parse_error(head_token, "`.fn` requires exactly one function name");
+            }
+
+            std::string fn_name = parse_function_name_token(line.at(1));
+            if (!is_symbol(fn_name)) {
+                throw_parse_error(line.at(1), "Invalid function name: " + fn_name);
+            }
+            if (vm.functions.exists(fn_name)) {
+                throw_parse_error(line.at(1), "Function already defined: " + fn_name);
+            }
+
+            current_directive = Directive::Function;
+            parse_mode = ParseMode::FunctionBody;
+            vm.fc = vm.functions.size();
+
+            std::vector<Instruction> fn_ins;
+            std::unordered_map<std::string, size_t> fn_labels;
+
+            Function fn{
+                fn_ins,
+                fn_name,
+                fn_labels
+            };
+            vm.functions.insert(fn);
+            return;
+        }
+
         current_directive = Directive::Function;
         parse_mode = ParseMode::FunctionBody;
         vm.fc = vm.functions.size();
 
         std::string fn_name = directive;
+        if (vm.functions.exists(fn_name)) {
+            throw_parse_error(head_token, "Function already defined: " + fn_name);
+        }
         std::vector<Instruction> fn_ins;
         std::unordered_map<std::string, size_t> fn_labels;
 
@@ -265,9 +334,29 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             return op;
         }
 
+        if (tok.type == TokenType::Directive) {
+            if (ins.op != OperationKind::CALL) {
+                throw_parse_error(tok, "Directive operands are only valid for CALL");
+            }
+
+            op.kind = OperandKind::Function;
+            op.strval = tok.lexeme.substr(1);
+            index += 1;
+            return op;
+        }
+
         if (tok.type == TokenType::Identifier && is_symbol(tok.lexeme)) {
-            op.kind = OperandKind::Label;
-            op.strval = tok.lexeme;
+            int64_t arg_index = -1;
+            if (try_parse_argument(tok, arg_index)) {
+                op.kind = OperandKind::Argument;
+                op.value = arg_index;
+            } else if (ins.op == OperationKind::CALL) {
+                op.kind = OperandKind::Function;
+                op.strval = tok.lexeme;
+            } else {
+                op.kind = OperandKind::Label;
+                op.strval = tok.lexeme;
+            }
             index += 1;
             return op;
         }
@@ -336,7 +425,20 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
                               std::to_string(received_arity));
     }
 
-    vm.functions.at(vm.fc)->ins.push_back(ins);
+    Function* curr_fn = vm.functions.at(vm.fc);
+    auto update_arg_count = [&](const Operand& op) {
+        if (op.kind == OperandKind::Argument) {
+            size_t arg_count = static_cast<size_t>(op.value) + 1;
+            if (arg_count > curr_fn->arg_count) {
+                curr_fn->arg_count = arg_count;
+            }
+        }
+    };
+    update_arg_count(ins.x);
+    update_arg_count(ins.y);
+    update_arg_count(ins.z);
+
+    curr_fn->ins.push_back(ins);
 }
 
 } // namespace

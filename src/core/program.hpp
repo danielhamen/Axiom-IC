@@ -6,6 +6,14 @@
 
 namespace aic {
 
+struct CallFrame {
+    size_t return_pc = 0;
+    size_t return_fc = 0;
+    std::vector<Value> args;
+    Value return_value{};
+    bool has_return_value = false;
+};
+
 struct Program {
     size_t pc;
     size_t fc;
@@ -13,6 +21,8 @@ struct Program {
     FunctionList functions;
     std::vector<Value> constants;
     std::vector<Value> memory;
+    std::vector<Value> stack;
+    std::vector<CallFrame> call_stack;
 
     Value& slot(size_t index);
     void resolve(const Instruction& ins);

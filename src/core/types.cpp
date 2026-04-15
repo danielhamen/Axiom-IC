@@ -154,6 +154,22 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "LIST_NEW";
         case OperationKind::LIST_PUSH:
             return "LIST_PUSH";
+        case OperationKind::LIST_POP:
+            return "LIST_POP";
+        case OperationKind::LIST_INSERT:
+            return "LIST_INSERT";
+        case OperationKind::LIST_ERASE:
+            return "LIST_ERASE";
+        case OperationKind::LIST_SLICE:
+            return "LIST_SLICE";
+        case OperationKind::LIST_CLEAR:
+            return "LIST_CLEAR";
+        case OperationKind::LIST_FIND:
+            return "LIST_FIND";
+        case OperationKind::LIST_SORT:
+            return "LIST_SORT";
+        case OperationKind::LIST_REVERSE:
+            return "LIST_REVERSE";
         case OperationKind::LIST_GET:
             return "LIST_GET";
         case OperationKind::LIST_SET:
@@ -204,6 +220,16 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "VEC_MAG";
         case OperationKind::VEC_NORM:
             return "VEC_NORM";
+        case OperationKind::VEC_PROJECT:
+            return "VEC_PROJECT";
+        case OperationKind::VEC_REFLECT:
+            return "VEC_REFLECT";
+        case OperationKind::VEC_ANGLE:
+            return "VEC_ANGLE";
+        case OperationKind::VEC_DISTANCE:
+            return "VEC_DISTANCE";
+        case OperationKind::VEC_LERP:
+            return "VEC_LERP";
         case OperationKind::MAT_NEW:
             return "MAT_NEW";
         case OperationKind::MAT_GET:
@@ -216,6 +242,24 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "MAT_COLS";
         case OperationKind::MAT_MUL:
             return "MAT_MUL";
+        case OperationKind::MAT_ADD:
+            return "MAT_ADD";
+        case OperationKind::MAT_SUB:
+            return "MAT_SUB";
+        case OperationKind::MAT_SCALE:
+            return "MAT_SCALE";
+        case OperationKind::MAT_IDENTITY:
+            return "MAT_IDENTITY";
+        case OperationKind::MAT_TRACE:
+            return "MAT_TRACE";
+        case OperationKind::MAT_RREF:
+            return "MAT_RREF";
+        case OperationKind::MAT_RANK:
+            return "MAT_RANK";
+        case OperationKind::MAT_EIGEN:
+            return "MAT_EIGEN";
+        case OperationKind::MAT_SOLVE:
+            return "MAT_SOLVE";
         case OperationKind::MAT_TRANSPOSE:
             return "MAT_TRANSPOSE";
         case OperationKind::MAT_DET:
@@ -226,6 +270,106 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STR_CONCAT";
         case OperationKind::STR_LEN:
             return "STR_LEN";
+        case OperationKind::STR_SUBSTR:
+            return "STR_SUBSTR";
+        case OperationKind::STR_FIND:
+            return "STR_FIND";
+        case OperationKind::STR_REPLACE:
+            return "STR_REPLACE";
+        case OperationKind::STR_SPLIT:
+            return "STR_SPLIT";
+        case OperationKind::STR_JOIN:
+            return "STR_JOIN";
+        case OperationKind::STR_UPPER:
+            return "STR_UPPER";
+        case OperationKind::STR_LOWER:
+            return "STR_LOWER";
+        case OperationKind::STR_TRIM:
+            return "STR_TRIM";
+        case OperationKind::STR_EQ:
+            return "STR_EQ";
+        case OperationKind::TYPEOF:
+            return "TYPEOF";
+        case OperationKind::CAST_INT:
+            return "CAST_INT";
+        case OperationKind::CAST_FLOAT:
+            return "CAST_FLOAT";
+        case OperationKind::CAST_BOOL:
+            return "CAST_BOOL";
+        case OperationKind::CAST_STRING:
+            return "CAST_STRING";
+        case OperationKind::IS_NULL:
+            return "IS_NULL";
+        case OperationKind::IS_NAN:
+            return "IS_NAN";
+        case OperationKind::IS_INF:
+            return "IS_INF";
+        case OperationKind::READ_FILE:
+            return "READ_FILE";
+        case OperationKind::WRITE_FILE:
+            return "WRITE_FILE";
+        case OperationKind::APPEND_FILE:
+            return "APPEND_FILE";
+        case OperationKind::FILE_EXISTS:
+            return "FILE_EXISTS";
+        case OperationKind::DELETE_FILE:
+            return "DELETE_FILE";
+        case OperationKind::TIME_NOW:
+            return "TIME_NOW";
+        case OperationKind::SLEEP:
+            return "SLEEP";
+        case OperationKind::JMP_IF:
+            return "JMP_IF";
+        case OperationKind::JMP_IF_ZERO:
+            return "JMP_IF_ZERO";
+        case OperationKind::JMP_IF_NOT:
+            return "JMP_IF_NOT";
+        case OperationKind::JMP_EQ:
+            return "JMP_EQ";
+        case OperationKind::JMP_NEQ:
+            return "JMP_NEQ";
+        case OperationKind::JMP_LT:
+            return "JMP_LT";
+        case OperationKind::JMP_LTE:
+            return "JMP_LTE";
+        case OperationKind::JMP_GT:
+            return "JMP_GT";
+        case OperationKind::JMP_GTE:
+            return "JMP_GTE";
+        case OperationKind::LOAD:
+            return "LOAD";
+        case OperationKind::STORE:
+            return "STORE";
+        case OperationKind::MOVE:
+            return "MOVE";
+        case OperationKind::SWAP:
+            return "SWAP";
+        case OperationKind::DUP:
+            return "DUP";
+        case OperationKind::CLEAR:
+            return "CLEAR";
+        case OperationKind::SIGN:
+            return "SIGN";
+        case OperationKind::CBRT:
+            return "CBRT";
+        case OperationKind::FACTORIAL:
+            return "FACTORIAL";
+        case OperationKind::GCD:
+            return "GCD";
+        case OperationKind::LCM:
+            return "LCM";
+        case OperationKind::REM:
+            return "REM";
+        case OperationKind::FMOD:
+            return "FMOD";
+        case OperationKind::DEG2RAD:
+            return "DEG2RAD";
+        case OperationKind::RAD2DEG:
+            return "RAD2DEG";
+        case OperationKind::LERP:
+            return "LERP";
+        case OperationKind::MAP_RANGE:
+            return "MAP_RANGE";
         case OperationKind::RAND_RANDOM:
             return "RAND_RANDOM";
         case OperationKind::RAND_RANGE:

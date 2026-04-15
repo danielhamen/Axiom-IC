@@ -1257,7 +1257,7 @@ void Program::resolve(const Instruction& ins) {
     }
 }
 
-void Program::exec() {
+void Program::exec(const ExecutionOptions& options) {
     if (!functions.exists("main")) {
         throw std::runtime_error(format_error_context(ErrorPhase::Exec,
                                                       "Missing '.main' entry point"));
@@ -1274,6 +1274,9 @@ void Program::exec() {
         throw std::runtime_error("Runtime error: '.main' function contains no instructions");
     }
 
+    const bool collect_timing = options.profile || options.trace_time;
+    const bool collect_opcode_counts = options.opcode_stats || options.profile;
+
     while (!halted) {
         if (fc >= functions.size()) {
             throw runtime_error_with_context(nullptr, pc, std::format("Invalid function index {}", fc));
@@ -1287,9 +1290,39 @@ void Program::exec() {
                 std::format("Instruction pointer out of range (function size={})", current_function->ins.size()));
         }
 
-        const Instruction& ins = current_function->ins.at(pc);
+        const size_t before_pc = pc;
+        const Instruction& ins = current_function->ins.at(before_pc);
+
+        const auto start = collect_timing ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
         resolve(ins);
+        const auto end = collect_timing ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+
+        if (collect_opcode_counts && options.stats != nullptr) {
+            options.stats->opcode_counts[ins.op]++;
+        }
+
+        if (collect_timing) {
+            const auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+
+            if (options.profile && options.stats != nullptr) {
+                options.stats->opcode_time[ins.op] += dt;
+                options.stats->function_time[current_function->name] += dt;
+                options.stats->function_instruction_counts[current_function->name]++;
+            }
+
+            if (options.trace_time) {
+                std::cout << "trace fn=" << current_function->name
+                          << " pc=" << before_pc
+                          << " op=" << operation_kind_to_string(ins.op)
+                          << " time_ns=" << dt.count()
+                          << std::endl;
+            }
+        }
     }
+}
+
+void Program::exec() {
+    exec(ExecutionOptions{});
 }
 
 Value Program::read_operand(const Operand& op) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -484,16 +485,19 @@ struct Function {
 class FunctionList {
 private:
     std::vector<Function> functions;
+    std::unordered_map<std::string, size_t> function_indices;
 
 public:
-    bool exists(std::string fn_name);
-    Function* find(std::string fn_name);
-    const Function* find(std::string fn_name) const;
+    bool exists(const std::string& fn_name) const;
+    Function* find(const std::string& fn_name);
+    const Function* find(const std::string& fn_name) const;
     Function* at(size_t idx);
     const Function* at(size_t idx) const;
-    size_t index_of(std::string fn_name);
-    void insert(Function& fn);
-    const size_t size() const;
+    std::optional<size_t> try_index_of(const std::string& fn_name) const;
+    size_t index_of(const std::string& fn_name) const;
+    void insert(const Function& fn);
+    void insert(Function&& fn);
+    size_t size() const;
 };
 
 } // namespace aic

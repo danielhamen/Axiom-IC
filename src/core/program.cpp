@@ -259,6 +259,10 @@ void Program::resolve(const Instruction& ins) {
         Value lhs = read_operand_strict(y, ValueKind::Integer);
         Value rhs = read_operand_strict(z, ValueKind::Integer);
 
+        if (rhs.i == 0) {
+            throw_exec_error(*this, "Division by zero", &ins);
+        }
+
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = lhs.i / rhs.i;
@@ -270,6 +274,10 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::MOD: {
         Value lhs = read_operand_strict(y, ValueKind::Integer);
         Value rhs = read_operand_strict(z, ValueKind::Integer);
+
+        if (rhs.i == 0) {
+            throw_exec_error(*this, "Modulo by zero", &ins);
+        }
 
         Value out{};
         out.kind = ValueKind::Integer;
@@ -928,6 +936,10 @@ void Program::resolve(const Instruction& ins) {
         if (maxv.kind == ValueKind::Integer) maxf = static_cast<float>(maxv.i);
         else if (maxv.kind == ValueKind::Float) maxf = maxv.f;
         else throw_exec_error(*this, "RAND_RANGE requires numeric max");
+
+        if (minv.i > maxv.i) {
+            throw_exec_error(*this, "RAND_INT requires min <= max", &ins);
+        }
 
         Value out{};
         out.kind = ValueKind::Float;

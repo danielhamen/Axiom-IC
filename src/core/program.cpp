@@ -1,5 +1,6 @@
 #include "program.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <random>
 #include <iostream>
@@ -90,6 +91,55 @@ double numeric_value_as_double(Program& program, const Operand& op, const Instru
     throw_exec_error(program,
                      usage + " expects Integer or Float, got " + value_kind_to_string(v.kind),
                      &ins);
+}
+
+Value read_numeric_value(Program& program, const Operand& op, const Instruction& ins, const std::string& usage) {
+    Value v = program.read_operand(op);
+    if (v.kind == ValueKind::Integer || v.kind == ValueKind::Float) {
+        return v;
+    }
+
+    throw_exec_error(program,
+                     usage + " expects Integer or Float, got " + value_kind_to_string(v.kind),
+                     &ins);
+}
+
+bool value_equals(const Value& lhs, const Value& rhs) {
+    if ((lhs.kind == ValueKind::Integer || lhs.kind == ValueKind::Float) &&
+        (rhs.kind == ValueKind::Integer || rhs.kind == ValueKind::Float)) {
+        const double left_num = lhs.kind == ValueKind::Integer ? static_cast<double>(lhs.i) : lhs.f;
+        const double right_num = rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f;
+        return left_num == right_num;
+    }
+
+    if (lhs.kind != rhs.kind) {
+        return false;
+    }
+
+    switch (lhs.kind) {
+        case ValueKind::Boolean:
+            return lhs.b == rhs.b;
+        case ValueKind::String:
+            return lhs.s == rhs.s;
+        case ValueKind::Null:
+            return true;
+        default:
+            return lhs.to_str() == rhs.to_str();
+    }
+}
+
+Value make_bool_value(bool b) {
+    Value out{};
+    out.kind = ValueKind::Boolean;
+    out.b = b;
+    return out;
+}
+
+Value make_numeric_value(double v) {
+    Value out{};
+    out.kind = ValueKind::Float;
+    out.f = v;
+    return out;
 }
 
 Value read_vector_strict(Program& program, const Operand& op) {
@@ -220,52 +270,75 @@ void Program::resolve(const Instruction& ins) {
 
     switch (op) {
     case OperationKind::ADD: {
-        Value lhs = read_operand_strict(y, ValueKind::Integer);
-        Value rhs = read_operand_strict(z, ValueKind::Integer);
+        Value lhs = read_numeric_value(*this, y, ins, "ADD");
+        Value rhs = read_numeric_value(*this, z, ins, "ADD");
 
         Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = lhs.i + rhs.i;
+        if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i + rhs.i;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = (lhs.kind == ValueKind::Integer ? static_cast<double>(lhs.i) : lhs.f) +
+                    (rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f);
+        }
 
         write_operand(x, out);
         pc++;
         return;
     }
     case OperationKind::MUL: {
-        Value lhs = read_operand_strict(y, ValueKind::Integer);
-        Value rhs = read_operand_strict(z, ValueKind::Integer);
+        Value lhs = read_numeric_value(*this, y, ins, "MUL");
+        Value rhs = read_numeric_value(*this, z, ins, "MUL");
 
         Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = lhs.i * rhs.i;
+        if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i * rhs.i;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = (lhs.kind == ValueKind::Integer ? static_cast<double>(lhs.i) : lhs.f) *
+                    (rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f);
+        }
 
         write_operand(x, out);
         pc++;
         return;
     }
     case OperationKind::SUB: {
-        Value lhs = read_operand_strict(y, ValueKind::Integer);
-        Value rhs = read_operand_strict(z, ValueKind::Integer);
+        Value lhs = read_numeric_value(*this, y, ins, "SUB");
+        Value rhs = read_numeric_value(*this, z, ins, "SUB");
 
         Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = lhs.i - rhs.i;
+        if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i - rhs.i;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = (lhs.kind == ValueKind::Integer ? static_cast<double>(lhs.i) : lhs.f) -
+                    (rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f);
+        }
 
         write_operand(x, out);
         pc++;
         return;
     }
     case OperationKind::DIV: {
-        Value lhs = read_operand_strict(y, ValueKind::Integer);
-        Value rhs = read_operand_strict(z, ValueKind::Integer);
-
-        if (rhs.i == 0) {
+        Value lhs = read_numeric_value(*this, y, ins, "DIV");
+        Value rhs = read_numeric_value(*this, z, ins, "DIV");
+        const double rhs_num = rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f;
+        if (rhs_num == 0.0) {
             throw_exec_error(*this, "Division by zero", &ins);
         }
 
         Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = lhs.i / rhs.i;
+        if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i / rhs.i;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = (lhs.kind == ValueKind::Integer ? static_cast<double>(lhs.i) : lhs.f) / rhs_num;
+        }
 
         write_operand(x, out);
         pc++;
@@ -284,6 +357,236 @@ void Program::resolve(const Instruction& ins) {
         out.i = lhs.i % rhs.i;
 
         write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::NEG: {
+        Value v = read_numeric_value(*this, y, ins, "NEG");
+        Value out{};
+        if (v.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = -v.i;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = -v.f;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::INC: {
+        Value v = read_numeric_value(*this, y, ins, "INC");
+        Value out{};
+        if (v.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = v.i + 1;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = v.f + 1.0;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::DEC: {
+        Value v = read_numeric_value(*this, y, ins, "DEC");
+        Value out{};
+        if (v.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = v.i - 1;
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = v.f - 1.0;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::ABS: {
+        Value v = read_numeric_value(*this, y, ins, "ABS");
+        Value out{};
+        if (v.kind == ValueKind::Integer) {
+            out.kind = ValueKind::Integer;
+            out.i = std::abs(v.i);
+        } else {
+            out.kind = ValueKind::Float;
+            out.f = std::fabs(v.f);
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::EQ: {
+        write_operand(x, make_bool_value(value_equals(read_operand(y), read_operand(z))));
+        pc++;
+        return;
+    }
+    case OperationKind::NEQ: {
+        write_operand(x, make_bool_value(!value_equals(read_operand(y), read_operand(z))));
+        pc++;
+        return;
+    }
+    case OperationKind::LT: {
+        write_operand(x, make_bool_value(numeric_value_as_double(*this, y, ins, "LT") <
+                                         numeric_value_as_double(*this, z, ins, "LT")));
+        pc++;
+        return;
+    }
+    case OperationKind::LTE: {
+        write_operand(x, make_bool_value(numeric_value_as_double(*this, y, ins, "LTE") <=
+                                         numeric_value_as_double(*this, z, ins, "LTE")));
+        pc++;
+        return;
+    }
+    case OperationKind::GT: {
+        write_operand(x, make_bool_value(numeric_value_as_double(*this, y, ins, "GT") >
+                                         numeric_value_as_double(*this, z, ins, "GT")));
+        pc++;
+        return;
+    }
+    case OperationKind::GTE: {
+        write_operand(x, make_bool_value(numeric_value_as_double(*this, y, ins, "GTE") >=
+                                         numeric_value_as_double(*this, z, ins, "GTE")));
+        pc++;
+        return;
+    }
+    case OperationKind::AND: {
+        Value lhs = read_operand(y);
+        Value rhs = read_operand(z);
+        if (lhs.kind == ValueKind::Boolean && rhs.kind == ValueKind::Boolean) {
+            write_operand(x, make_bool_value(lhs.b && rhs.b));
+        } else if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i & rhs.i;
+            write_operand(x, out);
+        } else {
+            throw_exec_error(*this, "AND expects (Boolean,Boolean) or (Integer,Integer)", &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::OR: {
+        Value lhs = read_operand(y);
+        Value rhs = read_operand(z);
+        if (lhs.kind == ValueKind::Boolean && rhs.kind == ValueKind::Boolean) {
+            write_operand(x, make_bool_value(lhs.b || rhs.b));
+        } else if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i | rhs.i;
+            write_operand(x, out);
+        } else {
+            throw_exec_error(*this, "OR expects (Boolean,Boolean) or (Integer,Integer)", &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::NOT: {
+        Value v = read_operand(y);
+        if (v.kind == ValueKind::Boolean) {
+            write_operand(x, make_bool_value(!v.b));
+        } else if (v.kind == ValueKind::Integer) {
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = ~v.i;
+            write_operand(x, out);
+        } else {
+            throw_exec_error(*this, "NOT expects Boolean or Integer", &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::XOR: {
+        Value lhs = read_operand(y);
+        Value rhs = read_operand(z);
+        if (lhs.kind == ValueKind::Boolean && rhs.kind == ValueKind::Boolean) {
+            write_operand(x, make_bool_value(lhs.b != rhs.b));
+        } else if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = lhs.i ^ rhs.i;
+            write_operand(x, out);
+        } else {
+            throw_exec_error(*this, "XOR expects (Boolean,Boolean) or (Integer,Integer)", &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::POW: {
+        write_operand(x, make_numeric_value(std::pow(numeric_value_as_double(*this, y, ins, "POW"),
+                                                     numeric_value_as_double(*this, z, ins, "POW"))));
+        pc++;
+        return;
+    }
+    case OperationKind::SQRT: {
+        write_operand(x, make_numeric_value(std::sqrt(numeric_value_as_double(*this, y, ins, "SQRT"))));
+        pc++;
+        return;
+    }
+    case OperationKind::EXP: {
+        write_operand(x, make_numeric_value(std::exp(numeric_value_as_double(*this, y, ins, "EXP"))));
+        pc++;
+        return;
+    }
+    case OperationKind::LOG: {
+        const double value = numeric_value_as_double(*this, y, ins, "LOG");
+        const double base = numeric_value_as_double(*this, z, ins, "LOG");
+        write_operand(x, make_numeric_value(std::log(value) / std::log(base)));
+        pc++;
+        return;
+    }
+    case OperationKind::LOG2: {
+        write_operand(x, make_numeric_value(std::log2(numeric_value_as_double(*this, y, ins, "LOG2"))));
+        pc++;
+        return;
+    }
+    case OperationKind::LOG10: {
+        write_operand(x, make_numeric_value(std::log10(numeric_value_as_double(*this, y, ins, "LOG10"))));
+        pc++;
+        return;
+    }
+    case OperationKind::LN: {
+        write_operand(x, make_numeric_value(std::log(numeric_value_as_double(*this, y, ins, "LN"))));
+        pc++;
+        return;
+    }
+    case OperationKind::SIN: { write_operand(x, make_numeric_value(std::sin(numeric_value_as_double(*this, y, ins, "SIN")))); pc++; return; }
+    case OperationKind::COS: { write_operand(x, make_numeric_value(std::cos(numeric_value_as_double(*this, y, ins, "COS")))); pc++; return; }
+    case OperationKind::TAN: { write_operand(x, make_numeric_value(std::tan(numeric_value_as_double(*this, y, ins, "TAN")))); pc++; return; }
+    case OperationKind::CSC: { write_operand(x, make_numeric_value(1.0 / std::sin(numeric_value_as_double(*this, y, ins, "CSC")))); pc++; return; }
+    case OperationKind::SEC: { write_operand(x, make_numeric_value(1.0 / std::cos(numeric_value_as_double(*this, y, ins, "SEC")))); pc++; return; }
+    case OperationKind::COT: { write_operand(x, make_numeric_value(1.0 / std::tan(numeric_value_as_double(*this, y, ins, "COT")))); pc++; return; }
+    case OperationKind::ASIN: { write_operand(x, make_numeric_value(std::asin(numeric_value_as_double(*this, y, ins, "ASIN")))); pc++; return; }
+    case OperationKind::ACOS: { write_operand(x, make_numeric_value(std::acos(numeric_value_as_double(*this, y, ins, "ACOS")))); pc++; return; }
+    case OperationKind::ATAN: { write_operand(x, make_numeric_value(std::atan(numeric_value_as_double(*this, y, ins, "ATAN")))); pc++; return; }
+    case OperationKind::ACSC: { write_operand(x, make_numeric_value(std::asin(1.0 / numeric_value_as_double(*this, y, ins, "ACSC")))); pc++; return; }
+    case OperationKind::ASEC: { write_operand(x, make_numeric_value(std::acos(1.0 / numeric_value_as_double(*this, y, ins, "ASEC")))); pc++; return; }
+    case OperationKind::ACOT: { write_operand(x, make_numeric_value(std::atan(1.0 / numeric_value_as_double(*this, y, ins, "ACOT")))); pc++; return; }
+    case OperationKind::SINH: { write_operand(x, make_numeric_value(std::sinh(numeric_value_as_double(*this, y, ins, "SINH")))); pc++; return; }
+    case OperationKind::COSH: { write_operand(x, make_numeric_value(std::cosh(numeric_value_as_double(*this, y, ins, "COSH")))); pc++; return; }
+    case OperationKind::TANH: { write_operand(x, make_numeric_value(std::tanh(numeric_value_as_double(*this, y, ins, "TANH")))); pc++; return; }
+    case OperationKind::CSCH: { write_operand(x, make_numeric_value(1.0 / std::sinh(numeric_value_as_double(*this, y, ins, "CSCH")))); pc++; return; }
+    case OperationKind::SECH: { write_operand(x, make_numeric_value(1.0 / std::cosh(numeric_value_as_double(*this, y, ins, "SECH")))); pc++; return; }
+    case OperationKind::COTH: { write_operand(x, make_numeric_value(1.0 / std::tanh(numeric_value_as_double(*this, y, ins, "COTH")))); pc++; return; }
+    case OperationKind::ASINH: { write_operand(x, make_numeric_value(std::asinh(numeric_value_as_double(*this, y, ins, "ASINH")))); pc++; return; }
+    case OperationKind::ACOSH: { write_operand(x, make_numeric_value(std::acosh(numeric_value_as_double(*this, y, ins, "ACOSH")))); pc++; return; }
+    case OperationKind::ATANH: { write_operand(x, make_numeric_value(std::atanh(numeric_value_as_double(*this, y, ins, "ATANH")))); pc++; return; }
+    case OperationKind::ACSCH: { write_operand(x, make_numeric_value(std::asinh(1.0 / numeric_value_as_double(*this, y, ins, "ACSCH")))); pc++; return; }
+    case OperationKind::ASECH: { write_operand(x, make_numeric_value(std::acosh(1.0 / numeric_value_as_double(*this, y, ins, "ASECH")))); pc++; return; }
+    case OperationKind::ACOTH: { write_operand(x, make_numeric_value(std::atanh(1.0 / numeric_value_as_double(*this, y, ins, "ACOTH")))); pc++; return; }
+    case OperationKind::ATAN2: { write_operand(x, make_numeric_value(std::atan2(numeric_value_as_double(*this, y, ins, "ATAN2"), numeric_value_as_double(*this, z, ins, "ATAN2")))); pc++; return; }
+    case OperationKind::HYPOT: { write_operand(x, make_numeric_value(std::hypot(numeric_value_as_double(*this, y, ins, "HYPOT"), numeric_value_as_double(*this, z, ins, "HYPOT")))); pc++; return; }
+    case OperationKind::FLOOR: { write_operand(x, make_numeric_value(std::floor(numeric_value_as_double(*this, y, ins, "FLOOR")))); pc++; return; }
+    case OperationKind::CEIL: { write_operand(x, make_numeric_value(std::ceil(numeric_value_as_double(*this, y, ins, "CEIL")))); pc++; return; }
+    case OperationKind::ROUND: { write_operand(x, make_numeric_value(std::round(numeric_value_as_double(*this, y, ins, "ROUND")))); pc++; return; }
+    case OperationKind::MIN: { write_operand(x, make_numeric_value(std::fmin(numeric_value_as_double(*this, y, ins, "MIN"), numeric_value_as_double(*this, z, ins, "MIN")))); pc++; return; }
+    case OperationKind::MAX: { write_operand(x, make_numeric_value(std::fmax(numeric_value_as_double(*this, y, ins, "MAX"), numeric_value_as_double(*this, z, ins, "MAX")))); pc++; return; }
+    case OperationKind::CLAMP: {
+        const double value = numeric_value_as_double(*this, x, ins, "CLAMP");
+        const double lower = numeric_value_as_double(*this, y, ins, "CLAMP");
+        const double upper = numeric_value_as_double(*this, z, ins, "CLAMP");
+        write_operand(x, make_numeric_value(std::clamp(value, lower, upper)));
         pc++;
         return;
     }

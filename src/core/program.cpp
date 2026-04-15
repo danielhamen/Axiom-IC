@@ -721,12 +721,13 @@ void Program::resolve(const Instruction& ins) {
         const auto& labels = current_function->labels;
         const std::string& label_name = x.strval;
 
-        if (!labels.contains(label_name))
+        const auto label_it = labels.find(label_name);
+        if (label_it == labels.end())
             throw_exec_error(*this,
                              "Undefined label reference '" + label_name + "' in current function scope",
                              &ins);
 
-        size_t dst_pc = labels.at(label_name);
+        size_t dst_pc = label_it->second;
         if (dst_pc >= current_function->ins.size()) {
             throw runtime_error_with_context(
                 current_function,
@@ -772,11 +773,12 @@ void Program::resolve(const Instruction& ins) {
             throw_exec_error(*this, "CALL expects a function operand", &ins);
         }
 
-        if (!functions.exists(x.strval)) {
+        const auto callee_index = functions.try_index_of(x.strval);
+        if (!callee_index.has_value()) {
             throw_exec_error(*this, "CALL target function does not exist: " + x.strval, &ins);
         }
 
-        size_t callee_fc = functions.index_of(x.strval);
+        size_t callee_fc = *callee_index;
         Function* callee = functions.at(callee_fc);
         if (callee->arg_count > stack.size()) {
             throw_exec_error(*this,
@@ -2180,14 +2182,15 @@ void Program::resolve(const Instruction& ins) {
 }
 
 void Program::exec(const ExecutionOptions& options) {
-    if (!functions.exists("main")) {
+    const auto main_index = functions.try_index_of("main");
+    if (!main_index.has_value()) {
         throw std::runtime_error(format_error_context(ErrorPhase::Exec,
                                                       "Missing '.main' entry point"));
     }
 
     pc = 0;
     halted = false;
-    fc = functions.index_of("main");
+    fc = *main_index;
     call_stack.clear();
     stack.clear();
 
@@ -2199,12 +2202,18 @@ void Program::exec(const ExecutionOptions& options) {
     const bool collect_timing = options.profile || options.trace_time;
     const bool collect_opcode_counts = options.opcode_stats || options.profile;
 
+    size_t loaded_fc = static_cast<size_t>(-1);
+    Function* current_function = nullptr;
+
     while (!halted) {
         if (fc >= functions.size()) {
             throw runtime_error_with_context(nullptr, pc, std::format("Invalid function index {}", fc));
         }
 
-        Function* current_function = functions.at(fc);
+        if (loaded_fc != fc) {
+            current_function = functions.at(fc);
+            loaded_fc = fc;
+        }
         if (pc >= current_function->ins.size()) {
             throw runtime_error_with_context(
                 current_function,
@@ -2213,7 +2222,7 @@ void Program::exec(const ExecutionOptions& options) {
         }
 
         const size_t before_pc = pc;
-        const Instruction& ins = current_function->ins.at(before_pc);
+        const Instruction& ins = current_function->ins[before_pc];
 
         const auto start = collect_timing ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
         resolve(ins);

@@ -461,34 +461,24 @@ char escape_char(char in) {
     }
 }
 
-bool FunctionList::exists(std::string fn_name) {
-    for (auto& fn : functions) {
-        if (fn_name == fn.name) {
-            return true;
-        }
-    }
-
-    return false;
+bool FunctionList::exists(const std::string& fn_name) const {
+    return function_indices.contains(fn_name);
 }
 
-Function* FunctionList::find(std::string fn_name) {
-    for (auto& fn : functions) {
-        if (fn_name == fn.name) {
-            return &fn;
-        }
+Function* FunctionList::find(const std::string& fn_name) {
+    const auto it = function_indices.find(fn_name);
+    if (it == function_indices.end()) {
+        return nullptr;
     }
-
-    return nullptr;
+    return &functions[it->second];
 }
 
-const Function* FunctionList::find(std::string fn_name) const {
-    for (const auto& fn : functions) {
-        if (fn_name == fn.name) {
-            return &fn;
-        }
+const Function* FunctionList::find(const std::string& fn_name) const {
+    const auto it = function_indices.find(fn_name);
+    if (it == function_indices.end()) {
+        return nullptr;
     }
-
-    throw std::runtime_error("Error finding function that does not exist");
+    return &functions[it->second];
 }
 
 Function* FunctionList::at(size_t idx) {
@@ -496,7 +486,7 @@ Function* FunctionList::at(size_t idx) {
         throw std::runtime_error("Error referencing function at index " + std::to_string(idx) + " as it exceeds the size of the function map");
     }
 
-    return &functions.at(idx);
+    return &functions[idx];
 }
 
 const Function* FunctionList::at(size_t idx) const {
@@ -504,25 +494,45 @@ const Function* FunctionList::at(size_t idx) const {
         throw std::runtime_error("Error referencing function at index " + std::to_string(idx) + " as it exceeds the size of the function map");
     }
 
-    return &functions.at(idx);
+    return &functions[idx];
 }
 
-size_t FunctionList::index_of(std::string fn_name) {
-    for (int i = 0; i < functions.size(); i++) {
-        auto& fn = functions.at(i);
-        if (fn_name == fn.name) {
-            return i;
-        }
+std::optional<size_t> FunctionList::try_index_of(const std::string& fn_name) const {
+    const auto it = function_indices.find(fn_name);
+    if (it == function_indices.end()) {
+        return std::nullopt;
     }
+    return it->second;
+}
 
+size_t FunctionList::index_of(const std::string& fn_name) const {
+    const auto index = try_index_of(fn_name);
+    if (index.has_value()) {
+        return *index;
+    }
     throw std::runtime_error("Error indexing function that does not exist");
 }
 
-void FunctionList::insert(Function& fn) {
+void FunctionList::insert(const Function& fn) {
+    if (function_indices.contains(fn.name)) {
+        throw std::runtime_error("Duplicate function declaration: " + fn.name);
+    }
+    const size_t index = functions.size();
     functions.push_back(fn);
+    function_indices.emplace(fn.name, index);
 }
 
-const size_t FunctionList::size() const {
+void FunctionList::insert(Function&& fn) {
+    const std::string name = fn.name;
+    if (function_indices.contains(name)) {
+        throw std::runtime_error("Duplicate function declaration: " + name);
+    }
+    const size_t index = functions.size();
+    functions.push_back(std::move(fn));
+    function_indices.emplace(name, index);
+}
+
+size_t FunctionList::size() const {
     return functions.size();
 }
 

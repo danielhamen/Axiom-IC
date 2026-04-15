@@ -42,6 +42,20 @@ std::runtime_error runtime_error_with_context(const Function* function, size_t p
     return std::runtime_error(
         std::format("Runtime error in function '{}' at pc={}: {}", function_name, pc, message));
 }
+
+size_t read_non_negative_integer_operand(Program& program,
+                                         const Operand& op,
+                                         const Instruction& ins,
+                                         const std::string& operand_name) {
+    Value v = program.read_operand_strict(op, ValueKind::Integer);
+    if (v.i < 0) {
+        throw_exec_error(program,
+                         operand_name + " must be non-negative, got " + std::to_string(v.i),
+                         &ins);
+    }
+
+    return static_cast<size_t>(v.i);
+}
 } // namespace
 
 void Program::resolve(const Instruction& ins) {
@@ -229,6 +243,66 @@ void Program::resolve(const Instruction& ins) {
 
         fc = frame.return_fc;
         pc = frame.return_pc;
+        return;
+    }
+    case OperationKind::LIST_NEW: {
+        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "LIST_NEW size");
+
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list.resize(initial_size);
+        for (auto& item : out.list) {
+            item.kind = ValueKind::Null;
+        }
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_PUSH: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value element = read_operand(y);
+        list_value.list.push_back(element);
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_GET: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "LIST_GET index");
+        if (index >= list_value.list.size()) {
+            throw_exec_error(*this,
+                             "LIST_GET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.list.size()),
+                             &ins);
+        }
+
+        write_operand(x, list_value.list[index]);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_SET: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_SET index");
+        if (index >= list_value.list.size()) {
+            throw_exec_error(*this,
+                             "LIST_SET index out of bounds: " + std::to_string(index) +
+                                 " for list size " + std::to_string(list_value.list.size()),
+                             &ins);
+        }
+
+        list_value.list[index] = read_operand(z);
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_LEN: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(list_value.list.size());
+        write_operand(x, out);
+        pc++;
         return;
     }
     default:

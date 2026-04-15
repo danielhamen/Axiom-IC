@@ -43,6 +43,16 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "RET";
         case OperationKind::RETVAL:
             return "RETVAL";
+        case OperationKind::LIST_NEW:
+            return "LIST_NEW";
+        case OperationKind::LIST_PUSH:
+            return "LIST_PUSH";
+        case OperationKind::LIST_GET:
+            return "LIST_GET";
+        case OperationKind::LIST_SET:
+            return "LIST_SET";
+        case OperationKind::LIST_LEN:
+            return "LIST_LEN";
     }
 
     throw std::runtime_error("Unmatched OperationKind");
@@ -60,6 +70,8 @@ std::string value_kind_to_string(ValueKind kind) {
             return "Boolean";
         case ValueKind::Null:
             return "Null";
+        case ValueKind::List:
+            return "List";
     }
 
     throw std::runtime_error("Unmatched ValueKind");

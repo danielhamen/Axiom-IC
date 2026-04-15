@@ -29,7 +29,12 @@ enum class OperationKind : int16_t {
     POP,
     CALL,
     RET,
-    RETVAL
+    RETVAL,
+    LIST_NEW,
+    LIST_PUSH,
+    LIST_GET,
+    LIST_SET,
+    LIST_LEN
 };
 
 enum class ErrorPhase : uint8_t {
@@ -64,7 +69,8 @@ enum class ValueKind : uint8_t {
     Float,
     String,
     Boolean,
-    Null
+    Null,
+    List
 };
 
 struct Value {
@@ -73,12 +79,14 @@ struct Value {
     int64_t i = 0;
     double f = 0.0;
     bool b = false;
+    std::vector<Value> list{};
 
     bool is_str() const { return kind == ValueKind::String; }
     bool is_int() const { return kind == ValueKind::Integer; }
     bool is_float() const { return kind == ValueKind::Float; }
     bool is_bool() const { return kind == ValueKind::Boolean; }
     bool is_null() const { return kind == ValueKind::Null; }
+    bool is_list() const { return kind == ValueKind::List; }
 
     std::string to_str() const {
         switch (kind) {
@@ -92,6 +100,17 @@ struct Value {
                 return std::to_string(f);
             case ValueKind::Integer:
                 return std::to_string(i);
+            case ValueKind::List: {
+                std::string out = "[";
+                for (size_t idx = 0; idx < list.size(); idx++) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += list[idx].to_str();
+                }
+                out += "]";
+                return out;
+            }
         }
 
         throw std::runtime_error("Unmatched ValueKind");

@@ -115,6 +115,14 @@ enum class OperationKind : int16_t {
      */
     LIST_NEW,
     LIST_PUSH,
+    LIST_POP,
+    LIST_INSERT,
+    LIST_ERASE,
+    LIST_SLICE,
+    LIST_CLEAR,
+    LIST_FIND,
+    LIST_SORT,
+    LIST_REVERSE,
     LIST_GET,
     LIST_SET,
     LIST_LEN,
@@ -158,6 +166,11 @@ enum class OperationKind : int16_t {
     VEC_CROSS,
     VEC_MAG,
     VEC_NORM,
+    VEC_PROJECT,
+    VEC_REFLECT,
+    VEC_ANGLE,
+    VEC_DISTANCE,
+    VEC_LERP,
 
     /**
      * ========
@@ -170,6 +183,15 @@ enum class OperationKind : int16_t {
     MAT_ROWS,
     MAT_COLS,
     MAT_MUL,
+    MAT_ADD,
+    MAT_SUB,
+    MAT_SCALE,
+    MAT_IDENTITY,
+    MAT_TRACE,
+    MAT_RREF,
+    MAT_RANK,
+    MAT_EIGEN,
+    MAT_SOLVE,
     MAT_TRANSPOSE,
     MAT_DET,
     MAT_INV,
@@ -181,6 +203,86 @@ enum class OperationKind : int16_t {
      */
     STR_LEN,
     STR_CONCAT,
+    STR_SUBSTR,
+    STR_FIND,
+    STR_REPLACE,
+    STR_SPLIT,
+    STR_JOIN,
+    STR_UPPER,
+    STR_LOWER,
+    STR_TRIM,
+    STR_EQ,
+
+    /**
+     * =========
+     * TYPE/CAST
+     * =========
+     */
+    TYPEOF,
+    CAST_INT,
+    CAST_FLOAT,
+    CAST_BOOL,
+    CAST_STRING,
+    IS_NULL,
+    IS_NAN,
+    IS_INF,
+
+    /**
+     * =========
+     * FILE/TIME
+     * =========
+     */
+    READ_FILE,
+    WRITE_FILE,
+    APPEND_FILE,
+    FILE_EXISTS,
+    DELETE_FILE,
+    TIME_NOW,
+    SLEEP,
+
+    /**
+     * ============
+     * CONTROL FLOW
+     * ============
+     */
+    JMP_IF,
+    JMP_IF_ZERO,
+    JMP_IF_NOT,
+    JMP_EQ,
+    JMP_NEQ,
+    JMP_LT,
+    JMP_LTE,
+    JMP_GT,
+    JMP_GTE,
+
+    /**
+     * ============
+     * MEMORY/STACK
+     * ============
+     */
+    LOAD,
+    STORE,
+    MOVE,
+    SWAP,
+    DUP,
+    CLEAR,
+
+    /**
+     * ==========
+     * EXTRA MATH
+     * ==========
+     */
+    SIGN,
+    CBRT,
+    FACTORIAL,
+    GCD,
+    LCM,
+    REM,
+    FMOD,
+    DEG2RAD,
+    RAD2DEG,
+    LERP,
+    MAP_RANGE,
 
     /**
      * ======

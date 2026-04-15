@@ -2,9 +2,16 @@
 
 #include <algorithm>
 #include <cmath>
-#include <random>
+#include <cctype>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <numbers>
+#include <numeric>
+#include <random>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 
 namespace aic {
@@ -256,6 +263,115 @@ Value invert_square_matrix(const Value& matrix_value) {
         }
     }
     return out;
+}
+
+double vector_magnitude(const Value& vec_value) {
+    double sum = 0.0;
+    for (double value : vec_value.vec) {
+        sum += value * value;
+    }
+    return std::sqrt(sum);
+}
+
+std::vector<double> matrix_rref(std::vector<double> data, size_t rows, size_t cols, size_t& rank_out) {
+    const double eps = 1e-12;
+    size_t r = 0;
+    rank_out = 0;
+    for (size_t c = 0; c < cols && r < rows; c++) {
+        size_t pivot = r;
+        double best_abs = std::fabs(data[pivot * cols + c]);
+        for (size_t i = r + 1; i < rows; i++) {
+            const double candidate = std::fabs(data[i * cols + c]);
+            if (candidate > best_abs) {
+                best_abs = candidate;
+                pivot = i;
+            }
+        }
+        if (best_abs <= eps) {
+            continue;
+        }
+        if (pivot != r) {
+            for (size_t j = 0; j < cols; j++) {
+                std::swap(data[r * cols + j], data[pivot * cols + j]);
+            }
+        }
+        const double pivot_value = data[r * cols + c];
+        for (size_t j = 0; j < cols; j++) {
+            data[r * cols + j] /= pivot_value;
+        }
+        for (size_t i = 0; i < rows; i++) {
+            if (i == r) {
+                continue;
+            }
+            const double factor = data[i * cols + c];
+            if (std::fabs(factor) <= eps) {
+                continue;
+            }
+            for (size_t j = 0; j < cols; j++) {
+                data[i * cols + j] -= factor * data[r * cols + j];
+            }
+        }
+        r++;
+        rank_out++;
+    }
+    return data;
+}
+
+std::string trim_copy(const std::string& in) {
+    size_t left = 0;
+    while (left < in.size() && std::isspace(static_cast<unsigned char>(in[left]))) {
+        left++;
+    }
+    size_t right = in.size();
+    while (right > left && std::isspace(static_cast<unsigned char>(in[right - 1]))) {
+        right--;
+    }
+    return in.substr(left, right - left);
+}
+
+void jump_to_label(Program& program, const Operand& label_operand, const Instruction& ins, const std::string& opname) {
+    if (label_operand.kind != OperandKind::Label) {
+        throw_exec_error(program,
+                         opname + " expects Label destination as first operand, got " + label_operand.kindstr(),
+                         &ins);
+    }
+    Function* current_function = program.functions.at(program.fc);
+    const auto& labels = current_function->labels;
+    const std::string& label_name = label_operand.strval;
+    if (!labels.contains(label_name)) {
+        throw_exec_error(program, opname + " references undefined label '" + label_name + "'", &ins);
+    }
+    const size_t dst_pc = labels.at(label_name);
+    if (dst_pc >= current_function->ins.size()) {
+        throw_exec_error(program, opname + " target label pc out of range", &ins);
+    }
+    program.pc = dst_pc;
+}
+
+bool value_truthy(const Value& value) {
+    switch (value.kind) {
+        case ValueKind::Boolean:
+            return value.b;
+        case ValueKind::Integer:
+            return value.i != 0;
+        case ValueKind::Float:
+            return value.f != 0.0;
+        case ValueKind::String:
+            return !value.s.empty();
+        case ValueKind::Null:
+            return false;
+        case ValueKind::List:
+            return !value.list.empty();
+        case ValueKind::IntegerList:
+            return !value.int_list.empty();
+        case ValueKind::FloatList:
+            return !value.float_list.empty();
+        case ValueKind::Vector:
+            return !value.vec.empty();
+        case ValueKind::Matrix:
+            return !value.matrix.empty();
+    }
+    return false;
 }
 } // namespace
 
@@ -732,6 +848,93 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::LIST_POP: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        if (list_value.list.empty()) {
+            throw_exec_error(*this, "LIST_POP attempted on an empty list", &ins);
+        }
+        Value popped = list_value.list.back();
+        list_value.list.pop_back();
+        write_operand(y, list_value);
+        write_operand(x, popped);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_INSERT: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        const size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_INSERT index");
+        if (index > list_value.list.size()) {
+            throw_exec_error(*this, "LIST_INSERT index out of bounds", &ins);
+        }
+        Value element = read_operand(z);
+        list_value.list.insert(list_value.list.begin() + static_cast<std::ptrdiff_t>(index), element);
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_ERASE: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        const size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_ERASE index");
+        if (index >= list_value.list.size()) {
+            throw_exec_error(*this, "LIST_ERASE index out of bounds", &ins);
+        }
+        list_value.list.erase(list_value.list.begin() + static_cast<std::ptrdiff_t>(index));
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_SLICE: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        const size_t start = read_non_negative_integer_operand(*this, z, ins, "LIST_SLICE start");
+        if (start > list_value.list.size()) {
+            throw_exec_error(*this, "LIST_SLICE start out of bounds", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list.assign(list_value.list.begin() + static_cast<std::ptrdiff_t>(start), list_value.list.end());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_CLEAR: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        list_value.list.clear();
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_FIND: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        Value needle = read_operand(z);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = -1;
+        for (size_t i = 0; i < list_value.list.size(); i++) {
+            if (value_equals(list_value.list[i], needle)) {
+                out.i = static_cast<int64_t>(i);
+                break;
+            }
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_SORT: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        std::sort(list_value.list.begin(),
+                  list_value.list.end(),
+                  [](const Value& a, const Value& b) { return a.to_str() < b.to_str(); });
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_REVERSE: {
+        Value list_value = read_operand_strict(x, ValueKind::List);
+        std::reverse(list_value.list.begin(), list_value.list.end());
+        write_operand(x, list_value);
+        pc++;
+        return;
+    }
     case OperationKind::LIST_GET: {
         Value list_value = read_operand_strict(y, ValueKind::List);
         size_t index = read_non_negative_integer_operand(*this, z, ins, "LIST_GET index");
@@ -1029,11 +1232,7 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::VEC_NORM: {
         Value vec_value = read_vector_strict(*this, y);
-        double sum = 0.0;
-        for (double value : vec_value.vec) {
-            sum += value * value;
-        }
-        double mag = std::sqrt(sum);
+        double mag = vector_magnitude(vec_value);
         if (mag == 0.0) {
             throw_exec_error(*this, "VEC_NORM cannot normalize a zero vector", &ins);
         }
@@ -1042,6 +1241,105 @@ void Program::resolve(const Instruction& ins) {
         out.vec.resize(vec_value.vec.size());
         for (size_t i = 0; i < vec_value.vec.size(); i++) {
             out.vec[i] = vec_value.vec[i] / mag;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_PROJECT: {
+        Value a = read_vector_strict(*this, y);
+        Value b = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, a, b, ins, "VEC_PROJECT");
+        double bb = 0.0;
+        double ab = 0.0;
+        for (size_t i = 0; i < a.vec.size(); i++) {
+            ab += a.vec[i] * b.vec[i];
+            bb += b.vec[i] * b.vec[i];
+        }
+        if (bb == 0.0) {
+            throw_exec_error(*this, "VEC_PROJECT cannot project onto zero vector", &ins);
+        }
+        const double factor = ab / bb;
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(b.vec.size());
+        for (size_t i = 0; i < b.vec.size(); i++) {
+            out.vec[i] = b.vec[i] * factor;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_REFLECT: {
+        Value v = read_vector_strict(*this, y);
+        Value n = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, v, n, ins, "VEC_REFLECT");
+        double nn = 0.0;
+        double vn = 0.0;
+        for (size_t i = 0; i < v.vec.size(); i++) {
+            vn += v.vec[i] * n.vec[i];
+            nn += n.vec[i] * n.vec[i];
+        }
+        if (nn == 0.0) {
+            throw_exec_error(*this, "VEC_REFLECT normal must be non-zero", &ins);
+        }
+        const double factor = 2.0 * vn / nn;
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(v.vec.size());
+        for (size_t i = 0; i < v.vec.size(); i++) {
+            out.vec[i] = v.vec[i] - factor * n.vec[i];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_ANGLE: {
+        Value a = read_vector_strict(*this, y);
+        Value b = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, a, b, ins, "VEC_ANGLE");
+        const double amag = vector_magnitude(a);
+        const double bmag = vector_magnitude(b);
+        if (amag == 0.0 || bmag == 0.0) {
+            throw_exec_error(*this, "VEC_ANGLE requires non-zero vectors", &ins);
+        }
+        double dot = 0.0;
+        for (size_t i = 0; i < a.vec.size(); i++) {
+            dot += a.vec[i] * b.vec[i];
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = std::acos(std::clamp(dot / (amag * bmag), -1.0, 1.0));
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_DISTANCE: {
+        Value a = read_vector_strict(*this, y);
+        Value b = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, a, b, ins, "VEC_DISTANCE");
+        double sum = 0.0;
+        for (size_t i = 0; i < a.vec.size(); i++) {
+            const double d = a.vec[i] - b.vec[i];
+            sum += d * d;
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = std::sqrt(sum);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VEC_LERP: {
+        Value a = read_vector_strict(*this, y);
+        Value b = read_vector_strict(*this, z);
+        ensure_same_vector_size(*this, a, b, ins, "VEC_LERP");
+        const double t = std::clamp(numeric_value_as_double(*this, x, ins, "VEC_LERP t"), 0.0, 1.0);
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(a.vec.size());
+        for (size_t i = 0; i < a.vec.size(); i++) {
+            out.vec[i] = a.vec[i] + (b.vec[i] - a.vec[i]) * t;
         }
         write_operand(x, out);
         pc++;
@@ -1137,6 +1435,184 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::MAT_ADD: {
+        Value a = read_matrix_strict(*this, y);
+        Value b = read_matrix_strict(*this, z);
+        if (a.rows != b.rows || a.cols != b.cols) {
+            throw_exec_error(*this, "MAT_ADD requires matrices with matching dimensions", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = a.rows;
+        out.cols = a.cols;
+        out.matrix.resize(a.matrix.size());
+        for (size_t i = 0; i < a.matrix.size(); i++) {
+            out.matrix[i] = a.matrix[i] + b.matrix[i];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_SUB: {
+        Value a = read_matrix_strict(*this, y);
+        Value b = read_matrix_strict(*this, z);
+        if (a.rows != b.rows || a.cols != b.cols) {
+            throw_exec_error(*this, "MAT_SUB requires matrices with matching dimensions", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = a.rows;
+        out.cols = a.cols;
+        out.matrix.resize(a.matrix.size());
+        for (size_t i = 0; i < a.matrix.size(); i++) {
+            out.matrix[i] = a.matrix[i] - b.matrix[i];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_SCALE: {
+        Value a = read_matrix_strict(*this, y);
+        double s = numeric_value_as_double(*this, z, ins, "MAT_SCALE scale");
+        Value out = a;
+        for (double& value : out.matrix) {
+            value *= s;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_IDENTITY: {
+        size_t n = read_non_negative_integer_operand(*this, y, ins, "MAT_IDENTITY size");
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = n;
+        out.cols = n;
+        out.matrix.assign(n * n, 0.0);
+        for (size_t i = 0; i < n; i++) {
+            out.matrix[i * n + i] = 1.0;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_TRACE: {
+        Value m = read_matrix_strict(*this, y);
+        if (m.rows != m.cols) {
+            throw_exec_error(*this, "MAT_TRACE requires a square matrix", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = 0.0;
+        for (size_t i = 0; i < m.rows; i++) {
+            out.f += m.matrix[i * m.cols + i];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_RREF: {
+        Value m = read_matrix_strict(*this, y);
+        size_t rank = 0;
+        Value out{};
+        out.kind = ValueKind::Matrix;
+        out.rows = m.rows;
+        out.cols = m.cols;
+        out.matrix = matrix_rref(m.matrix, m.rows, m.cols, rank);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_RANK: {
+        Value m = read_matrix_strict(*this, y);
+        size_t rank = 0;
+        (void)matrix_rref(m.matrix, m.rows, m.cols, rank);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(rank);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_EIGEN: {
+        Value m = read_matrix_strict(*this, y);
+        if (m.rows != 2 || m.cols != 2) {
+            throw_exec_error(*this, "MAT_EIGEN currently supports only 2x2 matrices", &ins);
+        }
+        const double a = m.matrix[0];
+        const double b = m.matrix[1];
+        const double c = m.matrix[2];
+        const double d = m.matrix[3];
+        const double tr = a + d;
+        const double det = a * d - b * c;
+        const double disc = tr * tr - 4.0 * det;
+        if (disc < 0.0) {
+            throw_exec_error(*this, "MAT_EIGEN does not support complex eigenvalues", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec = {(tr + std::sqrt(disc)) / 2.0, (tr - std::sqrt(disc)) / 2.0};
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAT_SOLVE: {
+        Value a = read_matrix_strict(*this, y);
+        Value b = read_vector_strict(*this, z);
+        if (a.rows != a.cols) {
+            throw_exec_error(*this, "MAT_SOLVE requires a square coefficient matrix", &ins);
+        }
+        if (b.vec.size() != a.rows) {
+            throw_exec_error(*this, "MAT_SOLVE RHS vector size must equal matrix row count", &ins);
+        }
+        const size_t n = a.rows;
+        std::vector<double> aug(n * (n + 1), 0.0);
+        for (size_t r = 0; r < n; r++) {
+            for (size_t c = 0; c < n; c++) {
+                aug[r * (n + 1) + c] = a.matrix[r * n + c];
+            }
+            aug[r * (n + 1) + n] = b.vec[r];
+        }
+        for (size_t pivot = 0; pivot < n; pivot++) {
+            size_t best = pivot;
+            double best_abs = std::fabs(aug[pivot * (n + 1) + pivot]);
+            for (size_t r = pivot + 1; r < n; r++) {
+                const double cand = std::fabs(aug[r * (n + 1) + pivot]);
+                if (cand > best_abs) {
+                    best_abs = cand;
+                    best = r;
+                }
+            }
+            if (best_abs == 0.0) {
+                throw_exec_error(*this, "MAT_SOLVE matrix is singular", &ins);
+            }
+            if (best != pivot) {
+                for (size_t c = 0; c <= n; c++) {
+                    std::swap(aug[pivot * (n + 1) + c], aug[best * (n + 1) + c]);
+                }
+            }
+            const double pivot_value = aug[pivot * (n + 1) + pivot];
+            for (size_t c = 0; c <= n; c++) {
+                aug[pivot * (n + 1) + c] /= pivot_value;
+            }
+            for (size_t r = 0; r < n; r++) {
+                if (r == pivot) continue;
+                const double factor = aug[r * (n + 1) + pivot];
+                for (size_t c = 0; c <= n; c++) {
+                    aug[r * (n + 1) + c] -= factor * aug[pivot * (n + 1) + c];
+                }
+            }
+        }
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(n);
+        for (size_t i = 0; i < n; i++) {
+            out.vec[i] = aug[i * (n + 1) + n];
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
     case OperationKind::MAT_TRANSPOSE: {
         Value in = read_matrix_strict(*this, y);
         Value out{};
@@ -1197,6 +1673,461 @@ void Program::resolve(const Instruction& ins) {
         out.i = static_cast<int64_t>(in.s.length());
 
         write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_SUBSTR: {
+        Value in = read_string_strict(*this, y);
+        size_t start = read_non_negative_integer_operand(*this, z, ins, "STR_SUBSTR start");
+        if (start > in.s.size()) {
+            throw_exec_error(*this, "STR_SUBSTR start out of bounds", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = in.s.substr(start);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_FIND: {
+        Value haystack = read_string_strict(*this, y);
+        Value needle = read_string_strict(*this, z);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        size_t pos = haystack.s.find(needle.s);
+        out.i = pos == std::string::npos ? -1 : static_cast<int64_t>(pos);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_REPLACE: {
+        Value inout = read_string_strict(*this, x);
+        Value from = read_string_strict(*this, y);
+        Value to = read_string_strict(*this, z);
+        if (!from.s.empty()) {
+            size_t pos = 0;
+            while ((pos = inout.s.find(from.s, pos)) != std::string::npos) {
+                inout.s.replace(pos, from.s.size(), to.s);
+                pos += to.s.size();
+            }
+        }
+        write_operand(x, inout);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_SPLIT: {
+        Value in = read_string_strict(*this, y);
+        Value delim = read_string_strict(*this, z);
+        Value out{};
+        out.kind = ValueKind::List;
+        if (delim.s.empty()) {
+            for (char ch : in.s) {
+                Value item{};
+                item.kind = ValueKind::String;
+                item.s = std::string(1, ch);
+                out.list.push_back(item);
+            }
+        } else {
+            size_t start = 0;
+            while (start <= in.s.size()) {
+                size_t pos = in.s.find(delim.s, start);
+                const size_t len = (pos == std::string::npos) ? (in.s.size() - start) : (pos - start);
+                Value item{};
+                item.kind = ValueKind::String;
+                item.s = in.s.substr(start, len);
+                out.list.push_back(item);
+                if (pos == std::string::npos) {
+                    break;
+                }
+                start = pos + delim.s.size();
+            }
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_JOIN: {
+        Value in = read_operand_strict(y, ValueKind::List);
+        Value sep = read_string_strict(*this, z);
+        Value out{};
+        out.kind = ValueKind::String;
+        for (size_t i = 0; i < in.list.size(); i++) {
+            if (in.list[i].kind != ValueKind::String) {
+                throw_exec_error(*this, "STR_JOIN expects a list of strings", &ins);
+            }
+            if (i > 0) {
+                out.s += sep.s;
+            }
+            out.s += in.list[i].s;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_UPPER: {
+        Value in = read_string_strict(*this, y);
+        Value out = in;
+        for (char& ch : out.s) {
+            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_LOWER: {
+        Value in = read_string_strict(*this, y);
+        Value out = in;
+        for (char& ch : out.s) {
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_TRIM: {
+        Value in = read_string_strict(*this, y);
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = trim_copy(in.s);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_EQ: {
+        Value lhs = read_string_strict(*this, y);
+        Value rhs = read_string_strict(*this, z);
+        write_operand(x, make_bool_value(lhs.s == rhs.s));
+        pc++;
+        return;
+    }
+    case OperationKind::TYPEOF: {
+        Value in = read_operand(y);
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = value_kind_to_string(in.kind);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::CAST_INT: {
+        Value in = read_operand(y);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        if (in.kind == ValueKind::Integer) out.i = in.i;
+        else if (in.kind == ValueKind::Float) out.i = static_cast<int64_t>(in.f);
+        else if (in.kind == ValueKind::Boolean) out.i = in.b ? 1 : 0;
+        else if (in.kind == ValueKind::String) out.i = std::stoll(in.s);
+        else throw_exec_error(*this, "CAST_INT unsupported source type", &ins);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::CAST_FLOAT: {
+        Value in = read_operand(y);
+        Value out{};
+        out.kind = ValueKind::Float;
+        if (in.kind == ValueKind::Integer) out.f = static_cast<double>(in.i);
+        else if (in.kind == ValueKind::Float) out.f = in.f;
+        else if (in.kind == ValueKind::Boolean) out.f = in.b ? 1.0 : 0.0;
+        else if (in.kind == ValueKind::String) out.f = std::stod(in.s);
+        else throw_exec_error(*this, "CAST_FLOAT unsupported source type", &ins);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::CAST_BOOL: {
+        write_operand(x, make_bool_value(value_truthy(read_operand(y))));
+        pc++;
+        return;
+    }
+    case OperationKind::CAST_STRING: {
+        Value in = read_operand(y);
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = in.to_str();
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::IS_NULL: {
+        write_operand(x, make_bool_value(read_operand(y).kind == ValueKind::Null));
+        pc++;
+        return;
+    }
+    case OperationKind::IS_NAN: {
+        Value in = read_operand(y);
+        const bool is_nan = in.kind == ValueKind::Float && std::isnan(in.f);
+        write_operand(x, make_bool_value(is_nan));
+        pc++;
+        return;
+    }
+    case OperationKind::IS_INF: {
+        Value in = read_operand(y);
+        const bool is_inf = in.kind == ValueKind::Float && std::isinf(in.f);
+        write_operand(x, make_bool_value(is_inf));
+        pc++;
+        return;
+    }
+    case OperationKind::READ_FILE: {
+        Value path = read_string_strict(*this, y);
+        std::ifstream in(path.s, std::ios::binary);
+        if (!in) {
+            throw_exec_error(*this, "READ_FILE failed to open '" + path.s + "'", &ins);
+        }
+        std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = std::move(contents);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::WRITE_FILE: {
+        Value path = read_string_strict(*this, x);
+        Value content = read_string_strict(*this, y);
+        std::ofstream out(path.s, std::ios::binary | std::ios::trunc);
+        if (!out) {
+            throw_exec_error(*this, "WRITE_FILE failed to open '" + path.s + "'", &ins);
+        }
+        out << content.s;
+        pc++;
+        return;
+    }
+    case OperationKind::APPEND_FILE: {
+        Value path = read_string_strict(*this, x);
+        Value content = read_string_strict(*this, y);
+        std::ofstream out(path.s, std::ios::binary | std::ios::app);
+        if (!out) {
+            throw_exec_error(*this, "APPEND_FILE failed to open '" + path.s + "'", &ins);
+        }
+        out << content.s;
+        pc++;
+        return;
+    }
+    case OperationKind::FILE_EXISTS: {
+        Value path = read_string_strict(*this, y);
+        write_operand(x, make_bool_value(std::filesystem::exists(path.s)));
+        pc++;
+        return;
+    }
+    case OperationKind::DELETE_FILE: {
+        Value path = read_string_strict(*this, x);
+        (void)std::filesystem::remove(path.s);
+        pc++;
+        return;
+    }
+    case OperationKind::TIME_NOW: {
+        const auto now = std::chrono::system_clock::now().time_since_epoch();
+        Value out{};
+        out.kind = ValueKind::Float;
+        out.f = std::chrono::duration<double>(now).count();
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SLEEP: {
+        const double seconds = numeric_value_as_double(*this, x, ins, "SLEEP seconds");
+        if (seconds < 0.0) {
+            throw_exec_error(*this, "SLEEP duration must be non-negative", &ins);
+        }
+        std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
+        pc++;
+        return;
+    }
+    case OperationKind::JMP_IF: {
+        if (value_truthy(read_operand(y))) {
+            jump_to_label(*this, x, ins, "JMP_IF");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_IF_ZERO: {
+        const double value = numeric_value_as_double(*this, y, ins, "JMP_IF_ZERO value");
+        if (value == 0.0) {
+            jump_to_label(*this, x, ins, "JMP_IF_ZERO");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_IF_NOT: {
+        if (!value_truthy(read_operand(y))) {
+            jump_to_label(*this, x, ins, "JMP_IF_NOT");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_EQ: {
+        if (value_equals(read_operand(y), read_operand(z))) {
+            jump_to_label(*this, x, ins, "JMP_EQ");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_NEQ: {
+        if (!value_equals(read_operand(y), read_operand(z))) {
+            jump_to_label(*this, x, ins, "JMP_NEQ");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_LT: {
+        if (numeric_value_as_double(*this, y, ins, "JMP_LT") < numeric_value_as_double(*this, z, ins, "JMP_LT")) {
+            jump_to_label(*this, x, ins, "JMP_LT");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_LTE: {
+        if (numeric_value_as_double(*this, y, ins, "JMP_LTE") <= numeric_value_as_double(*this, z, ins, "JMP_LTE")) {
+            jump_to_label(*this, x, ins, "JMP_LTE");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_GT: {
+        if (numeric_value_as_double(*this, y, ins, "JMP_GT") > numeric_value_as_double(*this, z, ins, "JMP_GT")) {
+            jump_to_label(*this, x, ins, "JMP_GT");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::JMP_GTE: {
+        if (numeric_value_as_double(*this, y, ins, "JMP_GTE") >= numeric_value_as_double(*this, z, ins, "JMP_GTE")) {
+            jump_to_label(*this, x, ins, "JMP_GTE");
+        } else {
+            pc++;
+        }
+        return;
+    }
+    case OperationKind::LOAD: {
+        if (y.kind != OperandKind::Address) {
+            throw_exec_error(*this, "LOAD expects Address source", &ins);
+        }
+        write_operand(x, slot(y.value));
+        pc++;
+        return;
+    }
+    case OperationKind::STORE: {
+        if (x.kind != OperandKind::Address) {
+            throw_exec_error(*this, "STORE expects Address destination", &ins);
+        }
+        slot(x.value) = read_operand(y);
+        pc++;
+        return;
+    }
+    case OperationKind::MOVE:
+    case OperationKind::DUP: {
+        write_operand(x, read_operand(y));
+        pc++;
+        return;
+    }
+    case OperationKind::SWAP: {
+        Value lhs = read_operand(x);
+        Value rhs = read_operand(y);
+        write_operand(x, rhs);
+        write_operand(y, lhs);
+        pc++;
+        return;
+    }
+    case OperationKind::CLEAR: {
+        Value out{};
+        out.kind = ValueKind::Null;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SIGN: {
+        const double v = numeric_value_as_double(*this, y, ins, "SIGN");
+        write_operand(x, make_numeric_value(v > 0.0 ? 1.0 : (v < 0.0 ? -1.0 : 0.0)));
+        pc++;
+        return;
+    }
+    case OperationKind::CBRT: {
+        write_operand(x, make_numeric_value(std::cbrt(numeric_value_as_double(*this, y, ins, "CBRT"))));
+        pc++;
+        return;
+    }
+    case OperationKind::FACTORIAL: {
+        Value n = read_operand_strict(y, ValueKind::Integer);
+        if (n.i < 0) {
+            throw_exec_error(*this, "FACTORIAL requires non-negative integer", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = 1;
+        for (int64_t i = 2; i <= n.i; i++) {
+            out.i *= i;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::GCD: {
+        Value a = read_operand_strict(y, ValueKind::Integer);
+        Value b = read_operand_strict(z, ValueKind::Integer);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = std::gcd(a.i, b.i);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LCM: {
+        Value a = read_operand_strict(y, ValueKind::Integer);
+        Value b = read_operand_strict(z, ValueKind::Integer);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = std::lcm(a.i, b.i);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::REM: {
+        write_operand(x, make_numeric_value(std::remainder(numeric_value_as_double(*this, y, ins, "REM"),
+                                                           numeric_value_as_double(*this, z, ins, "REM"))));
+        pc++;
+        return;
+    }
+    case OperationKind::FMOD: {
+        write_operand(x, make_numeric_value(std::fmod(numeric_value_as_double(*this, y, ins, "FMOD"),
+                                                      numeric_value_as_double(*this, z, ins, "FMOD"))));
+        pc++;
+        return;
+    }
+    case OperationKind::DEG2RAD: {
+        write_operand(x, make_numeric_value(numeric_value_as_double(*this, y, ins, "DEG2RAD") * std::numbers::pi / 180.0));
+        pc++;
+        return;
+    }
+    case OperationKind::RAD2DEG: {
+        write_operand(x, make_numeric_value(numeric_value_as_double(*this, y, ins, "RAD2DEG") * 180.0 / std::numbers::pi));
+        pc++;
+        return;
+    }
+    case OperationKind::LERP: {
+        const double t = std::clamp(numeric_value_as_double(*this, x, ins, "LERP t"), 0.0, 1.0);
+        const double a = numeric_value_as_double(*this, y, ins, "LERP a");
+        const double b = numeric_value_as_double(*this, z, ins, "LERP b");
+        write_operand(x, make_numeric_value(a + (b - a) * t));
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_RANGE: {
+        const double value = numeric_value_as_double(*this, x, ins, "MAP_RANGE value");
+        const double in_min = numeric_value_as_double(*this, y, ins, "MAP_RANGE in_min");
+        const double in_max = numeric_value_as_double(*this, z, ins, "MAP_RANGE in_max");
+        if (in_max == in_min) {
+            throw_exec_error(*this, "MAP_RANGE requires in_min != in_max", &ins);
+        }
+        write_operand(x, make_numeric_value((value - in_min) / (in_max - in_min)));
         pc++;
         return;
     }

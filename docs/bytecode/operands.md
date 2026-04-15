@@ -1,119 +1,139 @@
-# Operands
+# Bytecode operands
 
-## ADD
+Operand prefixes:
+- `$n` slot operand.
+- `#value` immediate operand.
+- `@n` constant-table index.
+- `&n` absolute memory address (for `LOAD`/`STORE`).
+- `label` label operand.
 
 ## List operations
+- `LIST_NEW $dst, #size`
+- `LIST_PUSH $list, <value>`
+- `LIST_POP $dst, $list`
+- `LIST_INSERT $list, #index, <value>`
+- `LIST_ERASE $list, #index`
+- `LIST_SLICE $dst, $list, #start` (slice from `start` to end)
+- `LIST_CLEAR $list`
+- `LIST_FIND $dst, $list, <value>` (returns index or `-1`)
+- `LIST_SORT $list`
+- `LIST_REVERSE $list`
+- `LIST_GET $dst, $list, #index`
+- `LIST_SET $list, #index, <value>`
+- `LIST_LEN $dst, $list`
 
-### `LIST_NEW $dst, #size`
-Create a list with `size` elements initialized to `null` and store it in slot `$dst`.
+## Numeric list operations
+- `INT_LIST_NEW $dst, #size`
+- `INT_LIST_PUSH $list, <int>`
+- `INT_LIST_GET $dst, $list, #index`
+- `INT_LIST_SET $list, #index, <int>`
+- `INT_LIST_LEN $dst, $list`
+- `FLOAT_LIST_NEW $dst, #size`
+- `FLOAT_LIST_PUSH $list, <number>`
+- `FLOAT_LIST_GET $dst, $list, #index`
+- `FLOAT_LIST_SET $list, #index, <number>`
+- `FLOAT_LIST_LEN $dst, $list`
 
-### `LIST_PUSH $list, <value>`
-Append `<value>` to the list in `$list`.
+## Vector operations
+- `VEC_NEW $dst, #size`
+- `VEC_PUSH $vec, <number>`
+- `VEC_GET $dst, $vec, #index`
+- `VEC_SET $vec, #index, <number>`
+- `VEC_LEN $dst, $vec`
+- `VEC_ADD $dst, $a, $b`
+- `VEC_SUB $dst, $a, $b`
+- `VEC_SCALE $dst, $vec, <number>`
+- `VEC_DOT $dst, $a, $b`
+- `VEC_CROSS $dst, $a, $b`
+- `VEC_MAG $dst, $vec`
+- `VEC_NORM $dst, $vec`
+- `VEC_PROJECT $dst, $a, $b`
+- `VEC_REFLECT $dst, $v, $normal`
+- `VEC_ANGLE $dst, $a, $b` (radians)
+- `VEC_DISTANCE $dst, $a, $b`
+- `VEC_LERP $dst, $a, $b` (`$dst` is read as `t` in `[0,1]`, then overwritten)
 
-### `LIST_GET $dst, $list, #index`
-Read an element from `$list[index]` and place it in `$dst`.
+## Matrix operations
+- `MAT_NEW $dst, #rows, #cols`
+- `MAT_GET $dst, $mat, #flat_index`
+- `MAT_SET $mat, #flat_index, <number>`
+- `MAT_ROWS $dst, $mat`
+- `MAT_COLS $dst, $mat`
+- `MAT_MUL $dst, $a, $b`
+- `MAT_ADD $dst, $a, $b`
+- `MAT_SUB $dst, $a, $b`
+- `MAT_SCALE $dst, $mat, <number>`
+- `MAT_IDENTITY $dst, #size`
+- `MAT_TRACE $dst, $mat`
+- `MAT_RREF $dst, $mat`
+- `MAT_RANK $dst, $mat`
+- `MAT_EIGEN $dst, $mat` (2x2 real eigenvalues)
+- `MAT_SOLVE $dst, $A, $b` (`$b` is a vector)
+- `MAT_TRANSPOSE $dst, $mat`
+- `MAT_DET $dst, $mat`
+- `MAT_INV $dst, $mat`
 
-### `LIST_SET $list, #index, <value>`
-Update `$list[index]` to `<value>`.
+## String operations
+- `STR_CONCAT $dst, $a, $b`
+- `STR_LEN $dst, $str`
+- `STR_SUBSTR $dst, $str, #start`
+- `STR_FIND $dst, $haystack, $needle`
+- `STR_REPLACE $str, $from, $to` (in-place)
+- `STR_SPLIT $dst, $str, $delimiter`
+- `STR_JOIN $dst, $list_of_strings, $separator`
+- `STR_UPPER $dst, $str`
+- `STR_LOWER $dst, $str`
+- `STR_TRIM $dst, $str`
+- `STR_EQ $dst, $a, $b`
 
-### `LIST_LEN $dst, $list`
-Store the current list length in `$dst` as an integer.
+## Type/cast operations
+- `TYPEOF $dst, <value>`
+- `CAST_INT $dst, <value>`
+- `CAST_FLOAT $dst, <value>`
+- `CAST_BOOL $dst, <value>`
+- `CAST_STRING $dst, <value>`
+- `IS_NULL $dst, <value>`
+- `IS_NAN $dst, <value>`
+- `IS_INF $dst, <value>`
 
-## Numeric lists
+## File/time operations
+- `READ_FILE $dst, $path`
+- `WRITE_FILE $path, $content`
+- `APPEND_FILE $path, $content`
+- `FILE_EXISTS $dst, $path`
+- `DELETE_FILE $path`
+- `TIME_NOW $dst`
+- `SLEEP <seconds>`
 
-### `INT_LIST_NEW $dst, #size`
-Create a fixed-size integer list initialized with zeros.
+## Jump operations
+- `JMP label`
+- `JMP_IF label, <cond>`
+- `JMP_IF_ZERO label, <number>`
+- `JMP_IF_NOT label, <cond>`
+- `JMP_EQ label, <a>, <b>`
+- `JMP_NEQ label, <a>, <b>`
+- `JMP_LT label, <a>, <b>`
+- `JMP_LTE label, <a>, <b>`
+- `JMP_GT label, <a>, <b>`
+- `JMP_GTE label, <a>, <b>`
 
-### `INT_LIST_PUSH $list, <int>`
-Append an integer to an integer list.
+## Memory/slot operations
+- `LOAD $dst, &addr`
+- `STORE &addr, <value>`
+- `MOVE $dst, <value>`
+- `SWAP $a, $b`
+- `DUP $dst, <value>`
+- `CLEAR $slot`
 
-### `INT_LIST_GET $dst, $list, #index`
-Read an integer list item into `$dst`.
-
-### `INT_LIST_SET $list, #index, <int>`
-Write an integer list item at `index`.
-
-### `INT_LIST_LEN $dst, $list`
-Get integer list length.
-
-### `FLOAT_LIST_NEW $dst, #size`
-Create a fixed-size float list initialized with `0.0`.
-
-### `FLOAT_LIST_PUSH $list, <number>`
-Append a numeric value (int/float) to a float list.
-
-### `FLOAT_LIST_GET $dst, $list, #index`
-Read a float list item into `$dst` as float.
-
-### `FLOAT_LIST_SET $list, #index, <number>`
-Write a numeric value at a float list index.
-
-### `FLOAT_LIST_LEN $dst, $list`
-Get float list length.
-
-## Physics vectors
-
-### `VEC_NEW $dst, #size`
-Create a numeric vector initialized with zeros.
-
-### `VEC_PUSH $vec, <number>`
-Append a numeric component to vector.
-
-### `VEC_GET $dst, $vec, #index`
-Read a component from vector.
-
-### `VEC_SET $vec, #index, <number>`
-Write a component in vector.
-
-### `VEC_LEN $dst, $vec`
-Get component count.
-
-### `VEC_ADD $dst, $a, $b`
-Element-wise vector addition.
-
-### `VEC_SUB $dst, $a, $b`
-Element-wise vector subtraction.
-
-### `VEC_SCALE $dst, $a, <number>`
-Scale vector by scalar.
-
-### `VEC_DOT $dst, $a, $b`
-Dot product.
-
-### `VEC_CROSS $dst, $a, $b`
-3D cross product.
-
-### `VEC_MAG $dst, $vec`
-Vector magnitude.
-
-### `VEC_NORM $dst, $vec`
-Normalized vector.
-
-## Matrices
-
-### `MAT_NEW $dst, #rows, #cols`
-Create a zero matrix with row/column shape.
-
-### `MAT_GET $dst, $mat, #index`
-Read matrix value using flattened row-major index.
-
-### `MAT_SET $mat, #index, <number>`
-Set matrix value using flattened row-major index.
-
-### `MAT_ROWS $dst, $mat`
-Get matrix row count.
-
-### `MAT_COLS $dst, $mat`
-Get matrix column count.
-
-### `MAT_MUL $dst, $a, $b`
-Matrix multiplication.
-
-### `MAT_TRANSPOSE $dst, $mat`
-Transpose matrix.
-
-### `MAT_DET $dst, $mat`
-Matrix determinant (square matrices only).
-
-### `MAT_INV $dst, $mat`
-Matrix inverse (square matrices only, returns `null` for singular matrices).
+## Extra math operations
+- `SIGN $dst, <number>`
+- `CBRT $dst, <number>`
+- `FACTORIAL $dst, <int>`
+- `GCD $dst, <int>, <int>`
+- `LCM $dst, <int>, <int>`
+- `REM $dst, <number>, <number>`
+- `FMOD $dst, <number>, <number>`
+- `DEG2RAD $dst, <number>`
+- `RAD2DEG $dst, <number>`
+- `LERP $dst, <a>, <b>` (`$dst` is read as `t` in `[0,1]`, then overwritten)
+- `MAP_RANGE $dst, <in_min>, <in_max>` (`$dst` is read as the input value, then overwritten with normalized output)

@@ -53,6 +53,36 @@ void register_operations() {
         1
     };
 
+    Operation OP_PUSH{
+        OperationKind::PUSH,
+        "PUSH",
+        1
+    };
+
+    Operation OP_POP{
+        OperationKind::POP,
+        "POP",
+        1
+    };
+
+    Operation OP_CALL{
+        OperationKind::CALL,
+        "CALL",
+        1
+    };
+
+    Operation OP_RET{
+        OperationKind::RET,
+        "RET",
+        0
+    };
+
+    Operation OP_RETVAL{
+        OperationKind::RETVAL,
+        "RETVAL",
+        1
+    };
+
     operation_by_name["ADD"] = OP_ADD;
     operation_by_name["SUB"] = OP_SUB;
     operation_by_name["MUL"] = OP_MUL;
@@ -63,6 +93,11 @@ void register_operations() {
     operation_by_name["JMP"] = OP_JMP;
 
     operation_by_name["PRINT"] = OP_PRINT;
+    operation_by_name["PUSH"] = OP_PUSH;
+    operation_by_name["POP"] = OP_POP;
+    operation_by_name["CALL"] = OP_CALL;
+    operation_by_name["RET"] = OP_RET;
+    operation_by_name["RETVAL"] = OP_RETVAL;
 }
 
 } // namespace aic

@@ -24,7 +24,12 @@ enum class OperationKind : int16_t {
     MOD,
     HALT,
     JMP,
-    PRINT
+    PRINT,
+    PUSH,
+    POP,
+    CALL,
+    RET,
+    RETVAL
 };
 
 enum class ErrorPhase : uint8_t {
@@ -47,7 +52,9 @@ enum class OperandKind : uint8_t {
     Immediate,
     Constant,
     Label,
-    Address
+    Address,
+    Function,
+    Argument
 };
 
 extern std::unordered_map<std::string, OperandKind> operand_kind_map;
@@ -138,6 +145,7 @@ struct Function {
     std::vector<Instruction> ins;
     std::string name;
     std::unordered_map<std::string, size_t> labels;
+    size_t arg_count = 0;
 };
 
 class FunctionList {

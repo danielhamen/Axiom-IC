@@ -11,6 +11,8 @@ std::unordered_map<std::string, OperandKind> operand_kind_map = {
     {"Constant", OperandKind::Constant},
     {"Label", OperandKind::Label},
     {"Address", OperandKind::Address},
+    {"Function", OperandKind::Function},
+    {"Argument", OperandKind::Argument},
 };
 
 std::string operation_kind_to_string(OperationKind kind) {
@@ -31,6 +33,16 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "JMP";
         case OperationKind::PRINT:
             return "PRINT";
+        case OperationKind::PUSH:
+            return "PUSH";
+        case OperationKind::POP:
+            return "POP";
+        case OperationKind::CALL:
+            return "CALL";
+        case OperationKind::RET:
+            return "RET";
+        case OperationKind::RETVAL:
+            return "RETVAL";
     }
 
     throw std::runtime_error("Unmatched OperationKind");
@@ -162,7 +174,7 @@ std::string Operand::to_str() const {
         return std::format("Operand(kind={}, immediate={})", kindstr(), immediate.to_str());
     }
 
-    if (kind == OperandKind::Label) {
+    if (kind == OperandKind::Label || kind == OperandKind::Function) {
         return std::format("Operand(kind={}, value={})", kindstr(), strval);
     }
 

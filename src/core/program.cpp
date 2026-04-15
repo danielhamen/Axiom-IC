@@ -155,6 +155,82 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::PUSH: {
+        Value v = read_operand(x);
+        stack.push_back(v);
+        pc++;
+        return;
+    }
+    case OperationKind::POP: {
+        if (stack.empty()) {
+            throw_exec_error(*this, "POP attempted on an empty stack", &ins);
+        }
+
+        Value v = stack.back();
+        stack.pop_back();
+        write_operand(x, v);
+        pc++;
+        return;
+    }
+    case OperationKind::CALL: {
+        if (x.kind != OperandKind::Function) {
+            throw_exec_error(*this, "CALL expects a function operand", &ins);
+        }
+
+        if (!functions.exists(x.strval)) {
+            throw_exec_error(*this, "CALL target function does not exist: " + x.strval, &ins);
+        }
+
+        size_t callee_fc = functions.index_of(x.strval);
+        Function* callee = functions.at(callee_fc);
+        if (callee->arg_count > stack.size()) {
+            throw_exec_error(*this,
+                             "Not enough arguments on stack for CALL " + x.strval +
+                                 " (expected " + std::to_string(callee->arg_count) +
+                                 ", got " + std::to_string(stack.size()) + ")",
+                             &ins);
+        }
+
+        const size_t args_begin = stack.size() - callee->arg_count;
+        std::vector<Value> args(stack.begin() + args_begin, stack.end());
+        stack.resize(args_begin);
+
+        CallFrame frame;
+        frame.return_pc = pc + 1;
+        frame.return_fc = fc;
+        frame.args = std::move(args);
+        call_stack.push_back(std::move(frame));
+
+        fc = callee_fc;
+        pc = 0;
+        return;
+    }
+    case OperationKind::RETVAL: {
+        if (call_stack.empty()) {
+            throw_exec_error(*this, "RETVAL used outside of a called function", &ins);
+        }
+
+        call_stack.back().return_value = read_operand(x);
+        call_stack.back().has_return_value = true;
+        pc++;
+        return;
+    }
+    case OperationKind::RET: {
+        if (call_stack.empty()) {
+            halted = true;
+            return;
+        }
+
+        CallFrame frame = call_stack.back();
+        call_stack.pop_back();
+        if (frame.has_return_value) {
+            stack.push_back(frame.return_value);
+        }
+
+        fc = frame.return_fc;
+        pc = frame.return_pc;
+        return;
+    }
     default:
         throw_exec_error(*this, "Unhandled operation in resolve()", &ins);
     }
@@ -169,6 +245,8 @@ void Program::exec() {
     pc = 0;
     halted = false;
     fc = functions.index_of("main");
+    call_stack.clear();
+    stack.clear();
 
     Function* main_function = functions.at(fc);
     if (main_function->ins.empty()) {
@@ -219,6 +297,17 @@ Value Program::read_operand(const Operand& op) {
             }
 
             v = constants.at(op.value);
+            break;
+        case OperandKind::Argument:
+            if (call_stack.empty()) {
+                throw_exec_error(*this, "Argument access attempted outside of function call frame");
+            }
+            if (op.value < 0 ||
+                static_cast<size_t>(op.value) >= call_stack.back().args.size()) {
+                throw_exec_error(*this,
+                                 "Function argument index out of range: arg" + std::to_string(op.value));
+            }
+            v = call_stack.back().args.at(static_cast<size_t>(op.value));
             break;
         default:
             throw_exec_error(*this,

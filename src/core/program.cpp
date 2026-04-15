@@ -42,6 +42,20 @@ std::runtime_error runtime_error_with_context(const Function* function, size_t p
     return std::runtime_error(
         std::format("Runtime error in function '{}' at pc={}: {}", function_name, pc, message));
 }
+
+size_t read_non_negative_integer_operand(Program& program,
+                                         const Operand& op,
+                                         const Instruction& ins,
+                                         const std::string& operand_name) {
+    Value v = program.read_operand_strict(op, ValueKind::Integer);
+    if (v.i < 0) {
+        throw_exec_error(program,
+                         operand_name + " must be non-negative, got " + std::to_string(v.i),
+                         &ins);
+    }
+
+    return static_cast<size_t>(v.i);
+}
 } // namespace
 
 void Program::resolve(const Instruction& ins) {
@@ -229,6 +243,66 @@ void Program::resolve(const Instruction& ins) {
 
         fc = frame.return_fc;
         pc = frame.return_pc;
+        return;
+    }
+    case OperationKind::VNEW: {
+        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "VNEW size");
+
+        Value out{};
+        out.kind = ValueKind::Vector;
+        out.vec.resize(initial_size);
+        for (auto& item : out.vec) {
+            item.kind = ValueKind::Null;
+        }
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::VPUSH: {
+        Value vec_value = read_operand_strict(x, ValueKind::Vector);
+        Value element = read_operand(y);
+        vec_value.vec.push_back(element);
+        write_operand(x, vec_value);
+        pc++;
+        return;
+    }
+    case OperationKind::VGET: {
+        Value vec_value = read_operand_strict(y, ValueKind::Vector);
+        size_t index = read_non_negative_integer_operand(*this, z, ins, "VGET index");
+        if (index >= vec_value.vec.size()) {
+            throw_exec_error(*this,
+                             "VGET index out of bounds: " + std::to_string(index) +
+                                 " for vector size " + std::to_string(vec_value.vec.size()),
+                             &ins);
+        }
+
+        write_operand(x, vec_value.vec[index]);
+        pc++;
+        return;
+    }
+    case OperationKind::VSET: {
+        Value vec_value = read_operand_strict(x, ValueKind::Vector);
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "VSET index");
+        if (index >= vec_value.vec.size()) {
+            throw_exec_error(*this,
+                             "VSET index out of bounds: " + std::to_string(index) +
+                                 " for vector size " + std::to_string(vec_value.vec.size()),
+                             &ins);
+        }
+
+        vec_value.vec[index] = read_operand(z);
+        write_operand(x, vec_value);
+        pc++;
+        return;
+    }
+    case OperationKind::VLEN: {
+        Value vec_value = read_operand_strict(y, ValueKind::Vector);
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(vec_value.vec.size());
+        write_operand(x, out);
+        pc++;
         return;
     }
     default:

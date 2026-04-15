@@ -8,7 +8,7 @@ namespace aic {
 
 namespace {
 
-constexpr std::array<OperationDefinition, 13> kOperationTable{{
+constexpr std::array<OperationDefinition, 18> kOperationTable{{
     {OperationKind::ADD, "ADD", 3, "arithmetic"},
     {OperationKind::SUB, "SUB", 3, "arithmetic"},
     {OperationKind::MUL, "MUL", 3, "arithmetic"},
@@ -22,6 +22,11 @@ constexpr std::array<OperationDefinition, 13> kOperationTable{{
     {OperationKind::CALL, "CALL", 1, "function"},
     {OperationKind::RET, "RET", 0, "function"},
     {OperationKind::RETVAL, "RETVAL", 1, "function"},
+    {OperationKind::VNEW, "VNEW", 2, "vector"},
+    {OperationKind::VPUSH, "VPUSH", 2, "vector"},
+    {OperationKind::VGET, "VGET", 3, "vector"},
+    {OperationKind::VSET, "VSET", 3, "vector"},
+    {OperationKind::VLEN, "VLEN", 2, "vector"},
 }};
 
 } // namespace

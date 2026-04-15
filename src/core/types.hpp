@@ -127,17 +127,17 @@ enum class OperationKind : int16_t {
      * STRINGS
      * =======
      */
-    STR_LEN, // TODO
-    STR_CONCAT, // TODO
+    STR_LEN,
+    STR_CONCAT,
 
     /**
      * ======
      * RANDOM
      * ======
      */
-    RAND_RANDOM, // TODO
-    RAND_INT, // TODO
-    RAND_RANGE, // TODO
+    RAND_RANDOM,
+    RAND_INT,
+    RAND_RANGE,
 };
 
 enum class ErrorPhase : uint8_t {

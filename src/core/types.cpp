@@ -43,6 +43,78 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "RET";
         case OperationKind::RETVAL:
             return "RETVAL";
+        case OperationKind::LIST_NEW:
+            return "LIST_NEW";
+        case OperationKind::LIST_PUSH:
+            return "LIST_PUSH";
+        case OperationKind::LIST_GET:
+            return "LIST_GET";
+        case OperationKind::LIST_SET:
+            return "LIST_SET";
+        case OperationKind::LIST_LEN:
+            return "LIST_LEN";
+        case OperationKind::INT_LIST_NEW:
+            return "INT_LIST_NEW";
+        case OperationKind::INT_LIST_PUSH:
+            return "INT_LIST_PUSH";
+        case OperationKind::INT_LIST_GET:
+            return "INT_LIST_GET";
+        case OperationKind::INT_LIST_SET:
+            return "INT_LIST_SET";
+        case OperationKind::INT_LIST_LEN:
+            return "INT_LIST_LEN";
+        case OperationKind::FLOAT_LIST_NEW:
+            return "FLOAT_LIST_NEW";
+        case OperationKind::FLOAT_LIST_PUSH:
+            return "FLOAT_LIST_PUSH";
+        case OperationKind::FLOAT_LIST_GET:
+            return "FLOAT_LIST_GET";
+        case OperationKind::FLOAT_LIST_SET:
+            return "FLOAT_LIST_SET";
+        case OperationKind::FLOAT_LIST_LEN:
+            return "FLOAT_LIST_LEN";
+        case OperationKind::VEC_NEW:
+            return "VEC_NEW";
+        case OperationKind::VEC_PUSH:
+            return "VEC_PUSH";
+        case OperationKind::VEC_GET:
+            return "VEC_GET";
+        case OperationKind::VEC_SET:
+            return "VEC_SET";
+        case OperationKind::VEC_LEN:
+            return "VEC_LEN";
+        case OperationKind::VEC_ADD:
+            return "VEC_ADD";
+        case OperationKind::VEC_SUB:
+            return "VEC_SUB";
+        case OperationKind::VEC_SCALE:
+            return "VEC_SCALE";
+        case OperationKind::VEC_DOT:
+            return "VEC_DOT";
+        case OperationKind::VEC_CROSS:
+            return "VEC_CROSS";
+        case OperationKind::VEC_MAG:
+            return "VEC_MAG";
+        case OperationKind::VEC_NORM:
+            return "VEC_NORM";
+        case OperationKind::MAT_NEW:
+            return "MAT_NEW";
+        case OperationKind::MAT_GET:
+            return "MAT_GET";
+        case OperationKind::MAT_SET:
+            return "MAT_SET";
+        case OperationKind::MAT_ROWS:
+            return "MAT_ROWS";
+        case OperationKind::MAT_COLS:
+            return "MAT_COLS";
+        case OperationKind::MAT_MUL:
+            return "MAT_MUL";
+        case OperationKind::MAT_TRANSPOSE:
+            return "MAT_TRANSPOSE";
+        case OperationKind::MAT_DET:
+            return "MAT_DET";
+        case OperationKind::MAT_INV:
+            return "MAT_INV";
     }
 
     throw std::runtime_error("Unmatched OperationKind");
@@ -60,6 +132,16 @@ std::string value_kind_to_string(ValueKind kind) {
             return "Boolean";
         case ValueKind::Null:
             return "Null";
+        case ValueKind::List:
+            return "List";
+        case ValueKind::IntegerList:
+            return "IntegerList";
+        case ValueKind::FloatList:
+            return "FloatList";
+        case ValueKind::Vector:
+            return "Vector";
+        case ValueKind::Matrix:
+            return "Matrix";
     }
 
     throw std::runtime_error("Unmatched ValueKind");

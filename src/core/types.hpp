@@ -17,19 +17,32 @@ enum class Directive : int8_t {
 };
 
 enum class OperationKind : int16_t {
+    /**
+     * ARITHMETIC
+     */
     ADD,
     SUB,
     MUL,
     DIV,
     MOD,
+
+    /**
+     * CONTROL FLOW
+     */
     HALT,
     JMP,
+
+    /** I/O */
     PRINT,
+
+    /** FUNCTIONS */
     PUSH,
     POP,
     CALL,
     RET,
     RETVAL,
+
+    /** LIST OPERATIONS */
     LIST_NEW,
     LIST_PUSH,
     LIST_GET,

@@ -81,6 +81,10 @@ Value read_matrix_strict(Program& program, const Operand& op) {
     return program.read_operand_strict(op, ValueKind::Matrix);
 }
 
+Value read_string_strict(Program& program, const Operand& op) {
+    return program.read_operand_strict(op, ValueKind::String);
+}
+
 void ensure_same_vector_size(Program& program,
                              const Value& a,
                              const Value& b,
@@ -836,6 +840,29 @@ void Program::resolve(const Instruction& ins) {
         }
 
         Value out = invert_square_matrix(in);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_CONCAT: {
+        Value lhs = read_string_strict(*this, y);
+        Value rhs = read_string_strict(*this, z);
+
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = lhs.s + rhs.s;
+
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STR_LEN: {
+        Value in = read_string_strict(*this, y);
+
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = in.s.length();
+
         write_operand(x, out);
         pc++;
         return;

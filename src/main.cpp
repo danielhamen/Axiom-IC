@@ -277,7 +277,7 @@ void print_symbols(const aic::Program& vm) {
         counts[fn->name]++;
 
         for (const aic::Instruction& ins : fn->ins) {
-            for (const aic::Operand& op : {ins.x, ins.y, ins.z}) {
+            for (const aic::Operand& op : ins.operands) {
                 if (op.kind == aic::OperandKind::Function || op.kind == aic::OperandKind::Label) {
                     counts[op.strval]++;
                 }

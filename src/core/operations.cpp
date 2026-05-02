@@ -125,6 +125,23 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::SET_UNION, "SET_UNION", 3, "set"},
     {OperationKind::SET_INTERSECT, "SET_INTERSECT", 3, "set"},
 
+    // STRUCTURES
+    {OperationKind::STRUCT_DEF_NEW, "STRUCT_DEF_NEW", 1, "struct"},
+    {OperationKind::STRUCT_DEF_NAME, "STRUCT_DEF_NAME", 2, "struct"},
+    {OperationKind::STRUCT_DEF_FIELD, "STRUCT_DEF_FIELD", 3, "struct"},
+    {OperationKind::STRUCT_DEF_FIELD_DEFAULT, "STRUCT_DEF_FIELD_DEFAULT", 4, "struct"},
+    {OperationKind::STRUCT_DEF_SEAL, "STRUCT_DEF_SEAL", 1, "struct"},
+    {OperationKind::STRUCT_NEW, "STRUCT_NEW", 2, "struct"},
+    {OperationKind::STRUCT_INIT, "STRUCT_INIT", kVariadicArity, "struct"},
+    {OperationKind::STRUCT_GET, "STRUCT_GET", 3, "struct"},
+    {OperationKind::STRUCT_SET, "STRUCT_SET", 3, "struct"},
+    {OperationKind::STRUCT_GET_I, "STRUCT_GET_I", 3, "struct"},
+    {OperationKind::STRUCT_SET_I, "STRUCT_SET_I", 3, "struct"},
+    {OperationKind::STRUCT_TYPEOF, "STRUCT_TYPEOF", 2, "struct"},
+    {OperationKind::STRUCT_IS, "STRUCT_IS", 3, "struct"},
+    {OperationKind::STRUCT_COPY, "STRUCT_COPY", 2, "struct"},
+    {OperationKind::STRUCT_EQ, "STRUCT_EQ", 3, "struct"},
+
     // VECTOR
     {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
     {OperationKind::VEC_PUSH, "VEC_PUSH", 2, "vector"},

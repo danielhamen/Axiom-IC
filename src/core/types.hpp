@@ -165,6 +165,27 @@ enum class OperationKind : int16_t {
     SET_INTERSECT,
 
     /**
+     * =====================
+     * STRUCTURE OPERATIONS
+     * =====================
+     */
+    STRUCT_DEF_NEW,
+    STRUCT_DEF_NAME,
+    STRUCT_DEF_FIELD,
+    STRUCT_DEF_FIELD_DEFAULT,
+    STRUCT_DEF_SEAL,
+    STRUCT_NEW,
+    STRUCT_INIT,
+    STRUCT_GET,
+    STRUCT_SET,
+    STRUCT_GET_I,
+    STRUCT_SET_I,
+    STRUCT_TYPEOF,
+    STRUCT_IS,
+    STRUCT_COPY,
+    STRUCT_EQ,
+
+    /**
      * =======
      * VECTORS
      * =======
@@ -343,6 +364,8 @@ enum class ValueKind : uint8_t {
     List,
     Map,
     Set,
+    StructDef,
+    Struct,
     Vector,
     Matrix
 };
@@ -356,6 +379,13 @@ struct Value {
     std::vector<Value> list{};
     std::map<std::string, Value> map{};
     std::vector<Value> set{};
+    std::string struct_name{};
+    bool struct_sealed = false;
+    std::vector<std::string> struct_field_names{};
+    std::vector<std::string> struct_field_types{};
+    std::vector<Value> struct_field_defaults{};
+    std::vector<bool> struct_field_has_defaults{};
+    std::vector<Value> struct_values{};
     std::vector<double> vec{};
     std::vector<double> matrix{};
     size_t rows = 0;
@@ -369,6 +399,8 @@ struct Value {
     bool is_list() const { return kind == ValueKind::List; }
     bool is_map() const { return kind == ValueKind::Map; }
     bool is_set() const { return kind == ValueKind::Set; }
+    bool is_struct_def() const { return kind == ValueKind::StructDef; }
+    bool is_struct() const { return kind == ValueKind::Struct; }
     bool is_vec() const { return kind == ValueKind::Vector; }
     bool is_matrix() const { return kind == ValueKind::Matrix; }
 
@@ -417,6 +449,43 @@ struct Value {
                         out += ", ";
                     }
                     out += set[idx].to_str();
+                }
+                out += "}";
+                return out;
+            }
+            case ValueKind::StructDef: {
+                std::string out = "structdef ";
+                out += struct_name.empty() ? "<anonymous>" : struct_name;
+                out += struct_sealed ? " sealed {" : " unsealed {";
+                for (size_t idx = 0; idx < struct_field_names.size(); idx++) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += struct_field_names[idx];
+                    out += ": ";
+                    out += struct_field_types[idx];
+                    if (idx < struct_field_has_defaults.size() && struct_field_has_defaults[idx]) {
+                        out += " = ";
+                        out += struct_field_defaults[idx].to_str();
+                    }
+                }
+                out += "}";
+                return out;
+            }
+            case ValueKind::Struct: {
+                std::string out = struct_name.empty() ? "struct" : struct_name;
+                out += "{";
+                for (size_t idx = 0; idx < struct_field_names.size(); idx++) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += struct_field_names[idx];
+                    out += ": ";
+                    if (idx < struct_values.size()) {
+                        out += struct_values[idx].to_str();
+                    } else {
+                        out += "null";
+                    }
                 }
                 out += "}";
                 return out;
@@ -482,6 +551,7 @@ struct Instruction {
     Operand x;
     Operand y;
     Operand z;
+    std::vector<Operand> operands;
 
     std::string to_string() const;
 };

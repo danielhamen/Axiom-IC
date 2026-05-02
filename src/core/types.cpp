@@ -222,6 +222,36 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "SET_UNION";
         case OperationKind::SET_INTERSECT:
             return "SET_INTERSECT";
+        case OperationKind::STRUCT_DEF_NEW:
+            return "STRUCT_DEF_NEW";
+        case OperationKind::STRUCT_DEF_NAME:
+            return "STRUCT_DEF_NAME";
+        case OperationKind::STRUCT_DEF_FIELD:
+            return "STRUCT_DEF_FIELD";
+        case OperationKind::STRUCT_DEF_FIELD_DEFAULT:
+            return "STRUCT_DEF_FIELD_DEFAULT";
+        case OperationKind::STRUCT_DEF_SEAL:
+            return "STRUCT_DEF_SEAL";
+        case OperationKind::STRUCT_NEW:
+            return "STRUCT_NEW";
+        case OperationKind::STRUCT_INIT:
+            return "STRUCT_INIT";
+        case OperationKind::STRUCT_GET:
+            return "STRUCT_GET";
+        case OperationKind::STRUCT_SET:
+            return "STRUCT_SET";
+        case OperationKind::STRUCT_GET_I:
+            return "STRUCT_GET_I";
+        case OperationKind::STRUCT_SET_I:
+            return "STRUCT_SET_I";
+        case OperationKind::STRUCT_TYPEOF:
+            return "STRUCT_TYPEOF";
+        case OperationKind::STRUCT_IS:
+            return "STRUCT_IS";
+        case OperationKind::STRUCT_COPY:
+            return "STRUCT_COPY";
+        case OperationKind::STRUCT_EQ:
+            return "STRUCT_EQ";
         case OperationKind::VEC_NEW:
             return "VEC_NEW";
         case OperationKind::VEC_PUSH:
@@ -421,6 +451,10 @@ std::string value_kind_to_string(ValueKind kind) {
             return "Map";
         case ValueKind::Set:
             return "Set";
+        case ValueKind::StructDef:
+            return "StructDef";
+        case ValueKind::Struct:
+            return "Struct";
         case ValueKind::Vector:
             return "Vector";
         case ValueKind::Matrix:
@@ -575,11 +609,18 @@ std::string Operand::to_str() const {
 }
 
 std::string Instruction::to_string() const {
-    return std::format("Instruction(op={}, x={}, y={}, z={})",
+    std::string operand_text = "[";
+    for (size_t i = 0; i < operands.size(); i++) {
+        if (i > 0) {
+            operand_text += ", ";
+        }
+        operand_text += operands[i].to_str();
+    }
+    operand_text += "]";
+
+    return std::format("Instruction(op={}, operands={})",
                        operation_kind_to_string(op),
-                       x.to_str(),
-                       y.to_str(),
-                       z.to_str());
+                       operand_text);
 }
 
 } // namespace aic

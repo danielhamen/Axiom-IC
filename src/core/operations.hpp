@@ -15,6 +15,8 @@ struct OperationDefinition {
     const char* category;
 };
 
+constexpr size_t kVariadicArity = static_cast<size_t>(-1);
+
 extern std::unordered_map<std::string, Operation> operation_by_name;
 
 std::span<const OperationDefinition> operation_definitions();

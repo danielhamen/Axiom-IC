@@ -152,7 +152,101 @@ bool type_name_matches_value(const std::string& type_name, const Value& value) {
     if (type_name == "Number") {
         return value.kind == ValueKind::Integer || value.kind == ValueKind::Float;
     }
+    if (value.kind == ValueKind::Struct) {
+        return type_name == "Struct" || type_name == value.struct_name;
+    }
     return type_name == value_kind_to_string(value.kind);
+}
+
+size_t find_struct_field_index(Program& program,
+                               const Value& value,
+                               const std::string& field_name,
+                               const Instruction& ins,
+                               const std::string& opname) {
+    auto it = std::find(value.struct_field_names.begin(), value.struct_field_names.end(), field_name);
+    if (it == value.struct_field_names.end()) {
+        throw_exec_error(program,
+                         opname + " missing field '" + field_name + "' on struct " + value.struct_name,
+                         &ins);
+    }
+    return static_cast<size_t>(std::distance(value.struct_field_names.begin(), it));
+}
+
+void ensure_struct_def_mutable(Program& program, const Value& def, const Instruction& ins, const std::string& opname) {
+    if (def.kind != ValueKind::StructDef) {
+        throw_exec_error(program,
+                         opname + " expects StructDef, got " + value_kind_to_string(def.kind),
+                         &ins);
+    }
+    if (def.struct_sealed) {
+        throw_exec_error(program, opname + " cannot modify a sealed struct definition", &ins);
+    }
+}
+
+void ensure_struct_value_type(Program& program,
+                              const std::string& field_name,
+                              const std::string& type_name,
+                              const Value& value,
+                              const Instruction& ins,
+                              const std::string& opname) {
+    if (!type_name_matches_value(type_name, value)) {
+        throw_exec_error(program,
+                         opname + " field '" + field_name + "' expected " + type_name +
+                             ", got " + value_kind_to_string(value.kind),
+                         &ins);
+    }
+}
+
+Value make_null_value() {
+    Value out{};
+    out.kind = ValueKind::Null;
+    return out;
+}
+
+Value make_struct_from_def(Program& program, const Value& def, const Instruction& ins, const std::string& opname) {
+    if (def.kind != ValueKind::StructDef) {
+        throw_exec_error(program,
+                         opname + " expects StructDef, got " + value_kind_to_string(def.kind),
+                         &ins);
+    }
+    if (!def.struct_sealed) {
+        throw_exec_error(program, opname + " cannot instantiate an unsealed struct definition", &ins);
+    }
+    if (def.struct_name.empty()) {
+        throw_exec_error(program, opname + " cannot instantiate an unnamed struct definition", &ins);
+    }
+
+    Value out{};
+    out.kind = ValueKind::Struct;
+    out.struct_name = def.struct_name;
+    out.struct_field_names = def.struct_field_names;
+    out.struct_field_types = def.struct_field_types;
+    out.struct_values.reserve(def.struct_field_names.size());
+    for (size_t i = 0; i < def.struct_field_names.size(); i++) {
+        if (i < def.struct_field_has_defaults.size() && def.struct_field_has_defaults[i]) {
+            out.struct_values.push_back(def.struct_field_defaults[i]);
+        } else {
+            out.struct_values.push_back(make_null_value());
+        }
+    }
+    return out;
+}
+
+std::string read_struct_type_name(Program& program, const Operand& op, const Instruction& ins, const std::string& opname) {
+    Value type_value = program.read_operand(op);
+    if (type_value.kind == ValueKind::StructDef) {
+        if (type_value.struct_name.empty()) {
+            throw_exec_error(program, opname + " received unnamed StructDef", &ins);
+        }
+        return type_value.struct_name;
+    }
+    if (type_value.kind == ValueKind::String) {
+        return type_value.s;
+    }
+    throw_exec_error(program,
+                     opname + " expects StructDef or String type operand, got " +
+                         value_kind_to_string(type_value.kind),
+                     &ins);
 }
 
 CallFrame& current_call_frame(Program& program, const Instruction& ins, const std::string& opname) {
@@ -399,6 +493,10 @@ bool value_truthy(const Value& value) {
             return !value.map.empty();
         case ValueKind::Set:
             return !value.set.empty();
+        case ValueKind::StructDef:
+            return value.struct_sealed;
+        case ValueKind::Struct:
+            return true;
         case ValueKind::Vector:
             return !value.vec.empty();
         case ValueKind::Matrix:
@@ -1257,6 +1355,201 @@ void Program::resolve(const Instruction& ins) {
             }
         }
         write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_NEW: {
+        Value out{};
+        out.kind = ValueKind::StructDef;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_NAME: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_NAME");
+        Value name = read_string_strict(*this, y);
+        if (name.s.empty()) {
+            throw_exec_error(*this, "STRUCT_DEF_NAME requires a non-empty name", &ins);
+        }
+        def.struct_name = name.s;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_FIELD:
+    case OperationKind::STRUCT_DEF_FIELD_DEFAULT: {
+        Value def = read_operand(x);
+        const std::string opname = ins.op == OperationKind::STRUCT_DEF_FIELD
+                                       ? "STRUCT_DEF_FIELD"
+                                       : "STRUCT_DEF_FIELD_DEFAULT";
+        ensure_struct_def_mutable(*this, def, ins, opname);
+
+        Value field_name = read_string_strict(*this, y);
+        Value field_type = read_string_strict(*this, z);
+        if (field_name.s.empty()) {
+            throw_exec_error(*this, opname + " requires a non-empty field name", &ins);
+        }
+        if (field_type.s.empty()) {
+            throw_exec_error(*this, opname + " requires a non-empty field type", &ins);
+        }
+        if (std::find(def.struct_field_names.begin(), def.struct_field_names.end(), field_name.s) !=
+            def.struct_field_names.end()) {
+            throw_exec_error(*this, opname + " duplicate field: " + field_name.s, &ins);
+        }
+
+        Value default_value = make_null_value();
+        bool has_default = false;
+        if (ins.op == OperationKind::STRUCT_DEF_FIELD_DEFAULT) {
+            if (ins.operands.size() != 4) {
+                throw_exec_error(*this, "STRUCT_DEF_FIELD_DEFAULT expects 4 operands", &ins);
+            }
+            default_value = read_operand(ins.operands[3]);
+            ensure_struct_value_type(*this,
+                                     field_name.s,
+                                     field_type.s,
+                                     default_value,
+                                     ins,
+                                     "STRUCT_DEF_FIELD_DEFAULT");
+            has_default = true;
+        }
+
+        def.struct_field_names.push_back(field_name.s);
+        def.struct_field_types.push_back(field_type.s);
+        def.struct_field_defaults.push_back(default_value);
+        def.struct_field_has_defaults.push_back(has_default);
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_SEAL: {
+        Value def = read_operand(x);
+        if (def.kind != ValueKind::StructDef) {
+            throw_exec_error(*this,
+                             "STRUCT_DEF_SEAL expects StructDef, got " + value_kind_to_string(def.kind),
+                             &ins);
+        }
+        if (def.struct_name.empty()) {
+            throw_exec_error(*this, "STRUCT_DEF_SEAL requires the struct definition to have a name", &ins);
+        }
+        def.struct_sealed = true;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_NEW: {
+        Value def = read_operand(y);
+        Value out = make_struct_from_def(*this, def, ins, "STRUCT_NEW");
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_INIT: {
+        if (ins.operands.size() < 2) {
+            throw_exec_error(*this, "STRUCT_INIT expects at least 2 operands", &ins);
+        }
+        Value def = read_operand(ins.operands[1]);
+        Value out = make_struct_from_def(*this, def, ins, "STRUCT_INIT");
+        const size_t value_count = ins.operands.size() - 2;
+        if (value_count > out.struct_field_names.size()) {
+            throw_exec_error(*this,
+                             "STRUCT_INIT received " + std::to_string(value_count) +
+                                 " value(s) for " + std::to_string(out.struct_field_names.size()) +
+                                 " field(s)",
+                             &ins);
+        }
+        for (size_t i = 0; i < value_count; i++) {
+            Value value = read_operand(ins.operands[i + 2]);
+            ensure_struct_value_type(*this,
+                                     out.struct_field_names[i],
+                                     out.struct_field_types[i],
+                                     value,
+                                     ins,
+                                     "STRUCT_INIT");
+            out.struct_values[i] = value;
+        }
+        write_operand(ins.operands[0], out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_GET: {
+        Value obj = read_operand_strict(y, ValueKind::Struct);
+        Value field_name = read_string_strict(*this, z);
+        const size_t index = find_struct_field_index(*this, obj, field_name.s, ins, "STRUCT_GET");
+        write_operand(x, obj.struct_values[index]);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_SET: {
+        Value obj = read_operand_strict(x, ValueKind::Struct);
+        Value field_name = read_string_strict(*this, y);
+        const size_t index = find_struct_field_index(*this, obj, field_name.s, ins, "STRUCT_SET");
+        Value value = read_operand(z);
+        ensure_struct_value_type(*this,
+                                 obj.struct_field_names[index],
+                                 obj.struct_field_types[index],
+                                 value,
+                                 ins,
+                                 "STRUCT_SET");
+        obj.struct_values[index] = value;
+        write_operand(x, obj);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_GET_I: {
+        Value obj = read_operand_strict(y, ValueKind::Struct);
+        const size_t index = read_non_negative_integer_operand(*this, z, ins, "STRUCT_GET_I index");
+        if (index >= obj.struct_values.size()) {
+            throw_exec_error(*this, "STRUCT_GET_I index out of bounds", &ins);
+        }
+        write_operand(x, obj.struct_values[index]);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_SET_I: {
+        Value obj = read_operand_strict(x, ValueKind::Struct);
+        const size_t index = read_non_negative_integer_operand(*this, y, ins, "STRUCT_SET_I index");
+        if (index >= obj.struct_values.size()) {
+            throw_exec_error(*this, "STRUCT_SET_I index out of bounds", &ins);
+        }
+        Value value = read_operand(z);
+        ensure_struct_value_type(*this,
+                                 obj.struct_field_names[index],
+                                 obj.struct_field_types[index],
+                                 value,
+                                 ins,
+                                 "STRUCT_SET_I");
+        obj.struct_values[index] = value;
+        write_operand(x, obj);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_TYPEOF: {
+        Value obj = read_operand_strict(y, ValueKind::Struct);
+        Value out{};
+        out.kind = ValueKind::String;
+        out.s = obj.struct_name;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_IS: {
+        Value obj = read_operand_strict(y, ValueKind::Struct);
+        const std::string type_name = read_struct_type_name(*this, z, ins, "STRUCT_IS");
+        write_operand(x, make_bool_value(obj.struct_name == type_name));
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_COPY: {
+        Value obj = read_operand_strict(y, ValueKind::Struct);
+        write_operand(x, obj);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_EQ: {
+        Value lhs = read_operand_strict(y, ValueKind::Struct);
+        Value rhs = read_operand_strict(z, ValueKind::Struct);
+        write_operand(x, make_bool_value(value_equals(lhs, rhs)));
         pc++;
         return;
     }

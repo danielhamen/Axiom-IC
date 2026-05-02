@@ -378,10 +378,6 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         }
 
         while (j < line.size()) {
-            if (parsed_operands.size() >= 3) {
-                throw_parse_error(line[j], "Unexpected token after final operand: " + line[j].lexeme);
-            }
-
             parsed_operands.push_back(parse_operand_at(j));
 
             if (j >= line.size()) {
@@ -412,13 +408,18 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
     if (parsed_operands.size() > 2) {
         ins.z = parsed_operands[2];
     }
+    ins.operands = parsed_operands;
 
     size_t expected_arity = ins_op.arity;
-    size_t received_arity =
-        (ins.x.is_none() ? 0 : 1) +
-        (ins.y.is_none() ? 0 : 1) +
-        (ins.z.is_none() ? 0 : 1);
-    if (expected_arity != received_arity) {
+    size_t received_arity = parsed_operands.size();
+    if (expected_arity == kVariadicArity) {
+        if (ins.op == OperationKind::STRUCT_INIT && received_arity < 2) {
+            throw_parse_error(head_token,
+                              "Instruction '" + ins_op.name +
+                                  "' takes at least 2 operand(s); received " +
+                                  std::to_string(received_arity));
+        }
+    } else if (expected_arity != received_arity) {
         throw_parse_error(head_token,
                           "Instruction '" + ins_op.name + "' takes exactly " +
                               std::to_string(expected_arity) + " operand(s); received " +
@@ -434,9 +435,9 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
             }
         }
     };
-    update_arg_count(ins.x);
-    update_arg_count(ins.y);
-    update_arg_count(ins.z);
+    for (const Operand& op : ins.operands) {
+        update_arg_count(op);
+    }
 
     curr_fn->ins.push_back(ins);
 }

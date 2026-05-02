@@ -15,6 +15,7 @@ CALL <fn>
 ## Semantics
 
 - Pops the callee argument count from the stack into the call frame.
+- If pending `ARG` or `KWARG` values exist, consumes those instead of legacy stack arguments.
 - Saves the return function and return program counter.
 - Creates a fresh local slot frame for the callee.
 - Switches execution to the callee function.
@@ -48,3 +49,5 @@ An error is raised if:
 ## Notes
 
 - `$n` slots inside the callee are local to that call and do not overwrite caller slots.
+- `ARG` and `KWARG` provide the preferred explicit call-argument ABI.
+- Legacy `PUSH` plus `CALL` positional arguments still work when no pending `ARG` or `KWARG` values exist.

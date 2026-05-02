@@ -145,6 +145,23 @@ bool set_contains_value(const std::vector<Value>& values, const Value& needle) {
     return false;
 }
 
+bool type_name_matches_value(const std::string& type_name, const Value& value) {
+    if (type_name == "Any") {
+        return true;
+    }
+    if (type_name == "Number") {
+        return value.kind == ValueKind::Integer || value.kind == ValueKind::Float;
+    }
+    return type_name == value_kind_to_string(value.kind);
+}
+
+CallFrame& current_call_frame(Program& program, const Instruction& ins, const std::string& opname) {
+    if (program.call_stack.empty()) {
+        throw_exec_error(program, opname + " used outside of a called function", &ins);
+    }
+    return program.call_stack.back();
+}
+
 void set_add_unique(std::vector<Value>& values, const Value& item) {
     if (!set_contains_value(values, item)) {
         values.push_back(item);
@@ -796,6 +813,20 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::ARG: {
+        pending_args.push_back(read_operand(x));
+        pc++;
+        return;
+    }
+    case OperationKind::KWARG: {
+        Value key = read_string_strict(*this, x);
+        if (pending_kwargs.contains(key.s)) {
+            throw_exec_error(*this, "Duplicate pending keyword argument: " + key.s, &ins);
+        }
+        pending_kwargs[key.s] = read_operand(y);
+        pc++;
+        return;
+    }
     case OperationKind::CALL: {
         if (x.kind != OperandKind::Function) {
             throw_exec_error(*this, "CALL expects a function operand", &ins);
@@ -808,26 +839,124 @@ void Program::resolve(const Instruction& ins) {
 
         size_t callee_fc = *callee_index;
         Function* callee = functions.at(callee_fc);
-        if (callee->arg_count > stack.size()) {
-            throw_exec_error(*this,
-                             "Not enough arguments on stack for CALL " + x.strval +
-                                 " (expected " + std::to_string(callee->arg_count) +
-                                 ", got " + std::to_string(stack.size()) + ")",
-                             &ins);
-        }
+        const bool use_pending_args = !pending_args.empty() || !pending_kwargs.empty();
+        std::vector<Value> args;
+        std::unordered_map<std::string, Value> kwargs;
 
-        const size_t args_begin = stack.size() - callee->arg_count;
-        std::vector<Value> args(stack.begin() + args_begin, stack.end());
-        stack.resize(args_begin);
+        if (use_pending_args) {
+            if (callee->arg_count > pending_args.size()) {
+                throw_exec_error(*this,
+                                 "Not enough pending ARG values for CALL " + x.strval +
+                                     " (expected " + std::to_string(callee->arg_count) +
+                                     ", got " + std::to_string(pending_args.size()) + ")",
+                                 &ins);
+            }
+            args = std::move(pending_args);
+            kwargs = std::move(pending_kwargs);
+            pending_args.clear();
+            pending_kwargs.clear();
+        } else {
+            if (callee->arg_count > stack.size()) {
+                throw_exec_error(*this,
+                                 "Not enough arguments on stack for CALL " + x.strval +
+                                     " (expected " + std::to_string(callee->arg_count) +
+                                     ", got " + std::to_string(stack.size()) + ")",
+                                 &ins);
+            }
+
+            const size_t args_begin = stack.size() - callee->arg_count;
+            args.assign(stack.begin() + static_cast<std::ptrdiff_t>(args_begin), stack.end());
+            stack.resize(args_begin);
+        }
 
         CallFrame frame;
         frame.return_pc = pc + 1;
         frame.return_fc = fc;
         frame.args = std::move(args);
+        frame.kwargs = std::move(kwargs);
         call_stack.push_back(std::move(frame));
 
         fc = callee_fc;
         pc = 0;
+        return;
+    }
+    case OperationKind::ARG_ARITY: {
+        CallFrame& frame = current_call_frame(*this, ins, "ARG_ARITY");
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(frame.args.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::KWARG_ARITY: {
+        CallFrame& frame = current_call_frame(*this, ins, "KWARG_ARITY");
+        Value out{};
+        out.kind = ValueKind::Integer;
+        out.i = static_cast<int64_t>(frame.kwargs.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::ARG_GET: {
+        CallFrame& frame = current_call_frame(*this, ins, "ARG_GET");
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "ARG_GET index");
+        if (index >= frame.args.size()) {
+            throw_exec_error(*this, "ARG_GET index out of range: arg" + std::to_string(index), &ins);
+        }
+        write_operand(x, frame.args[index]);
+        pc++;
+        return;
+    }
+    case OperationKind::KWARG_GET: {
+        CallFrame& frame = current_call_frame(*this, ins, "KWARG_GET");
+        Value key = read_string_strict(*this, y);
+        auto it = frame.kwargs.find(key.s);
+        if (it == frame.kwargs.end()) {
+            throw_exec_error(*this, "KWARG_GET missing key: " + key.s, &ins);
+        }
+        write_operand(x, it->second);
+        pc++;
+        return;
+    }
+    case OperationKind::KWARG_HAS: {
+        CallFrame& frame = current_call_frame(*this, ins, "KWARG_HAS");
+        Value key = read_string_strict(*this, y);
+        write_operand(x, make_bool_value(frame.kwargs.contains(key.s)));
+        pc++;
+        return;
+    }
+    case OperationKind::ARG_REQUIRE: {
+        CallFrame& frame = current_call_frame(*this, ins, "ARG_REQUIRE");
+        size_t index = read_non_negative_integer_operand(*this, x, ins, "ARG_REQUIRE index");
+        Value type_name = read_string_strict(*this, y);
+        if (index >= frame.args.size()) {
+            throw_exec_error(*this, "ARG_REQUIRE missing arg" + std::to_string(index), &ins);
+        }
+        if (!type_name_matches_value(type_name.s, frame.args[index])) {
+            throw_exec_error(*this,
+                             "ARG_REQUIRE arg" + std::to_string(index) + " expected " + type_name.s +
+                                 ", got " + value_kind_to_string(frame.args[index].kind),
+                             &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::KWARG_REQUIRE: {
+        CallFrame& frame = current_call_frame(*this, ins, "KWARG_REQUIRE");
+        Value key = read_string_strict(*this, x);
+        Value type_name = read_string_strict(*this, y);
+        auto it = frame.kwargs.find(key.s);
+        if (it == frame.kwargs.end()) {
+            throw_exec_error(*this, "KWARG_REQUIRE missing key: " + key.s, &ins);
+        }
+        if (!type_name_matches_value(type_name.s, it->second)) {
+            throw_exec_error(*this,
+                             "KWARG_REQUIRE " + key.s + " expected " + type_name.s +
+                                 ", got " + value_kind_to_string(it->second.kind),
+                             &ins);
+        }
+        pc++;
         return;
     }
     case OperationKind::RETVAL: {
@@ -2233,6 +2362,8 @@ void Program::exec(const ExecutionOptions& options) {
     fc = *main_index;
     call_stack.clear();
     stack.clear();
+    pending_args.clear();
+    pending_kwargs.clear();
     memory.clear();
 
     Function* main_function = functions.at(fc);

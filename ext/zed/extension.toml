@@ -1,0 +1,11 @@
+id = "axiom-ic"
+name = "Axiom-IC"
+version = "0.0.1"
+schema_version = 1
+authors = ["Axiom-IC Contributors"]
+description = "Language support for Axiom-IC bytecode"
+repository = "https://github.com/axiom-ic/axiom-ic"
+
+[grammars.axiom_ic]
+repository = "file:///Users/danielhamen/Desktop/projects/dev/Axiom-IC/axiom-ic/ext/zed/tree-sitter-axiom-ic"
+rev = "05a28181c0034c875fdaa00644b63fdb7fdf65ca"

@@ -83,6 +83,15 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::CALL, "CALL", 1, "function"},
     {OperationKind::RET, "RET", 0, "function"},
     {OperationKind::RETVAL, "RETVAL", 1, "function"},
+    {OperationKind::ARG, "ARG", 1, "function"},
+    {OperationKind::KWARG, "KWARG", 2, "function"},
+    {OperationKind::ARG_ARITY, "ARG_ARITY", 1, "function"},
+    {OperationKind::KWARG_ARITY, "KWARG_ARITY", 1, "function"},
+    {OperationKind::ARG_GET, "ARG_GET", 2, "function"},
+    {OperationKind::KWARG_GET, "KWARG_GET", 2, "function"},
+    {OperationKind::KWARG_HAS, "KWARG_HAS", 2, "function"},
+    {OperationKind::ARG_REQUIRE, "ARG_REQUIRE", 2, "function"},
+    {OperationKind::KWARG_REQUIRE, "KWARG_REQUIRE", 2, "function"},
 
     // LISTS
     {OperationKind::LIST_NEW, "LIST_NEW", 2, "list"},

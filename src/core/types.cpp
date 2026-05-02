@@ -152,6 +152,24 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "RET";
         case OperationKind::RETVAL:
             return "RETVAL";
+        case OperationKind::ARG:
+            return "ARG";
+        case OperationKind::KWARG:
+            return "KWARG";
+        case OperationKind::ARG_ARITY:
+            return "ARG_ARITY";
+        case OperationKind::KWARG_ARITY:
+            return "KWARG_ARITY";
+        case OperationKind::ARG_GET:
+            return "ARG_GET";
+        case OperationKind::KWARG_GET:
+            return "KWARG_GET";
+        case OperationKind::KWARG_HAS:
+            return "KWARG_HAS";
+        case OperationKind::ARG_REQUIRE:
+            return "ARG_REQUIRE";
+        case OperationKind::KWARG_REQUIRE:
+            return "KWARG_REQUIRE";
         case OperationKind::LIST_NEW:
             return "LIST_NEW";
         case OperationKind::LIST_PUSH:

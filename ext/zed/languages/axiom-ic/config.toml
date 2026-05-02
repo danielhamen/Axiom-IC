@@ -1,0 +1,10 @@
+name = "Axiom-IC"
+grammar = "axiom_ic"
+path_suffixes = ["aic"]
+line_comments = ["; "]
+tab_size = 2
+hard_tabs = false
+word_characters = ["_", "$", "#", "@", "&"]
+brackets = [
+  { start = "\"", end = "\"", close = true, newline = false },
+]

@@ -136,6 +136,15 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`CALL`](operands/CALL.md): `CALL <fn>`
 - [`RET`](operands/RET.md): `RET`
 - [`RETVAL`](operands/RETVAL.md): `RETVAL <value>`
+- [`ARG`](operands/ARG.md): `ARG <value>`
+- [`KWARG`](operands/KWARG.md): `KWARG <key>, <value>`
+- [`ARG_ARITY`](operands/ARG_ARITY.md): `ARG_ARITY <dst>`
+- [`KWARG_ARITY`](operands/KWARG_ARITY.md): `KWARG_ARITY <dst>`
+- [`ARG_GET`](operands/ARG_GET.md): `ARG_GET <dst>, <index>`
+- [`KWARG_GET`](operands/KWARG_GET.md): `KWARG_GET <dst>, <key>`
+- [`KWARG_HAS`](operands/KWARG_HAS.md): `KWARG_HAS <dst>, <key>`
+- [`ARG_REQUIRE`](operands/ARG_REQUIRE.md): `ARG_REQUIRE <index>, <type>`
+- [`KWARG_REQUIRE`](operands/KWARG_REQUIRE.md): `KWARG_REQUIRE <key>, <type>`
 
 ## List Operations
 

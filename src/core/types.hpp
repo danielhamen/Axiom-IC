@@ -109,6 +109,15 @@ enum class OperationKind : int16_t {
     CALL,
     RET,
     RETVAL,
+    ARG,
+    KWARG,
+    ARG_ARITY,
+    KWARG_ARITY,
+    ARG_GET,
+    KWARG_GET,
+    KWARG_HAS,
+    ARG_REQUIRE,
+    KWARG_REQUIRE,
 
 
     /**

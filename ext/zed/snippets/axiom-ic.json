@@ -1,0 +1,952 @@
+{
+  "ADD": {
+    "prefix": "ADD",
+    "body": "ADD \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC arithmetic operation: ADD"
+  },
+  "SUB": {
+    "prefix": "SUB",
+    "body": "SUB \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC arithmetic operation: SUB"
+  },
+  "MUL": {
+    "prefix": "MUL",
+    "body": "MUL \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC arithmetic operation: MUL"
+  },
+  "DIV": {
+    "prefix": "DIV",
+    "body": "DIV \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC arithmetic operation: DIV"
+  },
+  "MOD": {
+    "prefix": "MOD",
+    "body": "MOD \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC arithmetic operation: MOD"
+  },
+  "NEG": {
+    "prefix": "NEG",
+    "body": "NEG \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC arithmetic operation: NEG"
+  },
+  "INC": {
+    "prefix": "INC",
+    "body": "INC \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC arithmetic operation: INC"
+  },
+  "DEC": {
+    "prefix": "DEC",
+    "body": "DEC \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC arithmetic operation: DEC"
+  },
+  "ABS": {
+    "prefix": "ABS",
+    "body": "ABS \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC arithmetic operation: ABS"
+  },
+  "EQ": {
+    "prefix": "EQ",
+    "body": "EQ \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC comparison operation: EQ"
+  },
+  "NEQ": {
+    "prefix": "NEQ",
+    "body": "NEQ \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC comparison operation: NEQ"
+  },
+  "LT": {
+    "prefix": "LT",
+    "body": "LT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC comparison operation: LT"
+  },
+  "LTE": {
+    "prefix": "LTE",
+    "body": "LTE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC comparison operation: LTE"
+  },
+  "GT": {
+    "prefix": "GT",
+    "body": "GT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC comparison operation: GT"
+  },
+  "GTE": {
+    "prefix": "GTE",
+    "body": "GTE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC comparison operation: GTE"
+  },
+  "AND": {
+    "prefix": "AND",
+    "body": "AND \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC logic operation: AND"
+  },
+  "OR": {
+    "prefix": "OR",
+    "body": "OR \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC logic operation: OR"
+  },
+  "NOT": {
+    "prefix": "NOT",
+    "body": "NOT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC logic operation: NOT"
+  },
+  "XOR": {
+    "prefix": "XOR",
+    "body": "XOR \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC logic operation: XOR"
+  },
+  "POW": {
+    "prefix": "POW",
+    "body": "POW \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: POW"
+  },
+  "SQRT": {
+    "prefix": "SQRT",
+    "body": "SQRT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: SQRT"
+  },
+  "EXP": {
+    "prefix": "EXP",
+    "body": "EXP \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: EXP"
+  },
+  "LOG": {
+    "prefix": "LOG",
+    "body": "LOG \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: LOG"
+  },
+  "LOG2": {
+    "prefix": "LOG2",
+    "body": "LOG2 \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: LOG2"
+  },
+  "LOG10": {
+    "prefix": "LOG10",
+    "body": "LOG10 \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: LOG10"
+  },
+  "LN": {
+    "prefix": "LN",
+    "body": "LN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: LN"
+  },
+  "SIN": {
+    "prefix": "SIN",
+    "body": "SIN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: SIN"
+  },
+  "COS": {
+    "prefix": "COS",
+    "body": "COS \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: COS"
+  },
+  "TAN": {
+    "prefix": "TAN",
+    "body": "TAN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: TAN"
+  },
+  "CSC": {
+    "prefix": "CSC",
+    "body": "CSC \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: CSC"
+  },
+  "SEC": {
+    "prefix": "SEC",
+    "body": "SEC \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: SEC"
+  },
+  "COT": {
+    "prefix": "COT",
+    "body": "COT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: COT"
+  },
+  "ASIN": {
+    "prefix": "ASIN",
+    "body": "ASIN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ASIN"
+  },
+  "ACOS": {
+    "prefix": "ACOS",
+    "body": "ACOS \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ACOS"
+  },
+  "ATAN": {
+    "prefix": "ATAN",
+    "body": "ATAN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ATAN"
+  },
+  "ACSC": {
+    "prefix": "ACSC",
+    "body": "ACSC \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ACSC"
+  },
+  "ASEC": {
+    "prefix": "ASEC",
+    "body": "ASEC \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ASEC"
+  },
+  "ACOT": {
+    "prefix": "ACOT",
+    "body": "ACOT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ACOT"
+  },
+  "SINH": {
+    "prefix": "SINH",
+    "body": "SINH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: SINH"
+  },
+  "COSH": {
+    "prefix": "COSH",
+    "body": "COSH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: COSH"
+  },
+  "TANH": {
+    "prefix": "TANH",
+    "body": "TANH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: TANH"
+  },
+  "CSCH": {
+    "prefix": "CSCH",
+    "body": "CSCH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: CSCH"
+  },
+  "SECH": {
+    "prefix": "SECH",
+    "body": "SECH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: SECH"
+  },
+  "COTH": {
+    "prefix": "COTH",
+    "body": "COTH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: COTH"
+  },
+  "ASINH": {
+    "prefix": "ASINH",
+    "body": "ASINH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ASINH"
+  },
+  "ACOSH": {
+    "prefix": "ACOSH",
+    "body": "ACOSH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ACOSH"
+  },
+  "ATANH": {
+    "prefix": "ATANH",
+    "body": "ATANH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ATANH"
+  },
+  "ACSCH": {
+    "prefix": "ACSCH",
+    "body": "ACSCH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ACSCH"
+  },
+  "ASECH": {
+    "prefix": "ASECH",
+    "body": "ASECH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ASECH"
+  },
+  "ACOTH": {
+    "prefix": "ACOTH",
+    "body": "ACOTH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ACOTH"
+  },
+  "ATAN2": {
+    "prefix": "ATAN2",
+    "body": "ATAN2 \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: ATAN2"
+  },
+  "HYPOT": {
+    "prefix": "HYPOT",
+    "body": "HYPOT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: HYPOT"
+  },
+  "FLOOR": {
+    "prefix": "FLOOR",
+    "body": "FLOOR \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: FLOOR"
+  },
+  "CEIL": {
+    "prefix": "CEIL",
+    "body": "CEIL \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: CEIL"
+  },
+  "ROUND": {
+    "prefix": "ROUND",
+    "body": "ROUND \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: ROUND"
+  },
+  "MIN": {
+    "prefix": "MIN",
+    "body": "MIN \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: MIN"
+  },
+  "MAX": {
+    "prefix": "MAX",
+    "body": "MAX \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: MAX"
+  },
+  "CLAMP": {
+    "prefix": "CLAMP",
+    "body": "CLAMP \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: CLAMP"
+  },
+  "JMP": {
+    "prefix": "JMP",
+    "body": "JMP ${1:label}$0",
+    "description": "Axiom-IC control_flow operation: JMP"
+  },
+  "HALT": {
+    "prefix": "HALT",
+    "body": "HALT$0",
+    "description": "Axiom-IC control_flow operation: HALT"
+  },
+  "PRINT": {
+    "prefix": "PRINT",
+    "body": "PRINT ${1:#1}$0",
+    "description": "Axiom-IC io operation: PRINT"
+  },
+  "PRINTLN": {
+    "prefix": "PRINTLN",
+    "body": "PRINTLN ${1:#1}$0",
+    "description": "Axiom-IC io operation: PRINTLN"
+  },
+  "PUSH": {
+    "prefix": "PUSH",
+    "body": "PUSH ${1:#1}$0",
+    "description": "Axiom-IC stack operation: PUSH"
+  },
+  "POP": {
+    "prefix": "POP",
+    "body": "POP ${1:#1}$0",
+    "description": "Axiom-IC stack operation: POP"
+  },
+  "CALL": {
+    "prefix": "CALL",
+    "body": "CALL ${1:function_name}$0",
+    "description": "Axiom-IC function operation: CALL"
+  },
+  "RET": {
+    "prefix": "RET",
+    "body": "RET$0",
+    "description": "Axiom-IC function operation: RET"
+  },
+  "RETVAL": {
+    "prefix": "RETVAL",
+    "body": "RETVAL ${1:#1}$0",
+    "description": "Axiom-IC function operation: RETVAL"
+  },
+  "ARG": {
+    "prefix": "ARG",
+    "body": "ARG ${1:#1}$0",
+    "description": "Axiom-IC function operation: ARG"
+  },
+  "KWARG": {
+    "prefix": "KWARG",
+    "body": "KWARG ${1:#~\"key\"}, ${2:#1}$0",
+    "description": "Axiom-IC function operation: KWARG"
+  },
+  "ARG_ARITY": {
+    "prefix": "ARG_ARITY",
+    "body": "ARG_ARITY \\$${1:0}$0",
+    "description": "Axiom-IC function operation: ARG_ARITY"
+  },
+  "KWARG_ARITY": {
+    "prefix": "KWARG_ARITY",
+    "body": "KWARG_ARITY \\$${1:0}$0",
+    "description": "Axiom-IC function operation: KWARG_ARITY"
+  },
+  "ARG_GET": {
+    "prefix": "ARG_GET",
+    "body": "ARG_GET \\$${1:0}, ${2:#0}$0",
+    "description": "Axiom-IC function operation: ARG_GET"
+  },
+  "KWARG_GET": {
+    "prefix": "KWARG_GET",
+    "body": "KWARG_GET \\$${1:0}, ${2:#~\"key\"}$0",
+    "description": "Axiom-IC function operation: KWARG_GET"
+  },
+  "KWARG_HAS": {
+    "prefix": "KWARG_HAS",
+    "body": "KWARG_HAS \\$${1:0}, ${2:#~\"key\"}$0",
+    "description": "Axiom-IC function operation: KWARG_HAS"
+  },
+  "ARG_REQUIRE": {
+    "prefix": "ARG_REQUIRE",
+    "body": "ARG_REQUIRE ${1:#0}, ${2:#~\"Integer\"}$0",
+    "description": "Axiom-IC function operation: ARG_REQUIRE"
+  },
+  "KWARG_REQUIRE": {
+    "prefix": "KWARG_REQUIRE",
+    "body": "KWARG_REQUIRE ${1:#~\"key\"}, ${2:#~\"Integer\"}$0",
+    "description": "Axiom-IC function operation: KWARG_REQUIRE"
+  },
+  "LIST_NEW": {
+    "prefix": "LIST_NEW",
+    "body": "LIST_NEW \\$${1:0}, ${2:#0}$0",
+    "description": "Axiom-IC list operation: LIST_NEW"
+  },
+  "LIST_PUSH": {
+    "prefix": "LIST_PUSH",
+    "body": "LIST_PUSH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC list operation: LIST_PUSH"
+  },
+  "LIST_POP": {
+    "prefix": "LIST_POP",
+    "body": "LIST_POP \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC list operation: LIST_POP"
+  },
+  "LIST_INSERT": {
+    "prefix": "LIST_INSERT",
+    "body": "LIST_INSERT \\$${1:0}, ${2:#0}, ${3:#1}$0",
+    "description": "Axiom-IC list operation: LIST_INSERT"
+  },
+  "LIST_ERASE": {
+    "prefix": "LIST_ERASE",
+    "body": "LIST_ERASE \\$${1:0}, ${2:#0}$0",
+    "description": "Axiom-IC list operation: LIST_ERASE"
+  },
+  "LIST_SLICE": {
+    "prefix": "LIST_SLICE",
+    "body": "LIST_SLICE \\$${1:0}, \\$${2:0}, ${3:#0}$0",
+    "description": "Axiom-IC list operation: LIST_SLICE"
+  },
+  "LIST_CLEAR": {
+    "prefix": "LIST_CLEAR",
+    "body": "LIST_CLEAR \\$${1:0}$0",
+    "description": "Axiom-IC list operation: LIST_CLEAR"
+  },
+  "LIST_FIND": {
+    "prefix": "LIST_FIND",
+    "body": "LIST_FIND \\$${1:0}, \\$${2:0}, ${3:#1}$0",
+    "description": "Axiom-IC list operation: LIST_FIND"
+  },
+  "LIST_SORT": {
+    "prefix": "LIST_SORT",
+    "body": "LIST_SORT \\$${1:0}$0",
+    "description": "Axiom-IC list operation: LIST_SORT"
+  },
+  "LIST_REVERSE": {
+    "prefix": "LIST_REVERSE",
+    "body": "LIST_REVERSE \\$${1:0}$0",
+    "description": "Axiom-IC list operation: LIST_REVERSE"
+  },
+  "LIST_GET": {
+    "prefix": "LIST_GET",
+    "body": "LIST_GET \\$${1:0}, \\$${2:0}, ${3:#0}$0",
+    "description": "Axiom-IC list operation: LIST_GET"
+  },
+  "LIST_SET": {
+    "prefix": "LIST_SET",
+    "body": "LIST_SET \\$${1:0}, ${2:#0}, ${3:#1}$0",
+    "description": "Axiom-IC list operation: LIST_SET"
+  },
+  "LIST_LEN": {
+    "prefix": "LIST_LEN",
+    "body": "LIST_LEN \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC list operation: LIST_LEN"
+  },
+  "MAP_NEW": {
+    "prefix": "MAP_NEW",
+    "body": "MAP_NEW \\$${1:0}$0",
+    "description": "Axiom-IC map operation: MAP_NEW"
+  },
+  "MAP_SET": {
+    "prefix": "MAP_SET",
+    "body": "MAP_SET \\$${1:0}, ${2:#~\"key\"}, ${3:#1}$0",
+    "description": "Axiom-IC map operation: MAP_SET"
+  },
+  "MAP_GET": {
+    "prefix": "MAP_GET",
+    "body": "MAP_GET \\$${1:0}, \\$${2:0}, ${3:#~\"key\"}$0",
+    "description": "Axiom-IC map operation: MAP_GET"
+  },
+  "MAP_HAS": {
+    "prefix": "MAP_HAS",
+    "body": "MAP_HAS \\$${1:0}, \\$${2:0}, ${3:#~\"key\"}$0",
+    "description": "Axiom-IC map operation: MAP_HAS"
+  },
+  "MAP_DELETE": {
+    "prefix": "MAP_DELETE",
+    "body": "MAP_DELETE \\$${1:0}, ${2:#~\"key\"}$0",
+    "description": "Axiom-IC map operation: MAP_DELETE"
+  },
+  "MAP_KEYS": {
+    "prefix": "MAP_KEYS",
+    "body": "MAP_KEYS \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC map operation: MAP_KEYS"
+  },
+  "MAP_VALUES": {
+    "prefix": "MAP_VALUES",
+    "body": "MAP_VALUES \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC map operation: MAP_VALUES"
+  },
+  "SET_NEW": {
+    "prefix": "SET_NEW",
+    "body": "SET_NEW \\$${1:0}$0",
+    "description": "Axiom-IC set operation: SET_NEW"
+  },
+  "SET_ADD": {
+    "prefix": "SET_ADD",
+    "body": "SET_ADD \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC set operation: SET_ADD"
+  },
+  "SET_HAS": {
+    "prefix": "SET_HAS",
+    "body": "SET_HAS \\$${1:0}, \\$${2:0}, ${3:#1}$0",
+    "description": "Axiom-IC set operation: SET_HAS"
+  },
+  "SET_DELETE": {
+    "prefix": "SET_DELETE",
+    "body": "SET_DELETE \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC set operation: SET_DELETE"
+  },
+  "SET_UNION": {
+    "prefix": "SET_UNION",
+    "body": "SET_UNION \\$${1:0}, \\$${2:0}, \\$${3:0}$0",
+    "description": "Axiom-IC set operation: SET_UNION"
+  },
+  "SET_INTERSECT": {
+    "prefix": "SET_INTERSECT",
+    "body": "SET_INTERSECT \\$${1:0}, \\$${2:0}, \\$${3:0}$0",
+    "description": "Axiom-IC set operation: SET_INTERSECT"
+  },
+  "VEC_NEW": {
+    "prefix": "VEC_NEW",
+    "body": "VEC_NEW \\$${1:0}, ${2:#0}$0",
+    "description": "Axiom-IC vector operation: VEC_NEW"
+  },
+  "VEC_PUSH": {
+    "prefix": "VEC_PUSH",
+    "body": "VEC_PUSH \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_PUSH"
+  },
+  "VEC_GET": {
+    "prefix": "VEC_GET",
+    "body": "VEC_GET \\$${1:0}, \\$${2:0}, ${3:#0}$0",
+    "description": "Axiom-IC vector operation: VEC_GET"
+  },
+  "VEC_SET": {
+    "prefix": "VEC_SET",
+    "body": "VEC_SET \\$${1:0}, ${2:#0}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_SET"
+  },
+  "VEC_LEN": {
+    "prefix": "VEC_LEN",
+    "body": "VEC_LEN \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC vector operation: VEC_LEN"
+  },
+  "VEC_ADD": {
+    "prefix": "VEC_ADD",
+    "body": "VEC_ADD \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_ADD"
+  },
+  "VEC_SUB": {
+    "prefix": "VEC_SUB",
+    "body": "VEC_SUB \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_SUB"
+  },
+  "VEC_SCALE": {
+    "prefix": "VEC_SCALE",
+    "body": "VEC_SCALE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_SCALE"
+  },
+  "VEC_DOT": {
+    "prefix": "VEC_DOT",
+    "body": "VEC_DOT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_DOT"
+  },
+  "VEC_CROSS": {
+    "prefix": "VEC_CROSS",
+    "body": "VEC_CROSS \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_CROSS"
+  },
+  "VEC_MAG": {
+    "prefix": "VEC_MAG",
+    "body": "VEC_MAG \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_MAG"
+  },
+  "VEC_NORM": {
+    "prefix": "VEC_NORM",
+    "body": "VEC_NORM \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_NORM"
+  },
+  "VEC_PROJECT": {
+    "prefix": "VEC_PROJECT",
+    "body": "VEC_PROJECT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_PROJECT"
+  },
+  "VEC_REFLECT": {
+    "prefix": "VEC_REFLECT",
+    "body": "VEC_REFLECT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_REFLECT"
+  },
+  "VEC_ANGLE": {
+    "prefix": "VEC_ANGLE",
+    "body": "VEC_ANGLE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_ANGLE"
+  },
+  "VEC_DISTANCE": {
+    "prefix": "VEC_DISTANCE",
+    "body": "VEC_DISTANCE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_DISTANCE"
+  },
+  "VEC_LERP": {
+    "prefix": "VEC_LERP",
+    "body": "VEC_LERP \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC vector operation: VEC_LERP"
+  },
+  "MAT_NEW": {
+    "prefix": "MAT_NEW",
+    "body": "MAT_NEW \\$${1:0}, ${2:#0}, ${3:#0}$0",
+    "description": "Axiom-IC matrix operation: MAT_NEW"
+  },
+  "MAT_GET": {
+    "prefix": "MAT_GET",
+    "body": "MAT_GET \\$${1:0}, \\$${2:0}, ${3:#0}$0",
+    "description": "Axiom-IC matrix operation: MAT_GET"
+  },
+  "MAT_SET": {
+    "prefix": "MAT_SET",
+    "body": "MAT_SET \\$${1:0}, ${2:#0}, ${3:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_SET"
+  },
+  "MAT_ROWS": {
+    "prefix": "MAT_ROWS",
+    "body": "MAT_ROWS \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC matrix operation: MAT_ROWS"
+  },
+  "MAT_COLS": {
+    "prefix": "MAT_COLS",
+    "body": "MAT_COLS \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC matrix operation: MAT_COLS"
+  },
+  "MAT_MUL": {
+    "prefix": "MAT_MUL",
+    "body": "MAT_MUL \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_MUL"
+  },
+  "MAT_ADD": {
+    "prefix": "MAT_ADD",
+    "body": "MAT_ADD \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_ADD"
+  },
+  "MAT_SUB": {
+    "prefix": "MAT_SUB",
+    "body": "MAT_SUB \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_SUB"
+  },
+  "MAT_SCALE": {
+    "prefix": "MAT_SCALE",
+    "body": "MAT_SCALE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_SCALE"
+  },
+  "MAT_IDENTITY": {
+    "prefix": "MAT_IDENTITY",
+    "body": "MAT_IDENTITY \\$${1:0}, ${2:#0}$0",
+    "description": "Axiom-IC matrix operation: MAT_IDENTITY"
+  },
+  "MAT_TRACE": {
+    "prefix": "MAT_TRACE",
+    "body": "MAT_TRACE \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_TRACE"
+  },
+  "MAT_RREF": {
+    "prefix": "MAT_RREF",
+    "body": "MAT_RREF \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_RREF"
+  },
+  "MAT_RANK": {
+    "prefix": "MAT_RANK",
+    "body": "MAT_RANK \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_RANK"
+  },
+  "MAT_EIGEN": {
+    "prefix": "MAT_EIGEN",
+    "body": "MAT_EIGEN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_EIGEN"
+  },
+  "MAT_SOLVE": {
+    "prefix": "MAT_SOLVE",
+    "body": "MAT_SOLVE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_SOLVE"
+  },
+  "MAT_TRANSPOSE": {
+    "prefix": "MAT_TRANSPOSE",
+    "body": "MAT_TRANSPOSE \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_TRANSPOSE"
+  },
+  "MAT_DET": {
+    "prefix": "MAT_DET",
+    "body": "MAT_DET \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_DET"
+  },
+  "MAT_INV": {
+    "prefix": "MAT_INV",
+    "body": "MAT_INV \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC matrix operation: MAT_INV"
+  },
+  "STR_CONCAT": {
+    "prefix": "STR_CONCAT",
+    "body": "STR_CONCAT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_CONCAT"
+  },
+  "STR_LEN": {
+    "prefix": "STR_LEN",
+    "body": "STR_LEN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC string operation: STR_LEN"
+  },
+  "STR_SUBSTR": {
+    "prefix": "STR_SUBSTR",
+    "body": "STR_SUBSTR \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_SUBSTR"
+  },
+  "STR_FIND": {
+    "prefix": "STR_FIND",
+    "body": "STR_FIND \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_FIND"
+  },
+  "STR_REPLACE": {
+    "prefix": "STR_REPLACE",
+    "body": "STR_REPLACE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_REPLACE"
+  },
+  "STR_SPLIT": {
+    "prefix": "STR_SPLIT",
+    "body": "STR_SPLIT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_SPLIT"
+  },
+  "STR_JOIN": {
+    "prefix": "STR_JOIN",
+    "body": "STR_JOIN \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_JOIN"
+  },
+  "STR_UPPER": {
+    "prefix": "STR_UPPER",
+    "body": "STR_UPPER \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC string operation: STR_UPPER"
+  },
+  "STR_LOWER": {
+    "prefix": "STR_LOWER",
+    "body": "STR_LOWER \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC string operation: STR_LOWER"
+  },
+  "STR_TRIM": {
+    "prefix": "STR_TRIM",
+    "body": "STR_TRIM \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC string operation: STR_TRIM"
+  },
+  "STR_EQ": {
+    "prefix": "STR_EQ",
+    "body": "STR_EQ \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC string operation: STR_EQ"
+  },
+  "TYPEOF": {
+    "prefix": "TYPEOF",
+    "body": "TYPEOF \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: TYPEOF"
+  },
+  "CAST_INT": {
+    "prefix": "CAST_INT",
+    "body": "CAST_INT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: CAST_INT"
+  },
+  "CAST_FLOAT": {
+    "prefix": "CAST_FLOAT",
+    "body": "CAST_FLOAT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: CAST_FLOAT"
+  },
+  "CAST_BOOL": {
+    "prefix": "CAST_BOOL",
+    "body": "CAST_BOOL \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: CAST_BOOL"
+  },
+  "CAST_STRING": {
+    "prefix": "CAST_STRING",
+    "body": "CAST_STRING \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: CAST_STRING"
+  },
+  "IS_NULL": {
+    "prefix": "IS_NULL",
+    "body": "IS_NULL \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: IS_NULL"
+  },
+  "IS_NAN": {
+    "prefix": "IS_NAN",
+    "body": "IS_NAN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: IS_NAN"
+  },
+  "IS_INF": {
+    "prefix": "IS_INF",
+    "body": "IS_INF \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: IS_INF"
+  },
+  "READ_FILE": {
+    "prefix": "READ_FILE",
+    "body": "READ_FILE \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC io operation: READ_FILE"
+  },
+  "WRITE_FILE": {
+    "prefix": "WRITE_FILE",
+    "body": "WRITE_FILE \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC io operation: WRITE_FILE"
+  },
+  "APPEND_FILE": {
+    "prefix": "APPEND_FILE",
+    "body": "APPEND_FILE \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC io operation: APPEND_FILE"
+  },
+  "FILE_EXISTS": {
+    "prefix": "FILE_EXISTS",
+    "body": "FILE_EXISTS \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC io operation: FILE_EXISTS"
+  },
+  "DELETE_FILE": {
+    "prefix": "DELETE_FILE",
+    "body": "DELETE_FILE \\$${1:0}$0",
+    "description": "Axiom-IC io operation: DELETE_FILE"
+  },
+  "TIME_NOW": {
+    "prefix": "TIME_NOW",
+    "body": "TIME_NOW \\$${1:0}$0",
+    "description": "Axiom-IC time operation: TIME_NOW"
+  },
+  "SLEEP": {
+    "prefix": "SLEEP",
+    "body": "SLEEP ${1:#0.1}$0",
+    "description": "Axiom-IC time operation: SLEEP"
+  },
+  "JMP_IF": {
+    "prefix": "JMP_IF",
+    "body": "JMP_IF ${1:label}, ${2:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_IF"
+  },
+  "JMP_IF_ZERO": {
+    "prefix": "JMP_IF_ZERO",
+    "body": "JMP_IF_ZERO ${1:label}, ${2:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_IF_ZERO"
+  },
+  "JMP_IF_NOT": {
+    "prefix": "JMP_IF_NOT",
+    "body": "JMP_IF_NOT ${1:label}, ${2:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_IF_NOT"
+  },
+  "JMP_EQ": {
+    "prefix": "JMP_EQ",
+    "body": "JMP_EQ ${1:label}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_EQ"
+  },
+  "JMP_NEQ": {
+    "prefix": "JMP_NEQ",
+    "body": "JMP_NEQ ${1:label}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_NEQ"
+  },
+  "JMP_LT": {
+    "prefix": "JMP_LT",
+    "body": "JMP_LT ${1:label}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_LT"
+  },
+  "JMP_LTE": {
+    "prefix": "JMP_LTE",
+    "body": "JMP_LTE ${1:label}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_LTE"
+  },
+  "JMP_GT": {
+    "prefix": "JMP_GT",
+    "body": "JMP_GT ${1:label}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_GT"
+  },
+  "JMP_GTE": {
+    "prefix": "JMP_GTE",
+    "body": "JMP_GTE ${1:label}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC control_flow operation: JMP_GTE"
+  },
+  "LOAD": {
+    "prefix": "LOAD",
+    "body": "LOAD \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC memory operation: LOAD"
+  },
+  "STORE": {
+    "prefix": "STORE",
+    "body": "STORE \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC memory operation: STORE"
+  },
+  "SWAP": {
+    "prefix": "SWAP",
+    "body": "SWAP \\$${1:0}, \\$${2:0}$0",
+    "description": "Axiom-IC memory operation: SWAP"
+  },
+  "CLEAR": {
+    "prefix": "CLEAR",
+    "body": "CLEAR \\$${1:0}$0",
+    "description": "Axiom-IC memory operation: CLEAR"
+  },
+  "SIGN": {
+    "prefix": "SIGN",
+    "body": "SIGN \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: SIGN"
+  },
+  "CBRT": {
+    "prefix": "CBRT",
+    "body": "CBRT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: CBRT"
+  },
+  "FACTORIAL": {
+    "prefix": "FACTORIAL",
+    "body": "FACTORIAL \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: FACTORIAL"
+  },
+  "GCD": {
+    "prefix": "GCD",
+    "body": "GCD \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: GCD"
+  },
+  "LCM": {
+    "prefix": "LCM",
+    "body": "LCM \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: LCM"
+  },
+  "REM": {
+    "prefix": "REM",
+    "body": "REM \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: REM"
+  },
+  "FMOD": {
+    "prefix": "FMOD",
+    "body": "FMOD \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: FMOD"
+  },
+  "DEG2RAD": {
+    "prefix": "DEG2RAD",
+    "body": "DEG2RAD \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: DEG2RAD"
+  },
+  "RAD2DEG": {
+    "prefix": "RAD2DEG",
+    "body": "RAD2DEG \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC math operation: RAD2DEG"
+  },
+  "LERP": {
+    "prefix": "LERP",
+    "body": "LERP \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: LERP"
+  },
+  "MAP_RANGE": {
+    "prefix": "MAP_RANGE",
+    "body": "MAP_RANGE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC math operation: MAP_RANGE"
+  },
+  "RAND_RANDOM": {
+    "prefix": "RAND_RANDOM",
+    "body": "RAND_RANDOM ${1:#1}$0",
+    "description": "Axiom-IC random operation: RAND_RANDOM"
+  },
+  "RAND_INT": {
+    "prefix": "RAND_INT",
+    "body": "RAND_INT \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC random operation: RAND_INT"
+  },
+  "RAND_RANGE": {
+    "prefix": "RAND_RANGE",
+    "body": "RAND_RANGE \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC random operation: RAND_RANGE"
+  }
+}

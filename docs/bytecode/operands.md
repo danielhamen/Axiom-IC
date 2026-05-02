@@ -33,18 +33,6 @@ Immediate values allow for anonymous value passing without the constant pool or 
 - `LIST_SET $list, #index, <value>`
 - `LIST_LEN $dst, $list`
 
-## Numeric list operations
-- `INT_LIST_NEW $dst, #size`
-- `INT_LIST_PUSH $list, <int>`
-- `INT_LIST_GET $dst, $list, #index`
-- `INT_LIST_SET $list, #index, <int>`
-- `INT_LIST_LEN $dst, $list`
-- `FLOAT_LIST_NEW $dst, #size`
-- `FLOAT_LIST_PUSH $list, <number>`
-- `FLOAT_LIST_GET $dst, $list, #index`
-- `FLOAT_LIST_SET $list, #index, <number>`
-- `FLOAT_LIST_LEN $dst, $list`
-
 ## Vector operations
 - `VEC_NEW $dst, #size`
 - `VEC_PUSH $vec, <number>`

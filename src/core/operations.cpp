@@ -99,20 +99,6 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::LIST_SET, "LIST_SET", 3, "list"},
     {OperationKind::LIST_LEN, "LIST_LEN", 2, "list"},
 
-    // INTEGER LIST
-    {OperationKind::INT_LIST_NEW, "INT_LIST_NEW", 2, "list"},
-    {OperationKind::INT_LIST_PUSH, "INT_LIST_PUSH", 2, "list"},
-    {OperationKind::INT_LIST_GET, "INT_LIST_GET", 3, "list"},
-    {OperationKind::INT_LIST_SET, "INT_LIST_SET", 3, "list"},
-    {OperationKind::INT_LIST_LEN, "INT_LIST_LEN", 2, "list"},
-
-    // FLOAT LIST
-    {OperationKind::FLOAT_LIST_NEW, "FLOAT_LIST_NEW", 2, "list"},
-    {OperationKind::FLOAT_LIST_PUSH, "FLOAT_LIST_PUSH", 2, "list"},
-    {OperationKind::FLOAT_LIST_GET, "FLOAT_LIST_GET", 3, "list"},
-    {OperationKind::FLOAT_LIST_SET, "FLOAT_LIST_SET", 3, "list"},
-    {OperationKind::FLOAT_LIST_LEN, "FLOAT_LIST_LEN", 2, "list"},
-
     // VECTOR
     {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
     {OperationKind::VEC_PUSH, "VEC_PUSH", 2, "vector"},

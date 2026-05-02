@@ -362,10 +362,6 @@ bool value_truthy(const Value& value) {
             return false;
         case ValueKind::List:
             return !value.list.empty();
-        case ValueKind::IntegerList:
-            return !value.int_list.empty();
-        case ValueKind::FloatList:
-            return !value.float_list.empty();
         case ValueKind::Vector:
             return !value.vec.empty();
         case ValueKind::Matrix:
@@ -983,122 +979,6 @@ void Program::resolve(const Instruction& ins) {
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = static_cast<int64_t>(list_value.list.size());
-        write_operand(x, out);
-        pc++;
-        return;
-    }
-    case OperationKind::INT_LIST_NEW: {
-        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "INT_LIST_NEW size");
-        Value out{};
-        out.kind = ValueKind::IntegerList;
-        out.int_list.assign(initial_size, 0);
-        write_operand(x, out);
-        pc++;
-        return;
-    }
-    case OperationKind::INT_LIST_PUSH: {
-        Value list_value = read_operand_strict(x, ValueKind::IntegerList);
-        Value element = read_operand_strict(y, ValueKind::Integer);
-        list_value.int_list.push_back(element.i);
-        write_operand(x, list_value);
-        pc++;
-        return;
-    }
-    case OperationKind::INT_LIST_GET: {
-        Value list_value = read_operand_strict(y, ValueKind::IntegerList);
-        size_t index = read_non_negative_integer_operand(*this, z, ins, "INT_LIST_GET index");
-        if (index >= list_value.int_list.size()) {
-            throw_exec_error(*this,
-                             "INT_LIST_GET index out of bounds: " + std::to_string(index) +
-                                 " for list size " + std::to_string(list_value.int_list.size()),
-                             &ins);
-        }
-
-        Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = list_value.int_list[index];
-        write_operand(x, out);
-        pc++;
-        return;
-    }
-    case OperationKind::INT_LIST_SET: {
-        Value list_value = read_operand_strict(x, ValueKind::IntegerList);
-        size_t index = read_non_negative_integer_operand(*this, y, ins, "INT_LIST_SET index");
-        if (index >= list_value.int_list.size()) {
-            throw_exec_error(*this,
-                             "INT_LIST_SET index out of bounds: " + std::to_string(index) +
-                                 " for list size " + std::to_string(list_value.int_list.size()),
-                             &ins);
-        }
-
-        Value element = read_operand_strict(z, ValueKind::Integer);
-        list_value.int_list[index] = element.i;
-        write_operand(x, list_value);
-        pc++;
-        return;
-    }
-    case OperationKind::INT_LIST_LEN: {
-        Value list_value = read_operand_strict(y, ValueKind::IntegerList);
-        Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = static_cast<int64_t>(list_value.int_list.size());
-        write_operand(x, out);
-        pc++;
-        return;
-    }
-    case OperationKind::FLOAT_LIST_NEW: {
-        size_t initial_size = read_non_negative_integer_operand(*this, y, ins, "FLOAT_LIST_NEW size");
-        Value out{};
-        out.kind = ValueKind::FloatList;
-        out.float_list.assign(initial_size, 0.0);
-        write_operand(x, out);
-        pc++;
-        return;
-    }
-    case OperationKind::FLOAT_LIST_PUSH: {
-        Value list_value = read_operand_strict(x, ValueKind::FloatList);
-        list_value.float_list.push_back(numeric_value_as_double(*this, y, ins, "FLOAT_LIST_PUSH element"));
-        write_operand(x, list_value);
-        pc++;
-        return;
-    }
-    case OperationKind::FLOAT_LIST_GET: {
-        Value list_value = read_operand_strict(y, ValueKind::FloatList);
-        size_t index = read_non_negative_integer_operand(*this, z, ins, "FLOAT_LIST_GET index");
-        if (index >= list_value.float_list.size()) {
-            throw_exec_error(*this,
-                             "FLOAT_LIST_GET index out of bounds: " + std::to_string(index) +
-                                 " for list size " + std::to_string(list_value.float_list.size()),
-                             &ins);
-        }
-
-        Value out{};
-        out.kind = ValueKind::Float;
-        out.f = list_value.float_list[index];
-        write_operand(x, out);
-        pc++;
-        return;
-    }
-    case OperationKind::FLOAT_LIST_SET: {
-        Value list_value = read_operand_strict(x, ValueKind::FloatList);
-        size_t index = read_non_negative_integer_operand(*this, y, ins, "FLOAT_LIST_SET index");
-        if (index >= list_value.float_list.size()) {
-            throw_exec_error(*this,
-                             "FLOAT_LIST_SET index out of bounds: " + std::to_string(index) +
-                                 " for list size " + std::to_string(list_value.float_list.size()),
-                             &ins);
-        }
-
-        list_value.float_list[index] = numeric_value_as_double(*this, z, ins, "FLOAT_LIST_SET value");
-        write_operand(x, list_value);
-        pc++;
-        return;
-    }
-    case OperationKind::FLOAT_LIST_LEN: {
-        Value list_value = read_operand_strict(y, ValueKind::FloatList);
-        Value out{};
-        out.kind = ValueKind::Integer;
-        out.i = static_cast<int64_t>(list_value.float_list.size());
         write_operand(x, out);
         pc++;
         return;

@@ -130,28 +130,6 @@ enum class OperationKind : int16_t {
     LIST_LEN,
 
     /**
-     * ============
-     * INTEGER LIST
-     * ============
-     */
-    INT_LIST_NEW,
-    INT_LIST_PUSH,
-    INT_LIST_GET,
-    INT_LIST_SET,
-    INT_LIST_LEN,
-
-    /**
-     * ==========
-     * FLOAT LIST
-     * ==========
-     */
-    FLOAT_LIST_NEW,
-    FLOAT_LIST_PUSH,
-    FLOAT_LIST_GET,
-    FLOAT_LIST_SET,
-    FLOAT_LIST_LEN,
-
-    /**
      * =======
      * VECTORS
      * =======
@@ -328,8 +306,6 @@ enum class ValueKind : uint8_t {
     Boolean,
     Null,
     List,
-    IntegerList,
-    FloatList,
     Vector,
     Matrix
 };
@@ -341,8 +317,6 @@ struct Value {
     double f = 0.0;
     bool b = false;
     std::vector<Value> list{};
-    std::vector<int64_t> int_list{};
-    std::vector<double> float_list{};
     std::vector<double> vec{};
     std::vector<double> matrix{};
     size_t rows = 0;
@@ -354,8 +328,6 @@ struct Value {
     bool is_bool() const { return kind == ValueKind::Boolean; }
     bool is_null() const { return kind == ValueKind::Null; }
     bool is_list() const { return kind == ValueKind::List; }
-    bool is_int_list() const { return kind == ValueKind::IntegerList; }
-    bool is_float_list() const { return kind == ValueKind::FloatList; }
     bool is_vec() const { return kind == ValueKind::Vector; }
     bool is_matrix() const { return kind == ValueKind::Matrix; }
 
@@ -378,24 +350,6 @@ struct Value {
                         out += ", ";
                     }
                     out += list[idx].to_str();
-                }
-                out += "]";
-                return out;
-            }
-            case ValueKind::IntegerList: {
-                std::string out = "[";
-                for (size_t idx = 0; idx < int_list.size(); idx++) {
-                    if (idx > 0) out += ", ";
-                    out += std::to_string(int_list[idx]);
-                }
-                out += "]";
-                return out;
-            }
-            case ValueKind::FloatList: {
-                std::string out = "[";
-                for (size_t idx = 0; idx < float_list.size(); idx++) {
-                    if (idx > 0) out += ", ";
-                    out += std::to_string(float_list[idx]);
                 }
                 out += "]";
                 return out;

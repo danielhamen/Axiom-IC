@@ -178,26 +178,6 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "LIST_SET";
         case OperationKind::LIST_LEN:
             return "LIST_LEN";
-        case OperationKind::INT_LIST_NEW:
-            return "INT_LIST_NEW";
-        case OperationKind::INT_LIST_PUSH:
-            return "INT_LIST_PUSH";
-        case OperationKind::INT_LIST_GET:
-            return "INT_LIST_GET";
-        case OperationKind::INT_LIST_SET:
-            return "INT_LIST_SET";
-        case OperationKind::INT_LIST_LEN:
-            return "INT_LIST_LEN";
-        case OperationKind::FLOAT_LIST_NEW:
-            return "FLOAT_LIST_NEW";
-        case OperationKind::FLOAT_LIST_PUSH:
-            return "FLOAT_LIST_PUSH";
-        case OperationKind::FLOAT_LIST_GET:
-            return "FLOAT_LIST_GET";
-        case OperationKind::FLOAT_LIST_SET:
-            return "FLOAT_LIST_SET";
-        case OperationKind::FLOAT_LIST_LEN:
-            return "FLOAT_LIST_LEN";
         case OperationKind::VEC_NEW:
             return "VEC_NEW";
         case OperationKind::VEC_PUSH:
@@ -393,10 +373,6 @@ std::string value_kind_to_string(ValueKind kind) {
             return "Null";
         case ValueKind::List:
             return "List";
-        case ValueKind::IntegerList:
-            return "IntegerList";
-        case ValueKind::FloatList:
-            return "FloatList";
         case ValueKind::Vector:
             return "Vector";
         case ValueKind::Matrix:

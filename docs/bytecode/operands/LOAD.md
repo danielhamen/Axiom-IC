@@ -45,3 +45,4 @@ An error is raised if:
 ## Notes
 
 - The operation kind is named `COPY` internally, but the public bytecode mnemonic is `LOAD`.
+- `$n` operands read and write slots in the active function call frame.

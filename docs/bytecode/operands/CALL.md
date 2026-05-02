@@ -16,6 +16,7 @@ CALL <fn>
 
 - Pops the callee argument count from the stack into the call frame.
 - Saves the return function and return program counter.
+- Creates a fresh local slot frame for the callee.
 - Switches execution to the callee function.
 - Advances to the next instruction unless this instruction explicitly changes control flow.
 
@@ -46,4 +47,4 @@ An error is raised if:
 
 ## Notes
 
-- Operand reads and writes follow the VM operand rules for slots, constants, immediates, and arguments.
+- `$n` slots inside the callee are local to that call and do not overwrite caller slots.

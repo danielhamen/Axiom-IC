@@ -6,6 +6,8 @@ Operand prefixes:
 - `@n` constant-table index.
 - `label` label operand.
 
+Slot operands are local to the active function call frame. The `.main` entry point has its own root slot frame, and each `CALL` creates a separate slot frame for the callee.
+
 Directives:
 - `.fn <label>` defines a function named `<label>`.
 - `.main` marks the main entry point.
@@ -150,6 +152,16 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`LIST_GET`](operands/LIST_GET.md): `LIST_GET <dst>, <list>, <index>`
 - [`LIST_SET`](operands/LIST_SET.md): `LIST_SET <list>, <index>, <value>`
 - [`LIST_LEN`](operands/LIST_LEN.md): `LIST_LEN <dst>, <list>`
+
+## Map Operations
+
+- [`MAP_NEW`](operands/MAP_NEW.md): `MAP_NEW <dst>`
+- [`MAP_SET`](operands/MAP_SET.md): `MAP_SET <map>, <key>, <value>`
+- [`MAP_GET`](operands/MAP_GET.md): `MAP_GET <dst>, <map>, <key>`
+- [`MAP_HAS`](operands/MAP_HAS.md): `MAP_HAS <dst>, <map>, <key>`
+- [`MAP_DELETE`](operands/MAP_DELETE.md): `MAP_DELETE <map>, <key>`
+- [`MAP_KEYS`](operands/MAP_KEYS.md): `MAP_KEYS <dst>, <map>`
+- [`MAP_VALUES`](operands/MAP_VALUES.md): `MAP_VALUES <dst>, <map>`
 
 ## Vector Operations
 

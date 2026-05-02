@@ -99,6 +99,15 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::LIST_SET, "LIST_SET", 3, "list"},
     {OperationKind::LIST_LEN, "LIST_LEN", 2, "list"},
 
+    // MAPS
+    {OperationKind::MAP_NEW, "MAP_NEW", 1, "map"},
+    {OperationKind::MAP_SET, "MAP_SET", 3, "map"},
+    {OperationKind::MAP_GET, "MAP_GET", 3, "map"},
+    {OperationKind::MAP_HAS, "MAP_HAS", 3, "map"},
+    {OperationKind::MAP_DELETE, "MAP_DELETE", 2, "map"},
+    {OperationKind::MAP_KEYS, "MAP_KEYS", 2, "map"},
+    {OperationKind::MAP_VALUES, "MAP_VALUES", 2, "map"},
+
     // VECTOR
     {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
     {OperationKind::VEC_PUSH, "VEC_PUSH", 2, "vector"},

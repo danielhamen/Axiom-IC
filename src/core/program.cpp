@@ -41,10 +41,11 @@ namespace {
 } // namespace
 
 Value& Program::slot(size_t index) {
-    if (index >= memory.size()) {
-        memory.resize(index + 1);
+    std::vector<Value>& active_memory = call_stack.empty() ? memory : call_stack.back().memory;
+    if (index >= active_memory.size()) {
+        active_memory.resize(index + 1);
     }
-    return memory[index];
+    return active_memory[index];
 }
 
 namespace {
@@ -362,6 +363,8 @@ bool value_truthy(const Value& value) {
             return false;
         case ValueKind::List:
             return !value.list.empty();
+        case ValueKind::Map:
+            return !value.map.empty();
         case ValueKind::Vector:
             return !value.vec.empty();
         case ValueKind::Matrix:
@@ -979,6 +982,74 @@ void Program::resolve(const Instruction& ins) {
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = static_cast<int64_t>(list_value.list.size());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_NEW: {
+        Value out{};
+        out.kind = ValueKind::Map;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_SET: {
+        Value map_value = read_operand_strict(x, ValueKind::Map);
+        Value key = read_string_strict(*this, y);
+        map_value.map[key.s] = read_operand(z);
+        write_operand(x, map_value);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_GET: {
+        Value map_value = read_operand_strict(y, ValueKind::Map);
+        Value key = read_string_strict(*this, z);
+        auto it = map_value.map.find(key.s);
+        if (it == map_value.map.end()) {
+            throw_exec_error(*this, "MAP_GET missing key: " + key.s, &ins);
+        }
+        write_operand(x, it->second);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_HAS: {
+        Value map_value = read_operand_strict(y, ValueKind::Map);
+        Value key = read_string_strict(*this, z);
+        write_operand(x, make_bool_value(map_value.map.contains(key.s)));
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_DELETE: {
+        Value map_value = read_operand_strict(x, ValueKind::Map);
+        Value key = read_string_strict(*this, y);
+        map_value.map.erase(key.s);
+        write_operand(x, map_value);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_KEYS: {
+        Value map_value = read_operand_strict(y, ValueKind::Map);
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list.reserve(map_value.map.size());
+        for (const auto& [key, _] : map_value.map) {
+            Value item{};
+            item.kind = ValueKind::String;
+            item.s = key;
+            out.list.push_back(item);
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_VALUES: {
+        Value map_value = read_operand_strict(y, ValueKind::Map);
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list.reserve(map_value.map.size());
+        for (const auto& [_, value] : map_value.map) {
+            out.list.push_back(value);
+        }
         write_operand(x, out);
         pc++;
         return;
@@ -2085,6 +2156,7 @@ void Program::exec(const ExecutionOptions& options) {
     fc = *main_index;
     call_stack.clear();
     stack.clear();
+    memory.clear();
 
     Function* main_function = functions.at(fc);
     if (main_function->ins.empty()) {

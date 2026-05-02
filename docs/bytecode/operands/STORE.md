@@ -44,4 +44,4 @@ An error is raised if:
 
 ## Notes
 
-- Operand reads and writes follow the VM operand rules for slots, constants, immediates, and arguments.
+- `$n` writes update the active function call frame. Caller slots are not affected by callee slot writes.

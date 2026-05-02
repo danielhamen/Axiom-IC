@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -128,6 +129,19 @@ enum class OperationKind : int16_t {
     LIST_GET,
     LIST_SET,
     LIST_LEN,
+
+    /**
+     * ==============
+     * MAP OPERATIONS
+     * ==============
+     */
+    MAP_NEW,
+    MAP_SET,
+    MAP_GET,
+    MAP_HAS,
+    MAP_DELETE,
+    MAP_KEYS,
+    MAP_VALUES,
 
     /**
      * =======
@@ -306,6 +320,7 @@ enum class ValueKind : uint8_t {
     Boolean,
     Null,
     List,
+    Map,
     Vector,
     Matrix
 };
@@ -317,6 +332,7 @@ struct Value {
     double f = 0.0;
     bool b = false;
     std::vector<Value> list{};
+    std::map<std::string, Value> map{};
     std::vector<double> vec{};
     std::vector<double> matrix{};
     size_t rows = 0;
@@ -328,6 +344,7 @@ struct Value {
     bool is_bool() const { return kind == ValueKind::Boolean; }
     bool is_null() const { return kind == ValueKind::Null; }
     bool is_list() const { return kind == ValueKind::List; }
+    bool is_map() const { return kind == ValueKind::Map; }
     bool is_vec() const { return kind == ValueKind::Vector; }
     bool is_matrix() const { return kind == ValueKind::Matrix; }
 
@@ -352,6 +369,21 @@ struct Value {
                     out += list[idx].to_str();
                 }
                 out += "]";
+                return out;
+            }
+            case ValueKind::Map: {
+                std::string out = "{";
+                size_t idx = 0;
+                for (const auto& [key, value] : map) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += key;
+                    out += ": ";
+                    out += value.to_str();
+                    idx++;
+                }
+                out += "}";
                 return out;
             }
             case ValueKind::Vector: {

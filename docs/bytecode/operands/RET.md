@@ -17,6 +17,7 @@ RET
 - If no call frame exists, halts the program.
 - Otherwise restores the caller function and program counter.
 - Pushes a pending `RETVAL` value onto the stack.
+- Discards the returning function's local slot frame.
 - Advances to the next instruction unless this instruction explicitly changes control flow.
 
 
@@ -45,3 +46,4 @@ An error is raised if:
 ## Notes
 
 - Returning from top-level execution halts the program.
+- Returned values are transported through the stack; local slots are not returned.

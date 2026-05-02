@@ -14,6 +14,7 @@ struct CallFrame {
     size_t return_pc = 0;
     size_t return_fc = 0;
     std::vector<Value> args;
+    std::vector<Value> memory;
     Value return_value{};
     bool has_return_value = false;
 };
@@ -24,6 +25,7 @@ struct Program {
     bool halted = false;
     FunctionList functions;
     std::vector<Value> constants;
+    // Root frame memory for .main. Called functions store slots in their CallFrame.
     std::vector<Value> memory;
     std::vector<Value> stack;
     std::vector<CallFrame> call_stack;

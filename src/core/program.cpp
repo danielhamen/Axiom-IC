@@ -751,6 +751,18 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::PRINTLN: {
+        if (x.is_none() || !y.is_none() || !z.is_none())
+            throw_exec_error(*this,
+                             "Operand count mismatch for PRINTLN: expected exactly one operand",
+                             &ins);
+
+        Value v = read_operand(x);
+        std::cout << v.to_str() << std::endl;
+
+        pc++;
+        return;
+    }
     case OperationKind::PUSH: {
         Value v = read_operand(x);
         stack.push_back(v);

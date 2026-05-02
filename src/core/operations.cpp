@@ -75,6 +75,7 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
 
     // IO
     {OperationKind::PRINT, "PRINT", 1, "io"},
+    {OperationKind::PRINTLN, "PRINTLN", 1, "io"},
 
     // FUNCTIONS & STACK
     {OperationKind::PUSH, "PUSH", 1, "stack"},

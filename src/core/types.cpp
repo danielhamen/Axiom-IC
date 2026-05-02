@@ -140,6 +140,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "JMP";
         case OperationKind::PRINT:
             return "PRINT";
+        case aic::OperationKind::PRINTLN:
+            return "PRINTLN";
         case OperationKind::PUSH:
             return "PUSH";
         case OperationKind::POP:

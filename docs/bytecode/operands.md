@@ -4,8 +4,19 @@ Operand prefixes:
 - `$n` slot operand.
 - `#value` immediate operand.
 - `@n` constant-table index.
-- `&n` absolute memory address (for `LOAD`/`STORE`).
 - `label` label operand.
+
+Directives:
+- `.fn <label>` defines a function of name `<label>`.
+- `.main` main entry point.
+- `.const` defines a constant list.
+
+## Immediate Values:
+Immediate values allow for anonymous value passing without the constant pool or memory slot. It supports:
+- booleans (`#true` or `#false`)
+- numbers (`#3.5` or `#-3`)
+- strings (`#~"She said \"Hello World\""`)
+- null (`#null`)
 
 ## List operations
 - `LIST_NEW $dst, #size`

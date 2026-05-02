@@ -95,6 +95,7 @@ enum class OperationKind : int16_t {
      * =====
      */
     PRINT,
+    PRINTLN,
 
 
     /**

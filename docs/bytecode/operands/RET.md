@@ -1,1 +1,47 @@
 # `RET` Instruction
+
+Returns from the current function.
+
+
+## Syntax
+
+```
+RET
+```
+
+- Takes no operands.
+
+
+## Semantics
+
+- If no call frame exists, halts the program.
+- Otherwise restores the caller function and program counter.
+- Pushes a pending `RETVAL` value onto the stack.
+- Advances to the next instruction unless this instruction explicitly changes control flow.
+
+
+## Implementation Notes
+
+- Registered in the `function` operation category.
+
+
+## Example
+
+```
+.main
+start:
+  RET
+  HALT
+```
+
+
+## Errors
+
+An error is raised if:
+
+- an operand has the wrong kind for this instruction
+
+
+## Notes
+
+- Returning from top-level execution halts the program.

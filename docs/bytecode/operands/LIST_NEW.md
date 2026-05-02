@@ -9,22 +9,22 @@ Creates a new list with a fixed initial size.
 LIST_NEW <dst>, <size>
 ```
 
-- `<dst>` destination **slot** where the list is stored (`$n`)
-- `<size>` non-negative integer (immediate integer `#n` or passed integer)
+- `<dst>` destination slot for the new list (destination slot, usually `$n`)
+- `<size>` non-negative integer size (non-negative integer, either immediate `#n` or an integer operand)
 
 
 ## Semantics
 
-- Allocates a new list of length `<size>`
-- All elements are initialized to `null`
-- The resulting list is stored in `<dst>`
+- Allocates a new list of length `<size>`.
+- Initializes every element to `null`.
+- Stores the list in `<dst>`.
+- Advances to the next instruction unless this instruction explicitly changes control flow.
 
 
 ## Implementation Notes
 
-- Internally backed by `std::vector<Value>`
-- Each element is initialized to `Value::Null`
-- The list is mutable and dynamically resizable via other list operations
+- Registered in the `list` operation category.
+- Lists are backed by `std::vector<Value>`.
 
 
 ## Example
@@ -32,15 +32,8 @@ LIST_NEW <dst>, <size>
 ```
 .main
 start:
-  LIST_NEW $0, #4
-  PRINTLN $0
+  LIST_NEW $0, #0
   HALT
-```
-
-### Output
-
-```
-[null, null, null, null]
 ```
 
 
@@ -48,13 +41,9 @@ start:
 
 An error is raised if:
 
-- `<size>` is not an integer
-- `<size>` is negative
-- `<dst>` is not a valid slot
+- an operand has the wrong kind for this instruction
 
 
 ## Notes
 
-- This creates a **pre-sized list**, not an empty list  
-  (use size `#0` for an empty list)
-- Subsequent operations like `LIST_PUSH` may increase the size
+- Operand reads and writes follow the VM operand rules for slots, constants, immediates, and arguments.

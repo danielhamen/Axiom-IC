@@ -144,6 +144,18 @@ enum class OperationKind : int16_t {
     MAP_VALUES,
 
     /**
+     * ==============
+     * SET OPERATIONS
+     * ==============
+     */
+    SET_NEW,
+    SET_ADD,
+    SET_HAS,
+    SET_DELETE,
+    SET_UNION,
+    SET_INTERSECT,
+
+    /**
      * =======
      * VECTORS
      * =======
@@ -321,6 +333,7 @@ enum class ValueKind : uint8_t {
     Null,
     List,
     Map,
+    Set,
     Vector,
     Matrix
 };
@@ -333,6 +346,7 @@ struct Value {
     bool b = false;
     std::vector<Value> list{};
     std::map<std::string, Value> map{};
+    std::vector<Value> set{};
     std::vector<double> vec{};
     std::vector<double> matrix{};
     size_t rows = 0;
@@ -345,6 +359,7 @@ struct Value {
     bool is_null() const { return kind == ValueKind::Null; }
     bool is_list() const { return kind == ValueKind::List; }
     bool is_map() const { return kind == ValueKind::Map; }
+    bool is_set() const { return kind == ValueKind::Set; }
     bool is_vec() const { return kind == ValueKind::Vector; }
     bool is_matrix() const { return kind == ValueKind::Matrix; }
 
@@ -382,6 +397,17 @@ struct Value {
                     out += ": ";
                     out += value.to_str();
                     idx++;
+                }
+                out += "}";
+                return out;
+            }
+            case ValueKind::Set: {
+                std::string out = "set{";
+                for (size_t idx = 0; idx < set.size(); idx++) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += set[idx].to_str();
                 }
                 out += "}";
                 return out;

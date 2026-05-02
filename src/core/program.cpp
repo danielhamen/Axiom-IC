@@ -136,6 +136,21 @@ bool value_equals(const Value& lhs, const Value& rhs) {
     }
 }
 
+bool set_contains_value(const std::vector<Value>& values, const Value& needle) {
+    for (const Value& value : values) {
+        if (value_equals(value, needle)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void set_add_unique(std::vector<Value>& values, const Value& item) {
+    if (!set_contains_value(values, item)) {
+        values.push_back(item);
+    }
+}
+
 Value make_bool_value(bool b) {
     Value out{};
     out.kind = ValueKind::Boolean;
@@ -365,6 +380,8 @@ bool value_truthy(const Value& value) {
             return !value.list.empty();
         case ValueKind::Map:
             return !value.map.empty();
+        case ValueKind::Set:
+            return !value.set.empty();
         case ValueKind::Vector:
             return !value.vec.empty();
         case ValueKind::Matrix:
@@ -1049,6 +1066,66 @@ void Program::resolve(const Instruction& ins) {
         out.list.reserve(map_value.map.size());
         for (const auto& [_, value] : map_value.map) {
             out.list.push_back(value);
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_NEW: {
+        Value out{};
+        out.kind = ValueKind::Set;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_ADD: {
+        Value set_value = read_operand_strict(x, ValueKind::Set);
+        set_add_unique(set_value.set, read_operand(y));
+        write_operand(x, set_value);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_HAS: {
+        Value set_value = read_operand_strict(y, ValueKind::Set);
+        write_operand(x, make_bool_value(set_contains_value(set_value.set, read_operand(z))));
+        pc++;
+        return;
+    }
+    case OperationKind::SET_DELETE: {
+        Value set_value = read_operand_strict(x, ValueKind::Set);
+        Value needle = read_operand(y);
+        auto it = std::find_if(set_value.set.begin(), set_value.set.end(), [&](const Value& value) {
+            return value_equals(value, needle);
+        });
+        if (it != set_value.set.end()) {
+            set_value.set.erase(it);
+        }
+        write_operand(x, set_value);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_UNION: {
+        Value lhs = read_operand_strict(y, ValueKind::Set);
+        Value rhs = read_operand_strict(z, ValueKind::Set);
+        Value out{};
+        out.kind = ValueKind::Set;
+        out.set = lhs.set;
+        for (const Value& item : rhs.set) {
+            set_add_unique(out.set, item);
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_INTERSECT: {
+        Value lhs = read_operand_strict(y, ValueKind::Set);
+        Value rhs = read_operand_strict(z, ValueKind::Set);
+        Value out{};
+        out.kind = ValueKind::Set;
+        for (const Value& item : lhs.set) {
+            if (set_contains_value(rhs.set, item)) {
+                set_add_unique(out.set, item);
+            }
         }
         write_operand(x, out);
         pc++;

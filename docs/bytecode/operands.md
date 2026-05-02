@@ -163,6 +163,15 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`MAP_KEYS`](operands/MAP_KEYS.md): `MAP_KEYS <dst>, <map>`
 - [`MAP_VALUES`](operands/MAP_VALUES.md): `MAP_VALUES <dst>, <map>`
 
+## Set Operations
+
+- [`SET_NEW`](operands/SET_NEW.md): `SET_NEW <dst>`
+- [`SET_ADD`](operands/SET_ADD.md): `SET_ADD <set>, <value>`
+- [`SET_HAS`](operands/SET_HAS.md): `SET_HAS <dst>, <set>, <value>`
+- [`SET_DELETE`](operands/SET_DELETE.md): `SET_DELETE <set>, <value>`
+- [`SET_UNION`](operands/SET_UNION.md): `SET_UNION <dst>, <a>, <b>`
+- [`SET_INTERSECT`](operands/SET_INTERSECT.md): `SET_INTERSECT <dst>, <a>, <b>`
+
 ## Vector Operations
 
 - [`VEC_NEW`](operands/VEC_NEW.md): `VEC_NEW <dst>, <size>`

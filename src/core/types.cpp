@@ -192,6 +192,18 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "MAP_KEYS";
         case OperationKind::MAP_VALUES:
             return "MAP_VALUES";
+        case OperationKind::SET_NEW:
+            return "SET_NEW";
+        case OperationKind::SET_ADD:
+            return "SET_ADD";
+        case OperationKind::SET_HAS:
+            return "SET_HAS";
+        case OperationKind::SET_DELETE:
+            return "SET_DELETE";
+        case OperationKind::SET_UNION:
+            return "SET_UNION";
+        case OperationKind::SET_INTERSECT:
+            return "SET_INTERSECT";
         case OperationKind::VEC_NEW:
             return "VEC_NEW";
         case OperationKind::VEC_PUSH:
@@ -389,6 +401,8 @@ std::string value_kind_to_string(ValueKind kind) {
             return "List";
         case ValueKind::Map:
             return "Map";
+        case ValueKind::Set:
+            return "Set";
         case ValueKind::Vector:
             return "Vector";
         case ValueKind::Matrix:

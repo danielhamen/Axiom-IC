@@ -108,6 +108,14 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::MAP_KEYS, "MAP_KEYS", 2, "map"},
     {OperationKind::MAP_VALUES, "MAP_VALUES", 2, "map"},
 
+    // SETS
+    {OperationKind::SET_NEW, "SET_NEW", 1, "set"},
+    {OperationKind::SET_ADD, "SET_ADD", 2, "set"},
+    {OperationKind::SET_HAS, "SET_HAS", 3, "set"},
+    {OperationKind::SET_DELETE, "SET_DELETE", 2, "set"},
+    {OperationKind::SET_UNION, "SET_UNION", 3, "set"},
+    {OperationKind::SET_INTERSECT, "SET_INTERSECT", 3, "set"},
+
     // VECTOR
     {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
     {OperationKind::VEC_PUSH, "VEC_PUSH", 2, "vector"},

@@ -2,6 +2,7 @@
 
 #include "operations.hpp"
 
+#include <filesystem>
 #include <algorithm>
 #include <string>
 #include <unordered_map>
@@ -590,6 +591,36 @@ void verify_function(std::vector<VerificationDiagnostic>& diagnostics,
     verify_reachability(diagnostics, function);
 }
 
+void verify_supporting_documentation(std::vector<VerificationDiagnostic>& diagnostics,
+                                     const std::filesystem::path& operands_dir) {
+    namespace fs = std::filesystem;
+
+    if (!fs::exists(operands_dir)) {
+        add_program(diagnostics,
+                    DiagnosticSeverity::Error,
+                    "bytecode operand documentation directory does not exist: " + operands_dir.string());
+        return;
+    }
+
+    if (!fs::is_directory(operands_dir)) {
+        add_program(diagnostics,
+                    DiagnosticSeverity::Error,
+                    "bytecode operand documentation path is not a directory: " + operands_dir.string());
+        return;
+    }
+
+    for (const OperationDefinition& definition : operation_definitions()) {
+        const std::string filename = operation_kind_to_string(definition.kind) + ".md";
+        const fs::path doc_path = operands_dir / filename;
+
+        if (!fs::exists(doc_path)) {
+            add_program(diagnostics,
+                        DiagnosticSeverity::Warning,
+                        "missing operand documentation file: " + doc_path.string());
+        }
+    }
+}
+
 } // namespace
 
 std::vector<VerificationDiagnostic> verify(const Program& program) {
@@ -606,6 +637,8 @@ std::vector<VerificationDiagnostic> verify(const Program& program) {
     for (size_t i = 0; i < program.functions.size(); i++) {
         verify_function(diagnostics, program, *program.functions.at(i));
     }
+
+    verify_supporting_documentation(diagnostics, "../docs/bytecode/operands");
 
     return diagnostics;
 }

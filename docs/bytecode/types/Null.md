@@ -29,6 +29,7 @@ Or as an anonymous inline constant:
 
 ```aic
 .const NULL
+.const 3 NULL ; available as @3
 ```
 
 

@@ -31,6 +31,7 @@ Or as an anonymous inline constant:
 
 ```aic
 .const FLOAT 3.14159
+.const 55 FLOAT 5.5 ; available as @55
 ```
 
 

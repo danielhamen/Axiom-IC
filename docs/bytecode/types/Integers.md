@@ -31,6 +31,7 @@ Or as an anonymous inline constant:
 
 ```aic
 .const INT 42
+.const 10 INT 99 ; available as @10
 ```
 
 

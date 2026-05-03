@@ -98,10 +98,35 @@ bool is_const_declaration(const std::string& token) {
     return token == "INT" || token == "FLOAT" || token == "BOOL" || token == "NULL" || token == "STR";
 }
 
+void write_constant(Program& vm, std::optional<size_t> index, const Value& value) {
+    if (!index.has_value()) {
+        vm.constants.push_back(value);
+        return;
+    }
+
+    if (*index >= vm.constants.size()) {
+        Value null_value;
+        null_value.kind = ValueKind::Null;
+        vm.constants.resize(*index + 1, null_value);
+    }
+    vm.constants[*index] = value;
+}
+
 void parse_constant_declaration(const std::vector<Token>& line,
                                 size_t offset,
                                 Program& vm,
                                 const std::string& usage) {
+    std::optional<size_t> explicit_index;
+    if (offset < line.size() && line[offset].type == TokenType::Integer) {
+        int64_t parsed_index = parse_non_negative_index(line[offset], usage + " constant index");
+        explicit_index = static_cast<size_t>(parsed_index);
+        offset++;
+    }
+
+    if (offset >= line.size()) {
+        throw_parse_error(line.back(), usage + " requires a constant type");
+    }
+
     const Token& type_token = line.at(offset);
     const std::string& type = type_token.lexeme;
     if (type == "INT") {
@@ -112,7 +137,7 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::Integer;
         v.i = parse_int64_literal(line[offset + 1], usage + " INT");
-        vm.constants.push_back(v);
+        write_constant(vm, explicit_index, v);
         return;
     }
 
@@ -124,7 +149,7 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::Float;
         v.f = parse_double_literal(line[offset + 1], usage + " FLOAT");
-        vm.constants.push_back(v);
+        write_constant(vm, explicit_index, v);
         return;
     }
 
@@ -137,7 +162,7 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::Boolean;
         v.b = line[offset + 1].lexeme == "true";
-        vm.constants.push_back(v);
+        write_constant(vm, explicit_index, v);
         return;
     }
 
@@ -148,7 +173,7 @@ void parse_constant_declaration(const std::vector<Token>& line,
 
         Value v;
         v.kind = ValueKind::Null;
-        vm.constants.push_back(v);
+        write_constant(vm, explicit_index, v);
         return;
     }
 
@@ -160,7 +185,7 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::String;
         v.s = line[offset + 1].lexeme;
-        vm.constants.push_back(v);
+        write_constant(vm, explicit_index, v);
         return;
     }
 
@@ -266,7 +291,9 @@ void parse_line(const std::vector<Token>& line,
                 return;
             }
 
-            if (line.size() >= 2 && line[1].type == TokenType::Identifier && is_const_declaration(line[1].lexeme)) {
+            if (line.size() >= 2 &&
+                ((line[1].type == TokenType::Identifier && is_const_declaration(line[1].lexeme)) ||
+                 line[1].type == TokenType::Integer)) {
                 parse_constant_declaration(line, 1, vm, ".const");
                 current_directive = Directive::Constant;
                 parse_mode = ParseMode::ConstSection;

@@ -31,6 +31,7 @@ Or as an anonymous inline constant:
 
 ```aic
 .const BOOL true
+.const 7 BOOL false ; available as @7
 ```
 
 

@@ -12,7 +12,7 @@ Directives:
 - `.import <category>` imports an operation category. Import directives must appear at the top of the file before `.const`, `.main`, `.fn`, labels, constants, or instructions.
 - `.fn <label>` defines a function named `<label>`.
 - `.main` marks the main entry point.
-- `.const` defines constants. It can open a constant section or declare one anonymous inline constant, such as `.const FLOAT 3.14159`.
+- `.const` defines constants. It can open a constant section or declare one anonymous inline constant, such as `.const FLOAT 3.14159`. Inline and section constants can also specify an explicit constant-table index, such as `.const 55 FLOAT 5.5`; missing indexes are filled with `null`.
 
 Every instruction requires its category to be imported. For example, `ADD` requires `.import <arithmetic>`, `LIST_NEW` requires `.import <list>`, and `HALT` requires `.import <control_flow>`.
 

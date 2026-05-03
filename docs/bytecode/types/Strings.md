@@ -31,6 +31,7 @@ Or as an anonymous inline constant:
 
 ```aic
 .const STR ~"hello"
+.const 12 STR ~"indexed" ; available as @12
 ```
 
 Bare quoted strings such as `"hello"` are not valid operands.

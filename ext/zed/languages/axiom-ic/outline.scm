@@ -1,4 +1,7 @@
-(directive) @item
-(import_directive) @item
-(function_directive) @item
-(label) @item
+(directive) @item @name
+(import_directive
+  (identifier) @name) @item
+(function_directive
+  (identifier) @name) @item
+(label
+  (identifier) @name) @item

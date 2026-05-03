@@ -114,6 +114,7 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::STR_REPLACE:
         case OperationKind::TYPE_ASSERT:
         case OperationKind::TYPE_HINT:
+        case OperationKind::TYPE_ALIAS:
         case OperationKind::WRITE_FILE:
         case OperationKind::APPEND_FILE:
         case OperationKind::DELETE_FILE:
@@ -216,6 +217,30 @@ bool is_function_reference_operand(OperationKind op, size_t operand_index) {
     }
 }
 
+bool is_type_expression_operand(OperationKind op, size_t operand_index) {
+    switch (op) {
+        case OperationKind::TYPE_IS:
+            return operand_index == 2;
+        case OperationKind::TYPE_ASSERT:
+        case OperationKind::TYPE_HINT:
+        case OperationKind::TYPE_ALIAS:
+        case OperationKind::ARG_REQUIRE:
+        case OperationKind::KWARG_REQUIRE:
+        case OperationKind::LIST_ASSERT:
+        case OperationKind::SET_ASSERT:
+            return operand_index == 1;
+        case OperationKind::LIST_VALIDATE:
+        case OperationKind::SET_VALIDATE:
+        case OperationKind::STRUCT_DEF_FIELD:
+        case OperationKind::STRUCT_DEF_FIELD_DEFAULT:
+            return operand_index == 2;
+        case OperationKind::MAP_VALIDATE:
+            return operand_index == 2 || operand_index == 3;
+        default:
+            return false;
+    }
+}
+
 size_t minimum_variadic_arity(OperationKind op) {
     switch (op) {
         case OperationKind::STRUCT_INIT:
@@ -300,7 +325,10 @@ void verify_operand_shape(std::vector<VerificationDiagnostic>& diagnostics,
         if (ins.op == OperationKind::LITERAL) {
             continue;
         }
-        if (i > 0 && !is_label_target(ins.op) && !is_function_reference_operand(ins.op, i) &&
+        if (i > 0 &&
+            !is_label_target(ins.op) &&
+            !is_function_reference_operand(ins.op, i) &&
+            !is_type_expression_operand(ins.op, i) &&
             operand.kind == OperandKind::Label) {
             add(diagnostics,
                 DiagnosticSeverity::Warning,
@@ -322,6 +350,30 @@ void verify_operand_shape(std::vector<VerificationDiagnostic>& diagnostics,
 
     if (ins.op == OperationKind::TYPE_HINT && !ins.operands.empty() && ins.operands[0].kind != OperandKind::Slot) {
         add(diagnostics, DiagnosticSeverity::Error, function, pc, ins.op, "TYPE_HINT first operand must be a slot");
+    }
+
+    if (ins.op == OperationKind::TYPE_ALIAS) {
+        if (ins.operands.size() != 2) {
+            return;
+        }
+        if (ins.operands[0].kind != OperandKind::Label) {
+            add(diagnostics,
+                DiagnosticSeverity::Error,
+                function,
+                pc,
+                ins.op,
+                "TYPE_ALIAS first operand must be an identifier alias");
+        }
+        if (!is_string_immediate(ins.operands[1]) &&
+            ins.operands[1].kind != OperandKind::Constant &&
+            ins.operands[1].kind != OperandKind::Slot) {
+            add(diagnostics,
+                DiagnosticSeverity::Error,
+                function,
+                pc,
+                ins.op,
+                "TYPE_ALIAS second operand must resolve to a string type expression");
+        }
     }
 
     if (ins.op == OperationKind::LITERAL) {

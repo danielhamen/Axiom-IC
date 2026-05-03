@@ -322,6 +322,7 @@ enum class OperationKind : int16_t {
     TYPE_IS,
     TYPE_ASSERT,
     TYPE_HINT,
+    TYPE_ALIAS,
     CAST_INT,
     CAST_FLOAT,
     CAST_BOOL,

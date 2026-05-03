@@ -442,6 +442,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "TYPE_ASSERT";
         case OperationKind::TYPE_HINT:
             return "TYPE_HINT";
+        case OperationKind::TYPE_ALIAS:
+            return "TYPE_ALIAS";
         case OperationKind::CAST_INT:
             return "CAST_INT";
         case OperationKind::CAST_FLOAT:

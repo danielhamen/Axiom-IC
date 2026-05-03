@@ -50,6 +50,7 @@ struct Program {
     std::unordered_map<std::string, Value> pending_kwargs;
     std::unordered_set<std::string> imported_categories;
     std::unordered_map<std::string, Operand> literal_aliases;
+    std::unordered_map<std::string, std::string> type_aliases;
     std::vector<CallFrame> call_stack;
     std::vector<ExceptionHandler> exception_handlers;
     Value current_error{};

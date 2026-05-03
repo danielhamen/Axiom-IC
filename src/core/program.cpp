@@ -291,8 +291,63 @@ bool single_type_name_matches_value(const std::string& type_name, const Value& v
     return type_name == value_kind_to_string(value.kind);
 }
 
-bool type_name_matches_value(const std::string& type_name, const Value& value) {
-    for (const std::string& option : parse_type_union(type_name)) {
+std::string resolve_type_expression(Program& program,
+                                    const std::string& type_expr,
+                                    std::unordered_set<std::string>& resolving) {
+    std::vector<std::string> resolved_options;
+    for (const std::string& option : parse_type_union(type_expr)) {
+        if (option.empty()) {
+            resolved_options.push_back(option);
+            continue;
+        }
+
+        const auto alias = program.type_aliases.find(option);
+        if (alias == program.type_aliases.end()) {
+            resolved_options.push_back(option);
+            continue;
+        }
+
+        if (!resolving.insert(option).second) {
+            throw_exec_error(program, "Type alias cycle detected at: " + option, nullptr, "ValueError");
+        }
+        resolved_options.push_back(resolve_type_expression(program, alias->second, resolving));
+        resolving.erase(option);
+    }
+
+    std::string out;
+    for (const std::string& option : resolved_options) {
+        if (!out.empty()) {
+            out += "|";
+        }
+        out += option;
+    }
+    return out;
+}
+
+std::string resolve_type_expression(Program& program, const std::string& type_expr) {
+    std::unordered_set<std::string> resolving;
+    return resolve_type_expression(program, type_expr, resolving);
+}
+
+std::string read_type_expression(Program& program,
+                                 const Operand& op,
+                                 const Instruction& ins,
+                                 const std::string& opname) {
+    if (op.kind == OperandKind::Label) {
+        const auto alias = program.type_aliases.find(op.strval);
+        if (alias == program.type_aliases.end()) {
+            throw_exec_error(program, opname + " unknown type alias: " + op.strval, &ins, "NameError");
+        }
+        return resolve_type_expression(program, alias->second);
+    }
+
+    Value type_expr = program.read_operand_strict(op, ValueKind::String);
+    return resolve_type_expression(program, type_expr.s);
+}
+
+bool type_name_matches_value(Program& program, const std::string& type_name, const Value& value) {
+    const std::string resolved = resolve_type_expression(program, type_name);
+    for (const std::string& option : parse_type_union(resolved)) {
         if (!option.empty() && single_type_name_matches_value(option, value)) {
             return true;
         }
@@ -325,7 +380,8 @@ void ensure_type_expression_valid(Program& program,
                                   const std::string& type_expr,
                                   const Instruction& ins,
                                   const std::string& opname) {
-    if (!type_expression_is_valid(type_expr)) {
+    const std::string resolved = resolve_type_expression(program, type_expr);
+    if (!type_expression_is_valid(resolved)) {
         throw_exec_error(program, opname + " invalid type expression: " + type_expr, &ins);
     }
 }
@@ -361,7 +417,7 @@ void ensure_struct_value_type(Program& program,
                               const Value& value,
                               const Instruction& ins,
                               const std::string& opname) {
-    if (!type_name_matches_value(type_name, value)) {
+    if (!type_name_matches_value(program, type_name, value)) {
         throw_exec_error(program,
                          opname + " field '" + field_name + "' expected " + type_name +
                              ", got " + type_description_for_value(value),
@@ -461,9 +517,9 @@ Value call_function_for_value(Program& program,
     return out;
 }
 
-bool collection_values_match_type(const std::vector<Value>& values, const std::string& type_expr) {
+bool collection_values_match_type(Program& program, const std::vector<Value>& values, const std::string& type_expr) {
     return std::all_of(values.begin(), values.end(), [&](const Value& value) {
-        return type_name_matches_value(type_expr, value);
+        return type_name_matches_value(program, type_expr, value);
     });
 }
 
@@ -1428,14 +1484,14 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::ARG_REQUIRE: {
         CallFrame& frame = current_call_frame(*this, ins, "ARG_REQUIRE");
         size_t index = read_non_negative_integer_operand(*this, x, ins, "ARG_REQUIRE index");
-        Value type_name = read_string_strict(*this, y);
-        ensure_type_expression_valid(*this, type_name.s, ins, "ARG_REQUIRE");
+        std::string type_name = read_type_expression(*this, y, ins, "ARG_REQUIRE");
+        ensure_type_expression_valid(*this, type_name, ins, "ARG_REQUIRE");
         if (index >= frame.args.size()) {
             throw_exec_error(*this, "ARG_REQUIRE missing arg" + std::to_string(index), &ins);
         }
-        if (!type_name_matches_value(type_name.s, frame.args[index])) {
+        if (!type_name_matches_value(*this, type_name, frame.args[index])) {
             throw_exec_error(*this,
-                             "ARG_REQUIRE arg" + std::to_string(index) + " expected " + type_name.s +
+                             "ARG_REQUIRE arg" + std::to_string(index) + " expected " + type_name +
                                  ", got " + type_description_for_value(frame.args[index]),
                              &ins);
         }
@@ -1445,15 +1501,15 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::KWARG_REQUIRE: {
         CallFrame& frame = current_call_frame(*this, ins, "KWARG_REQUIRE");
         Value key = read_string_strict(*this, x);
-        Value type_name = read_string_strict(*this, y);
-        ensure_type_expression_valid(*this, type_name.s, ins, "KWARG_REQUIRE");
+        std::string type_name = read_type_expression(*this, y, ins, "KWARG_REQUIRE");
+        ensure_type_expression_valid(*this, type_name, ins, "KWARG_REQUIRE");
         auto it = frame.kwargs.find(key.s);
         if (it == frame.kwargs.end()) {
             throw_exec_error(*this, "KWARG_REQUIRE missing key: " + key.s, &ins);
         }
-        if (!type_name_matches_value(type_name.s, it->second)) {
+        if (!type_name_matches_value(*this, type_name, it->second)) {
             throw_exec_error(*this,
-                             "KWARG_REQUIRE " + key.s + " expected " + type_name.s +
+                             "KWARG_REQUIRE " + key.s + " expected " + type_name +
                                  ", got " + type_description_for_value(it->second),
                              &ins);
         }
@@ -1716,13 +1772,13 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::LIST_ASSERT: {
         const bool returns_bool = ins.op == OperationKind::LIST_VALIDATE;
         Value list_value = read_operand_strict(returns_bool ? y : x, ValueKind::List);
-        Value type_expr = read_string_strict(*this, returns_bool ? z : y);
-        ensure_type_expression_valid(*this, type_expr.s, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
-        const bool ok = collection_values_match_type(list_value.list, type_expr.s);
+        std::string type_expr = read_type_expression(*this, returns_bool ? z : y, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
+        ensure_type_expression_valid(*this, type_expr, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
+        const bool ok = collection_values_match_type(*this, list_value.list, type_expr);
         if (returns_bool) {
             write_operand(x, make_bool_value(ok));
         } else if (!ok) {
-            throw_exec_error(*this, "LIST_ASSERT failed for element type " + type_expr.s, &ins);
+            throw_exec_error(*this, "LIST_ASSERT failed for element type " + type_expr, &ins);
         }
         pc++;
         return;
@@ -1826,14 +1882,14 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::MAP_VALIDATE: {
         Value map_value = read_operand_strict(y, ValueKind::Map);
-        Value key_type = read_string_strict(*this, z);
-        Value value_type = read_string_strict(*this, ins.operands[3]);
-        ensure_type_expression_valid(*this, key_type.s, ins, "MAP_VALIDATE");
-        ensure_type_expression_valid(*this, value_type.s, ins, "MAP_VALIDATE");
+        std::string key_type = read_type_expression(*this, z, ins, "MAP_VALIDATE");
+        std::string value_type = read_type_expression(*this, ins.operands[3], ins, "MAP_VALIDATE");
+        ensure_type_expression_valid(*this, key_type, ins, "MAP_VALIDATE");
+        ensure_type_expression_valid(*this, value_type, ins, "MAP_VALIDATE");
         bool ok = true;
         for (const auto& [key, value] : map_value.map) {
-            if (!type_name_matches_value(key_type.s, make_string_value(key)) ||
-                !type_name_matches_value(value_type.s, value)) {
+            if (!type_name_matches_value(*this, key_type, make_string_value(key)) ||
+                !type_name_matches_value(*this, value_type, value)) {
                 ok = false;
                 break;
             }
@@ -1945,13 +2001,13 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::SET_ASSERT: {
         const bool returns_bool = ins.op == OperationKind::SET_VALIDATE;
         Value set_value = read_operand_strict(returns_bool ? y : x, ValueKind::Set);
-        Value type_expr = read_string_strict(*this, returns_bool ? z : y);
-        ensure_type_expression_valid(*this, type_expr.s, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
-        const bool ok = collection_values_match_type(set_value.set, type_expr.s);
+        std::string type_expr = read_type_expression(*this, returns_bool ? z : y, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
+        ensure_type_expression_valid(*this, type_expr, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
+        const bool ok = collection_values_match_type(*this, set_value.set, type_expr);
         if (returns_bool) {
             write_operand(x, make_bool_value(ok));
         } else if (!ok) {
-            throw_exec_error(*this, "SET_ASSERT failed for element type " + type_expr.s, &ins);
+            throw_exec_error(*this, "SET_ASSERT failed for element type " + type_expr, &ins);
         }
         pc++;
         return;
@@ -1984,14 +2040,14 @@ void Program::resolve(const Instruction& ins) {
         ensure_struct_def_mutable(*this, def, ins, opname);
 
         Value field_name = read_string_strict(*this, y);
-        Value field_type = read_string_strict(*this, z);
+        std::string field_type = read_type_expression(*this, z, ins, opname);
         if (field_name.s.empty()) {
             throw_exec_error(*this, opname + " requires a non-empty field name", &ins);
         }
-        if (field_type.s.empty()) {
+        if (field_type.empty()) {
             throw_exec_error(*this, opname + " requires a non-empty field type", &ins);
         }
-        ensure_type_expression_valid(*this, field_type.s, ins, opname);
+        ensure_type_expression_valid(*this, field_type, ins, opname);
         if (std::find(def.struct_field_names.begin(), def.struct_field_names.end(), field_name.s) !=
             def.struct_field_names.end()) {
             throw_exec_error(*this, opname + " duplicate field: " + field_name.s, &ins);
@@ -2006,7 +2062,7 @@ void Program::resolve(const Instruction& ins) {
             default_value = read_operand(ins.operands[3]);
             ensure_struct_value_type(*this,
                                      field_name.s,
-                                     field_type.s,
+                                     field_type,
                                      default_value,
                                      ins,
                                      "STRUCT_DEF_FIELD_DEFAULT");
@@ -2014,7 +2070,7 @@ void Program::resolve(const Instruction& ins) {
         }
 
         def.struct_field_names.push_back(field_name.s);
-        def.struct_field_types.push_back(field_type.s);
+        def.struct_field_types.push_back(field_type);
         def.struct_field_visibility.push_back("public");
         def.struct_field_immutable.push_back(false);
         def.struct_field_defaults.push_back(default_value);
@@ -3202,19 +3258,19 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::TYPE_IS: {
         Value value = read_operand(y);
-        Value type_expr = read_string_strict(*this, z);
-        ensure_type_expression_valid(*this, type_expr.s, ins, "TYPE_IS");
-        write_operand(x, make_bool_value(type_name_matches_value(type_expr.s, value)));
+        std::string type_expr = read_type_expression(*this, z, ins, "TYPE_IS");
+        ensure_type_expression_valid(*this, type_expr, ins, "TYPE_IS");
+        write_operand(x, make_bool_value(type_name_matches_value(*this, type_expr, value)));
         pc++;
         return;
     }
     case OperationKind::TYPE_ASSERT: {
         Value value = read_operand(x);
-        Value type_expr = read_string_strict(*this, y);
-        ensure_type_expression_valid(*this, type_expr.s, ins, "TYPE_ASSERT");
-        if (!type_name_matches_value(type_expr.s, value)) {
+        std::string type_expr = read_type_expression(*this, y, ins, "TYPE_ASSERT");
+        ensure_type_expression_valid(*this, type_expr, ins, "TYPE_ASSERT");
+        if (!type_name_matches_value(*this, type_expr, value)) {
             throw_exec_error(*this,
-                             "TYPE_ASSERT expected " + type_expr.s +
+                             "TYPE_ASSERT expected " + type_expr +
                                  ", got " + type_description_for_value(value),
                              &ins);
         }
@@ -3225,8 +3281,8 @@ void Program::resolve(const Instruction& ins) {
         if (x.kind != OperandKind::Slot) {
             throw_exec_error(*this, "TYPE_HINT expects a slot as first operand", &ins);
         }
-        Value type_expr = read_string_strict(*this, y);
-        ensure_type_expression_valid(*this, type_expr.s, ins, "TYPE_HINT");
+        std::string type_expr = read_type_expression(*this, y, ins, "TYPE_HINT");
+        ensure_type_expression_valid(*this, type_expr, ins, "TYPE_HINT");
         std::vector<std::string>& active_hints = call_stack.empty()
                                                      ? slot_type_hints
                                                      : call_stack.back().slot_type_hints;
@@ -3236,7 +3292,20 @@ void Program::resolve(const Instruction& ins) {
         if (!active_hints[static_cast<size_t>(x.value)].empty()) {
             warn("TYPE_HINT replaced existing hint on slot $" + std::to_string(x.value), &ins);
         }
-        active_hints[static_cast<size_t>(x.value)] = type_expr.s;
+        active_hints[static_cast<size_t>(x.value)] = type_expr;
+        pc++;
+        return;
+    }
+    case OperationKind::TYPE_ALIAS: {
+        if (x.kind != OperandKind::Label) {
+            throw_exec_error(*this, "TYPE_ALIAS first operand must be an identifier alias", &ins, "TypeError");
+        }
+        Value type_expr_value = read_string_strict(*this, y);
+        ensure_type_expression_valid(*this, type_expr_value.s, ins, "TYPE_ALIAS");
+        if (type_aliases.contains(x.strval)) {
+            warn("TYPE_ALIAS replaced existing alias: " + x.strval, &ins);
+        }
+        type_aliases[x.strval] = resolve_type_expression(*this, type_expr_value.s);
         pc++;
         return;
     }
@@ -3656,6 +3725,7 @@ void Program::exec(const ExecutionOptions& options) {
     pending_args.clear();
     pending_kwargs.clear();
     literal_aliases.clear();
+    type_aliases.clear();
     memory.clear();
     warnings.clear();
     current_error = make_null_value();
@@ -3861,7 +3931,7 @@ void Program::write_operand(const Operand& op, const Value& v) {
                                                  : call_stack.back().slot_type_hints;
     const size_t index = static_cast<size_t>(op.value);
     if (index < active_hints.size() && !active_hints[index].empty() &&
-        !type_name_matches_value(active_hints[index], v)) {
+        !type_name_matches_value(*this, active_hints[index], v)) {
         throw_exec_error(*this,
                          "Slot $" + std::to_string(index) + " expected " + active_hints[index] +
                              ", got " + type_description_for_value(v),

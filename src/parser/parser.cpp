@@ -98,6 +98,75 @@ bool is_const_declaration(const std::string& token) {
     return token == "INT" || token == "FLOAT" || token == "BOOL" || token == "NULL" || token == "STR";
 }
 
+void parse_constant_declaration(const std::vector<Token>& line,
+                                size_t offset,
+                                Program& vm,
+                                const std::string& usage) {
+    const Token& type_token = line.at(offset);
+    const std::string& type = type_token.lexeme;
+    if (type == "INT") {
+        if (line.size() != offset + 2 || line[offset + 1].type != TokenType::Integer) {
+            throw_parse_error(type_token, usage + " INT requires exactly one integer literal");
+        }
+
+        Value v;
+        v.kind = ValueKind::Integer;
+        v.i = parse_int64_literal(line[offset + 1], usage + " INT");
+        vm.constants.push_back(v);
+        return;
+    }
+
+    if (type == "FLOAT") {
+        if (line.size() != offset + 2 || line[offset + 1].type != TokenType::Float) {
+            throw_parse_error(type_token, usage + " FLOAT requires exactly one float literal");
+        }
+
+        Value v;
+        v.kind = ValueKind::Float;
+        v.f = parse_double_literal(line[offset + 1], usage + " FLOAT");
+        vm.constants.push_back(v);
+        return;
+    }
+
+    if (type == "BOOL") {
+        if (line.size() != offset + 2 ||
+            (line[offset + 1].lexeme != "true" && line[offset + 1].lexeme != "false")) {
+            throw_parse_error(type_token, usage + " BOOL requires exactly one boolean literal");
+        }
+
+        Value v;
+        v.kind = ValueKind::Boolean;
+        v.b = line[offset + 1].lexeme == "true";
+        vm.constants.push_back(v);
+        return;
+    }
+
+    if (type == "NULL") {
+        if (line.size() != offset + 1) {
+            throw_parse_error(type_token, usage + " NULL does not take a value");
+        }
+
+        Value v;
+        v.kind = ValueKind::Null;
+        vm.constants.push_back(v);
+        return;
+    }
+
+    if (type == "STR") {
+        if (line.size() != offset + 2 || line[offset + 1].type != TokenType::String) {
+            throw_parse_error(type_token, usage + " STR requires exactly one string literal");
+        }
+
+        Value v;
+        v.kind = ValueKind::String;
+        v.s = line[offset + 1].lexeme;
+        vm.constants.push_back(v);
+        return;
+    }
+
+    throw_parse_error(type_token, "Unknown constant type '" + type + "'");
+}
+
 bool try_parse_argument(const Token& token, int64_t& out_index) {
     if (token.type != TokenType::Identifier) {
         return false;
@@ -191,13 +260,20 @@ void parse_line(const std::vector<Token>& line,
         imports_closed = true;
 
         if (directive == "const") {
-            if (line.size() != 1) {
-                throw_parse_error(head_token, "Too many elements to unpack in `.const` directive; unary directives must not take any additional tokens");
+            if (line.size() == 1) {
+                current_directive = Directive::Constant;
+                parse_mode = ParseMode::ConstSection;
+                return;
             }
 
-            current_directive = Directive::Constant;
-            parse_mode = ParseMode::ConstSection;
-            return;
+            if (line.size() >= 2 && line[1].type == TokenType::Identifier && is_const_declaration(line[1].lexeme)) {
+                parse_constant_declaration(line, 1, vm, ".const");
+                current_directive = Directive::Constant;
+                parse_mode = ParseMode::ConstSection;
+                return;
+            }
+
+            throw_parse_error(head_token, "`.const` requires either no operands or an inline constant declaration like `.const FLOAT 3.14159`");
         }
 
         if (directive == "include") {
@@ -277,55 +353,7 @@ void parse_line(const std::vector<Token>& line,
     }
 
     if (parse_mode == ParseMode::ConstSection) {
-        std::string type = head;
-        if (type == "INT") {
-            if (line.size() < 2 || line[1].type != TokenType::Integer) {
-                throw_parse_error(head_token, "INT requires an integer literal");
-            }
-
-            int64_t param = parse_int64_literal(line[1], ".const INT");
-            Value v;
-            v.kind = ValueKind::Integer;
-            v.i = param;
-            vm.constants.push_back(v);
-        } else if (type == "FLOAT") {
-            if (line.size() < 2 || line[1].type != TokenType::Float) {
-                throw_parse_error(head_token, "FLOAT requires a float literal");
-            }
-
-            double param = parse_double_literal(line[1], ".const FLOAT");
-            Value v;
-            v.kind = ValueKind::Float;
-            v.f = param;
-            vm.constants.push_back(v);
-        } else if (type == "BOOL") {
-            if (line.size() != 2 || (line[1].lexeme != "true" && line[1].lexeme != "false")) {
-                throw_parse_error(head_token, "BOOL requires true or false");
-            }
-
-            bool param = line[1].lexeme == "true";
-            Value v;
-            v.kind = ValueKind::Boolean;
-            v.b = param;
-            vm.constants.push_back(v);
-        } else if (type == "NULL") {
-            Value v;
-            v.kind = ValueKind::Null;
-            vm.constants.push_back(v);
-        } else if (type == "STR") {
-            if (line.size() < 2 || line[1].type != TokenType::String) {
-                throw_parse_error(head_token, "STR requires a string literal");
-            }
-
-            std::string param = line[1].lexeme;
-            Value v;
-            v.kind = ValueKind::String;
-            v.s = param;
-            vm.constants.push_back(v);
-        } else {
-            throw_parse_error(head_token, "Unknown type in constant list '" + type + "'");
-        }
-
+        parse_constant_declaration(line, 0, vm, ".const");
         return;
     }
 

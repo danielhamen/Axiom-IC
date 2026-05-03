@@ -27,6 +27,12 @@ Integer constants can also be declared in `.const`:
   INT 42
 ```
 
+Or as an anonymous inline constant:
+
+```aic
+.const INT 42
+```
+
 
 ## String Form
 

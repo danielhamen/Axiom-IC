@@ -27,6 +27,12 @@ Float constants can also be declared in `.const`:
   FLOAT 3.14
 ```
 
+Or as an anonymous inline constant:
+
+```aic
+.const FLOAT 3.14159
+```
+
 
 ## String Form
 

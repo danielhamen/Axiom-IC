@@ -25,6 +25,12 @@ Null constants can also be declared in `.const`:
   NULL
 ```
 
+Or as an anonymous inline constant:
+
+```aic
+.const NULL
+```
+
 
 ## String Form
 

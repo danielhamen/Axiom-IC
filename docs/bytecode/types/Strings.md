@@ -27,6 +27,12 @@ String constants can also be declared in `.const`:
   STR ~"hello"
 ```
 
+Or as an anonymous inline constant:
+
+```aic
+.const STR ~"hello"
+```
+
 Bare quoted strings such as `"hello"` are not valid operands.
 
 

@@ -27,6 +27,12 @@ Boolean constants can also be declared in `.const`:
   BOOL true
 ```
 
+Or as an anonymous inline constant:
+
+```aic
+.const BOOL true
+```
+
 
 ## String Form
 

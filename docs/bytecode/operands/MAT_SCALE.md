@@ -3,6 +3,11 @@
 Multiplies a matrix by a scalar.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

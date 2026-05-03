@@ -3,6 +3,11 @@
 Returns the larger of two numeric values.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Pops the top VM stack value into a destination slot.
 
 
+
+## Category
+
+- `stack`
+
 ## Syntax
 
 ```

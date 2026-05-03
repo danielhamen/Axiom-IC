@@ -3,6 +3,11 @@
 Returns the inverse hyperbolic sine.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

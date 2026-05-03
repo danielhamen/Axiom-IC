@@ -3,6 +3,11 @@
 Returns the hyperbolic tangent.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Checks whether the current call frame has a keyword argument.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

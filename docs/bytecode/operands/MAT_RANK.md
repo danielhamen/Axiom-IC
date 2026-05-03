@@ -3,6 +3,11 @@
 Computes matrix rank.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

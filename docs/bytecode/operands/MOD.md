@@ -3,6 +3,11 @@
 Returns the integer remainder.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

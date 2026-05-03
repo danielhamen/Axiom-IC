@@ -3,6 +3,11 @@
 Creates a new mutable structure definition.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

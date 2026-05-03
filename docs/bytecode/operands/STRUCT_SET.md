@@ -3,6 +3,11 @@
 Writes a structure field by name.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

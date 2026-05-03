@@ -33,6 +33,10 @@ std::string token_type_to_string(TokenType type) {
             return "Comma";
         case TokenType::Colon:
             return "Colon";
+        case TokenType::Less:
+            return "Less";
+        case TokenType::Greater:
+            return "Greater";
         case TokenType::Newline:
             return "Newline";
         case TokenType::EndOfFile:
@@ -178,7 +182,7 @@ std::vector<Token> tokenize(const std::string& in) {
             continue;
         }
 
-        if (ch == '$' || ch == '#' || ch == '@' || ch == '&' || ch == ',' || ch == ':') {
+        if (ch == '$' || ch == '#' || ch == '@' || ch == '&' || ch == ',' || ch == ':' || ch == '<' || ch == '>') {
             TokenType type = TokenType::Invalid;
             if (ch == '$') type = TokenType::Dollar;
             else if (ch == '#') type = TokenType::Hash;
@@ -186,6 +190,8 @@ std::vector<Token> tokenize(const std::string& in) {
             else if (ch == '&') type = TokenType::Amp;
             else if (ch == ',') type = TokenType::Comma;
             else if (ch == ':') type = TokenType::Colon;
+            else if (ch == '<') type = TokenType::Less;
+            else if (ch == '>') type = TokenType::Greater;
 
             tokens.push_back(Token{type, std::string(1, ch), line, column});
             idx++;

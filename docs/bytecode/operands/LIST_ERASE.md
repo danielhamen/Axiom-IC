@@ -3,6 +3,11 @@
 Removes an item from a list by index.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

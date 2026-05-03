@@ -3,6 +3,11 @@
 Returns the length of a vector.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

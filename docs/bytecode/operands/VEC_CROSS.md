@@ -3,6 +3,11 @@
 Computes the 3D cross product of two vectors.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

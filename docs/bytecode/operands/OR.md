@@ -3,6 +3,11 @@
 Performs boolean OR or integer bitwise OR.
 
 
+
+## Category
+
+- `logic`
+
 ## Syntax
 
 ```

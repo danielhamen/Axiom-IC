@@ -3,6 +3,11 @@
 Returns from the current function.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

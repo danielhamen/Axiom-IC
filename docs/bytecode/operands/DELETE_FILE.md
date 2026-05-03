@@ -3,6 +3,11 @@
 Deletes a filesystem path if it exists.
 
 
+
+## Category
+
+- `io`
+
 ## Syntax
 
 ```

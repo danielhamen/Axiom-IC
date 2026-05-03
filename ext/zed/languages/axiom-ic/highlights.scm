@@ -2,6 +2,12 @@
 
 (directive) @keyword.directive
 
+(import_directive
+  ".import" @keyword.directive
+  "<" @punctuation.bracket
+  (identifier) @namespace
+  ">" @punctuation.bracket)
+
 (function_directive
   ".fn" @keyword.directive
   (identifier) @function)
@@ -36,3 +42,5 @@
 (unary_operation) @function.builtin
 (binary_operation) @function.builtin
 (ternary_operation) @function.builtin
+(quaternary_operation) @function.builtin
+(variadic_operation) @function.builtin

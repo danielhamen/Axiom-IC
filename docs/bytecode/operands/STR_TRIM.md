@@ -3,6 +3,11 @@
 Trims leading and trailing whitespace.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

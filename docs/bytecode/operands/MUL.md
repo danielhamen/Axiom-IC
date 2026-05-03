@@ -3,6 +3,11 @@
 Multiplies two numeric values.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

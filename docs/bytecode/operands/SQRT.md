@@ -3,6 +3,11 @@
 Returns the square root of a number.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

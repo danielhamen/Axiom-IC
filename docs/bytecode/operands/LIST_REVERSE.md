@@ -3,6 +3,11 @@
 Reverses a list in place.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

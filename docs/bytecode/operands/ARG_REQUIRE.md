@@ -3,6 +3,11 @@
 Requires a positional argument to exist and match a runtime type.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

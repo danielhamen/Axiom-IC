@@ -3,6 +3,11 @@
 Returns string length.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

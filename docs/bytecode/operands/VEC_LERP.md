@@ -3,6 +3,11 @@
 Linearly interpolates between two vectors.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

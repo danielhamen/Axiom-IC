@@ -3,6 +3,11 @@
 Jumps when a value is truthy.
 
 
+
+## Category
+
+- `control_flow`
+
 ## Syntax
 
 ```

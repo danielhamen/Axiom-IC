@@ -3,6 +3,11 @@
 Reflects a vector across a normal vector.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

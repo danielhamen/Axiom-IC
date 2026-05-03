@@ -3,6 +3,11 @@
 Performs boolean NOT or integer bitwise complement.
 
 
+
+## Category
+
+- `logic`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Tests whether a filesystem path exists.
 
 
+
+## Category
+
+- `io`
+
 ## Syntax
 
 ```

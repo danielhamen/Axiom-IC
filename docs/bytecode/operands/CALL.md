@@ -3,6 +3,11 @@
 Calls a bytecode function.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

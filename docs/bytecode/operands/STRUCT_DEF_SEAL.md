@@ -3,6 +3,11 @@
 Seals a structure definition so it can be instantiated.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Appends a string to a file.
 
 
+
+## Category
+
+- `io`
+
 ## Syntax
 
 ```

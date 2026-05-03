@@ -3,6 +3,11 @@
 Returns the number of positional arguments in the current call frame.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

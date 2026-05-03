@@ -3,6 +3,11 @@
 Returns the IEEE floating remainder.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

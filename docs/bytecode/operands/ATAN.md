@@ -3,6 +3,11 @@
 Returns the inverse tangent in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

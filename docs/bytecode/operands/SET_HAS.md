@@ -3,6 +3,11 @@
 Checks whether a set contains a value.
 
 
+
+## Category
+
+- `set`
+
 ## Syntax
 
 ```

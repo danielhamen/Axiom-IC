@@ -3,6 +3,11 @@
 Joins a list of strings.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

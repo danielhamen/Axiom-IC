@@ -3,6 +3,11 @@
 Returns a logarithm with an explicit base.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

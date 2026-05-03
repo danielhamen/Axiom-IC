@@ -3,6 +3,11 @@
 Creates a vector with a fixed initial size.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

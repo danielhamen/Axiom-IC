@@ -3,6 +3,11 @@
 Returns the hyperbolic secant.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

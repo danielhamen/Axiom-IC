@@ -3,6 +3,11 @@
 Converts degrees to radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

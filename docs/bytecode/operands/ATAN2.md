@@ -3,6 +3,11 @@
 Returns the two-argument arctangent in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

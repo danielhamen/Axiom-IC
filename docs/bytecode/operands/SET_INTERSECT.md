@@ -3,6 +3,11 @@
 Creates the intersection of two sets.
 
 
+
+## Category
+
+- `set`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Finds a substring.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

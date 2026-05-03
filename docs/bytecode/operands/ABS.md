@@ -3,6 +3,11 @@
 Returns the absolute value of a number.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

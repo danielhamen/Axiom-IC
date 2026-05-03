@@ -3,6 +3,11 @@
 Creates a new empty set.
 
 
+
+## Category
+
+- `set`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Returns the smaller of two numeric values.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Casts a value to a string.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

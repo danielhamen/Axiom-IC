@@ -3,6 +3,11 @@
 Jumps when a numeric value is zero.
 
 
+
+## Category
+
+- `control_flow`
+
 ## Syntax
 
 ```

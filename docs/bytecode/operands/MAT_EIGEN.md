@@ -3,6 +3,11 @@
 Computes eigenvalues for a 2x2 matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

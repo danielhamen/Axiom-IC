@@ -3,6 +3,11 @@
 Casts a value to an integer.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

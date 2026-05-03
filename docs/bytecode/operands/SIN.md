@@ -3,6 +3,11 @@
 Returns the sine of an angle in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

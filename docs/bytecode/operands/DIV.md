@@ -3,6 +3,11 @@
 Divides one numeric value by another.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

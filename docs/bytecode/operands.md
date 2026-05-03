@@ -9,9 +9,12 @@ Operand prefixes:
 Slot operands are local to the active function call frame. The `.main` entry point has its own root slot frame, and each `CALL` creates a separate slot frame for the callee.
 
 Directives:
+- `.import <category>` imports an operation category. Import directives must appear at the top of the file before `.const`, `.main`, `.fn`, labels, constants, or instructions.
 - `.fn <label>` defines a function named `<label>`.
 - `.main` marks the main entry point.
 - `.const` defines constants.
+
+Every instruction requires its category to be imported. For example, `ADD` requires `.import <arithmetic>`, `LIST_NEW` requires `.import <list>`, and `HALT` requires `.import <control_flow>`.
 
 Immediate values:
 - booleans (`#true` or `#false`)

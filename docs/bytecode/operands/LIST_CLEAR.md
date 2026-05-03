@@ -3,6 +3,11 @@
 Removes all elements from a list.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Computes an integer factorial.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Finds a value in a list.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

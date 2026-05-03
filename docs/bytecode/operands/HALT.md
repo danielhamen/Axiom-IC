@@ -3,6 +3,11 @@
 Stops program execution.
 
 
+
+## Category
+
+- `control_flow`
+
 ## Syntax
 
 ```

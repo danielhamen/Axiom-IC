@@ -3,6 +3,11 @@
 Returns the values from a map as a list.
 
 
+
+## Category
+
+- `map`
+
 ## Syntax
 
 ```

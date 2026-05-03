@@ -3,6 +3,11 @@
 Removes the last item from a list.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

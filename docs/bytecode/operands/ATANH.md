@@ -3,6 +3,11 @@
 Returns the inverse hyperbolic tangent.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

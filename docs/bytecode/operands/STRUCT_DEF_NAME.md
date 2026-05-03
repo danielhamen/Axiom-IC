@@ -3,6 +3,11 @@
 Assigns a name to an unsealed structure definition.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

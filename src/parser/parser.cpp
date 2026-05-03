@@ -6,6 +6,7 @@
 #include <cctype>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace aic {
@@ -123,7 +124,39 @@ std::string parse_function_name_token(const Token& token) {
     throw_parse_error(token, "Expected function name");
 }
 
-void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_directive, ParseMode& parse_mode) {
+std::unordered_set<std::string> operation_categories() {
+    std::unordered_set<std::string> categories;
+    for (const OperationDefinition& definition : operation_definitions()) {
+        categories.insert(definition.category);
+    }
+    return categories;
+}
+
+bool is_valid_operation_category(const std::string& category) {
+    static const std::unordered_set<std::string> categories = operation_categories();
+    return categories.contains(category);
+}
+
+std::string parse_import_category(const std::vector<Token>& line) {
+    if (line.size() != 4 ||
+        line[1].type != TokenType::Less ||
+        line[2].type != TokenType::Identifier ||
+        line[3].type != TokenType::Greater) {
+        throw_parse_error(line[0], "`.import` requires syntax `.import <category>`");
+    }
+
+    const std::string& category = line[2].lexeme;
+    if (!is_valid_operation_category(category)) {
+        throw_parse_error(line[2], "Unknown operation category import: " + category);
+    }
+    return category;
+}
+
+void parse_line(const std::vector<Token>& line,
+                Program& vm,
+                Directive& current_directive,
+                ParseMode& parse_mode,
+                bool& imports_closed) {
     if (line.empty()) {
         return;
     }
@@ -133,6 +166,19 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
 
     if (head_token.type == TokenType::Directive) {
         std::string directive = head.substr(1);
+
+        if (directive == "import") {
+            if (imports_closed) {
+                throw_parse_error(head_token, "`.import` directives must appear at the top of the file");
+            }
+
+            current_directive = Directive::Import;
+            parse_mode = ParseMode::None;
+            vm.imported_categories.insert(parse_import_category(line));
+            return;
+        }
+
+        imports_closed = true;
 
         if (directive == "const") {
             if (line.size() != 1) {
@@ -198,6 +244,8 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         vm.functions.insert(fn);
         return;
     }
+
+    imports_closed = true;
 
     if (line.size() >= 2 && head_token.type == TokenType::Identifier && line.at(1).type == TokenType::Colon) {
         if (current_directive != Directive::Function || parse_mode != ParseMode::FunctionBody) {
@@ -285,6 +333,11 @@ void parse_line(const std::vector<Token>& line, Program& vm, Directive& current_
         throw_parse_error(head_token, "Unknown instruction: " + ins_opname);
     }
     const Operation& ins_op = it->second;
+    if (!vm.imported_categories.contains(ins_op.category)) {
+        throw_parse_error(head_token,
+                          "Instruction '" + ins_op.name + "' requires `.import <" +
+                              ins_op.category + ">` at the top of the file");
+    }
 
     Instruction ins;
     ins.op = ins_op.kind;
@@ -449,11 +502,12 @@ Program parse(const std::vector<Token>& tokens) {
     vm.pc = 0;
     Directive current_directive = Directive::None;
     ParseMode parse_mode = ParseMode::None;
+    bool imports_closed = false;
 
     std::vector<Token> line;
     for (const Token& tok : tokens) {
         if (tok.type == TokenType::Newline || tok.type == TokenType::EndOfFile) {
-            parse_line(line, vm, current_directive, parse_mode);
+            parse_line(line, vm, current_directive, parse_mode, imports_closed);
             line.clear();
 
             if (tok.type == TokenType::EndOfFile) {

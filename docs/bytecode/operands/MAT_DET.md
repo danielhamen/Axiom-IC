@@ -3,6 +3,11 @@
 Computes the determinant of a square matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

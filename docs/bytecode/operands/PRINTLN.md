@@ -3,6 +3,11 @@
 Writes a value to standard output followed by a newline.
 
 
+
+## Category
+
+- `io`
+
 ## Syntax
 
 ```

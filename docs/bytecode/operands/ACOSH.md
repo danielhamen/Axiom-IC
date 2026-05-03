@@ -3,6 +3,11 @@
 Returns the inverse hyperbolic cosine.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

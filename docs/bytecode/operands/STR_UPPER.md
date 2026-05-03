@@ -3,6 +3,11 @@
 Converts a string to uppercase.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

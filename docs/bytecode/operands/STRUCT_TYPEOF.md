@@ -3,6 +3,11 @@
 Gets the declared structure type name for an instance.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

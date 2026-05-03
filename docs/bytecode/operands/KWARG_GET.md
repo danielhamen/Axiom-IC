@@ -3,6 +3,11 @@
 Reads a keyword argument by string key.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

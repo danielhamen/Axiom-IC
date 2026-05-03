@@ -3,6 +3,11 @@
 Reads a value from a map by string key.
 
 
+
+## Category
+
+- `map`
+
 ## Syntax
 
 ```

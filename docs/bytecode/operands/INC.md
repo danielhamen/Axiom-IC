@@ -3,6 +3,11 @@
 Adds one to a numeric value.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

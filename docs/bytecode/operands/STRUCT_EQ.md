@@ -3,6 +3,11 @@
 Compares two structure instances for equality.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

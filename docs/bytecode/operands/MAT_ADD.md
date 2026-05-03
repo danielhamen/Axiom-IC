@@ -3,6 +3,11 @@
 Adds two matrices element-by-element.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

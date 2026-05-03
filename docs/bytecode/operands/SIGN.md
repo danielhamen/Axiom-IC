@@ -3,6 +3,11 @@
 Returns the sign of a number.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

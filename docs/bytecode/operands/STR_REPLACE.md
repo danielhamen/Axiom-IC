@@ -3,6 +3,11 @@
 Replaces all occurrences of a substring in a string slot.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

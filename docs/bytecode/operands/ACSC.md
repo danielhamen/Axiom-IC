@@ -3,6 +3,11 @@
 Returns the inverse cosecant in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

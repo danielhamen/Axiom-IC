@@ -3,6 +3,11 @@
 Returns the cosecant of an angle in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

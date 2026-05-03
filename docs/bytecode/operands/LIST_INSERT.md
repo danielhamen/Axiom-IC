@@ -3,6 +3,11 @@
 Inserts a value into a list at an index.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Raises one number to another.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

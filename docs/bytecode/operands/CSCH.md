@@ -3,6 +3,11 @@
 Returns the hyperbolic cosecant.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

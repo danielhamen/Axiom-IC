@@ -3,6 +3,11 @@
 Creates a new structure instance from a sealed definition and positional field values.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

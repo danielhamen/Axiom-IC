@@ -3,6 +3,11 @@
 Computes the trace of a square matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

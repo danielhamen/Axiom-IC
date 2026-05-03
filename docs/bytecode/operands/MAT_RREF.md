@@ -3,6 +3,11 @@
 Computes reduced row echelon form.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

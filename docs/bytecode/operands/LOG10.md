@@ -3,6 +3,11 @@
 Returns the base-10 logarithm of a number.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

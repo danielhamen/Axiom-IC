@@ -18,6 +18,8 @@ enum class TokenType {
     Amp,
     Comma,
     Colon,
+    Less,
+    Greater,
     Newline,
     EndOfFile,
     Invalid

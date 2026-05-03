@@ -3,6 +3,11 @@
 Writes a matrix element by flat row-major index.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

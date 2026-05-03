@@ -3,6 +3,11 @@
 Returns the runtime value kind.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

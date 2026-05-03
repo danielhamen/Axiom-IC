@@ -3,6 +3,11 @@
 Sets an operand to null.
 
 
+
+## Category
+
+- `memory`
+
 ## Syntax
 
 ```

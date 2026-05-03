@@ -3,6 +3,11 @@
 Tests whether a value is null.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

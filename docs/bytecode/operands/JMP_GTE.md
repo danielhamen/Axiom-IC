@@ -3,6 +3,11 @@
 Jumps when one number is greater than or equal to another.
 
 
+
+## Category
+
+- `control_flow`
+
 ## Syntax
 
 ```

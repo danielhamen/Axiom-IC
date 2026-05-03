@@ -3,6 +3,11 @@
 Writes a list element by index.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

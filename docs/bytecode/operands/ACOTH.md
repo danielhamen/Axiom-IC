@@ -3,6 +3,11 @@
 Returns the inverse hyperbolic cotangent.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

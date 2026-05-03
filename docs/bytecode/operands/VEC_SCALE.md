@@ -3,6 +3,11 @@
 Multiplies a vector by a scalar.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

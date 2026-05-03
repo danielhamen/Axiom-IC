@@ -3,6 +3,11 @@
 Returns `e` raised to a numeric value.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

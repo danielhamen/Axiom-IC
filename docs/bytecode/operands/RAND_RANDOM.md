@@ -3,6 +3,11 @@
 Generates a random decimal.
 
 
+
+## Category
+
+- `random`
+
 ## Syntax
 
 ```

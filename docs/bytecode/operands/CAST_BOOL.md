@@ -3,6 +3,11 @@
 Casts a value to a boolean using VM truthiness.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Linearly interpolates between two numbers.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

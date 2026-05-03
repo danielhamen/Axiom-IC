@@ -3,6 +3,11 @@
 Returns the tangent of an angle in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

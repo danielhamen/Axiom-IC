@@ -3,6 +3,11 @@
 Appends a value to a list.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

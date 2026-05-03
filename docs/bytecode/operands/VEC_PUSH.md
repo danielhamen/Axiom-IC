@@ -3,6 +3,11 @@
 Appends a numeric value to a vector.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

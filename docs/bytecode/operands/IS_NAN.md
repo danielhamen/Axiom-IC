@@ -3,6 +3,11 @@
 Tests whether a value is floating NaN.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

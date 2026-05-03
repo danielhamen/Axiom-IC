@@ -3,6 +3,11 @@
 Computes Euclidean distance between two vectors.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

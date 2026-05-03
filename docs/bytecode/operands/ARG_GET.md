@@ -3,6 +3,11 @@
 Reads a positional argument by dynamic index.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

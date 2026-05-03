@@ -3,6 +3,11 @@
 Returns the current Unix timestamp.
 
 
+
+## Category
+
+- `time`
+
 ## Syntax
 
 ```

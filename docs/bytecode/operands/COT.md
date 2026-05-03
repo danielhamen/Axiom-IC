@@ -3,6 +3,11 @@
 Returns the cotangent of an angle in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

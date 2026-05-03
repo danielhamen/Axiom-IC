@@ -3,6 +3,11 @@
 Checks whether a structure instance has a specific structure type.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

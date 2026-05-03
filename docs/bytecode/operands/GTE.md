@@ -3,6 +3,11 @@
 Tests whether one number is greater than or equal to another.
 
 
+
+## Category
+
+- `comparison`
+
 ## Syntax
 
 ```

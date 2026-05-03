@@ -3,6 +3,11 @@
 Writes a structure field by index.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

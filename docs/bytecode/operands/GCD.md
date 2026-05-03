@@ -3,6 +3,11 @@
 Computes the greatest common divisor of two integers.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

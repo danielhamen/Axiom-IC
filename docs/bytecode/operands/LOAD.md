@@ -3,6 +3,11 @@
 Copies a value into a destination operand.
 
 
+
+## Category
+
+- `memory`
+
 ## Syntax
 
 ```

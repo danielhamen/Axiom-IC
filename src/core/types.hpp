@@ -14,7 +14,8 @@ enum class Directive : int8_t {
     Constant,
     Function,
     None,
-    Include
+    Include,
+    Import
 };
 
 enum class OperationKind : int16_t {
@@ -338,6 +339,7 @@ struct Operation {
     OperationKind kind;
     std::string name;
     size_t arity;
+    std::string category;
 };
 
 char escape_char(char in);

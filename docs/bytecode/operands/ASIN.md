@@ -3,6 +3,11 @@
 Returns the inverse sine in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

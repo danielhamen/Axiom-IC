@@ -3,6 +3,11 @@
 Adds a value to a set if it is not already present.
 
 
+
+## Category
+
+- `set`
+
 ## Syntax
 
 ```

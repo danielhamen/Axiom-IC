@@ -3,6 +3,11 @@
 Concatenates two strings.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Solves a square linear system.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

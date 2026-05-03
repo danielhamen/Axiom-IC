@@ -3,6 +3,11 @@
 Normalizes a number within an input range.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

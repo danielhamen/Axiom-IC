@@ -3,6 +3,11 @@
 Splits a string into a list of strings.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

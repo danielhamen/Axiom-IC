@@ -3,6 +3,11 @@
 Negates a numeric value.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

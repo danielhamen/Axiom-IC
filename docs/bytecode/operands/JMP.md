@@ -3,6 +3,11 @@
 Jumps unconditionally to a label in the current function.
 
 
+
+## Category
+
+- `control_flow`
+
 ## Syntax
 
 ```

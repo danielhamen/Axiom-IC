@@ -3,6 +3,11 @@
 Jumps when two values are equal.
 
 
+
+## Category
+
+- `control_flow`
+
 ## Syntax
 
 ```

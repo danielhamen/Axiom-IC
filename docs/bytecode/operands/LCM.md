@@ -3,6 +3,11 @@
 Computes the least common multiple of two integers.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

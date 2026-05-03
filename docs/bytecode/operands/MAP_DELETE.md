@@ -3,6 +3,11 @@
 Removes a key from a map.
 
 
+
+## Category
+
+- `map`
+
 ## Syntax
 
 ```

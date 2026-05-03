@@ -3,6 +3,11 @@
 Computes vector magnitude.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

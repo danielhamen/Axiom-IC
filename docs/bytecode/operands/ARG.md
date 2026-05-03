@@ -3,6 +3,11 @@
 Appends one pending positional argument for the next `CALL`.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

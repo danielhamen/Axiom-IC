@@ -3,6 +3,11 @@
 Creates a new list with a fixed initial size.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

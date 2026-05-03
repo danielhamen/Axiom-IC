@@ -3,6 +3,11 @@
 Copies a suffix of a list.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Subtracts two vectors element-by-element.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

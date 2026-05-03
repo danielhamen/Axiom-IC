@@ -3,6 +3,11 @@
 Returns the natural logarithm of a number.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Suspends execution for a duration.
 
 
+
+## Category
+
+- `time`
+
 ## Syntax
 
 ```

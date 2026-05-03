@@ -3,6 +3,11 @@
 Generates a random floating value in a range.
 
 
+
+## Category
+
+- `random`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Normalizes a vector.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

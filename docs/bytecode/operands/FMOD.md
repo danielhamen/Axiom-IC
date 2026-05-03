@@ -3,6 +3,11 @@
 Returns the floating-point modulo.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

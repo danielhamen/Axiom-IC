@@ -3,6 +3,11 @@
 Subtracts one numeric value from another.
 
 
+
+## Category
+
+- `arithmetic`
+
 ## Syntax
 
 ```

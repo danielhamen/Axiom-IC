@@ -284,7 +284,7 @@ void register_operations() {
 
         operation_by_name.emplace(
             definition.name,
-            Operation{definition.kind, definition.name, definition.arity}
+            Operation{definition.kind, definition.name, definition.arity, definition.category}
         );
     }
 }

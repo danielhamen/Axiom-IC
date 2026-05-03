@@ -3,6 +3,11 @@
 Creates a new empty map.
 
 
+
+## Category
+
+- `map`
+
 ## Syntax
 
 ```

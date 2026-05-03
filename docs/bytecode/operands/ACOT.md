@@ -3,6 +3,11 @@
 Returns the inverse cotangent in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

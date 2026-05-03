@@ -3,6 +3,11 @@
 Returns the column count of a matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

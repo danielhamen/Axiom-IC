@@ -3,6 +3,11 @@
 Rounds a number up to the nearest integer value.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

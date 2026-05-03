@@ -3,6 +3,11 @@
 Sorts a list by string representation.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

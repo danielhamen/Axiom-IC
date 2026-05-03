@@ -3,6 +3,11 @@
 Pushes a value onto the VM stack.
 
 
+
+## Category
+
+- `stack`
+
 ## Syntax
 
 ```

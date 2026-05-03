@@ -3,6 +3,11 @@
 Creates a matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

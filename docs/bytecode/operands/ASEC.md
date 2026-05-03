@@ -3,6 +3,11 @@
 Returns the inverse secant in radians.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

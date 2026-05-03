@@ -3,6 +3,11 @@
 Removes a value from a set.
 
 
+
+## Category
+
+- `set`
+
 ## Syntax
 
 ```

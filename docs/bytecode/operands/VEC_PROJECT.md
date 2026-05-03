@@ -3,6 +3,11 @@
 Projects one vector onto another.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

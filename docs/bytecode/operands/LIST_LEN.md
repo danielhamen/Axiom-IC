@@ -3,6 +3,11 @@
 Returns the length of a list.
 
 
+
+## Category
+
+- `list`
+
 ## Syntax
 
 ```

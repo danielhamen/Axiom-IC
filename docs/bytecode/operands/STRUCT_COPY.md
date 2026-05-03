@@ -3,6 +3,11 @@
 Copies a structure instance.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

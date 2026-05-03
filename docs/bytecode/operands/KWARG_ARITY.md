@@ -3,6 +3,11 @@
 Returns the number of keyword arguments in the current call frame.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

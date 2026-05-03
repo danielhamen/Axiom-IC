@@ -3,6 +3,11 @@
 Stores a value into a slot.
 
 
+
+## Category
+
+- `memory`
+
 ## Syntax
 
 ```

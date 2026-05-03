@@ -3,6 +3,11 @@
 Sets the current function return value.
 
 
+
+## Category
+
+- `function`
+
 ## Syntax
 
 ```

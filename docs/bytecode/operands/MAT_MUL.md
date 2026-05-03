@@ -3,6 +3,11 @@
 Multiplies two matrices.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

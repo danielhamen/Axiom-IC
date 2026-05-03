@@ -6,6 +6,7 @@
 #include <random>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace aic {
@@ -31,6 +32,7 @@ struct Program {
     std::vector<Value> stack;
     std::vector<Value> pending_args;
     std::unordered_map<std::string, Value> pending_kwargs;
+    std::unordered_set<std::string> imported_categories;
     std::vector<CallFrame> call_stack;
     static std::mt19937 rng;
 

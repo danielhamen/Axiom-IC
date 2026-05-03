@@ -3,6 +3,11 @@
 Returns the cube root of a number.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

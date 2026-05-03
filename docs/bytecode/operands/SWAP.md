@@ -3,6 +3,11 @@
 Swaps two operands.
 
 
+
+## Category
+
+- `memory`
+
 ## Syntax
 
 ```

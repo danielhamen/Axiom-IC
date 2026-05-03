@@ -3,6 +3,11 @@
 Returns the Euclidean norm of two numbers.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Converts a string to lowercase.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

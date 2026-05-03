@@ -3,6 +3,11 @@
 Clamps a numeric slot between a lower and upper bound.
 
 
+
+## Category
+
+- `math`
+
 ## Syntax
 
 ```

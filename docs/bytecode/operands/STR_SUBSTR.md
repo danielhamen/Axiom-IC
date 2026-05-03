@@ -3,6 +3,11 @@
 Returns a suffix substring.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

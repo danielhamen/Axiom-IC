@@ -3,6 +3,11 @@
 Tests two values for equality.
 
 
+
+## Category
+
+- `comparison`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Generates a random integer in an inclusive range.
 
 
+
+## Category
+
+- `random`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Reads a file into a string.
 
 
+
+## Category
+
+- `io`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Creates the union of two sets.
 
 
+
+## Category
+
+- `set`
+
 ## Syntax
 
 ```

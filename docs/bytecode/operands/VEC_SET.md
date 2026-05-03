@@ -3,6 +3,11 @@
 Writes a vector element by index.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

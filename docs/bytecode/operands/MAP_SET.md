@@ -3,6 +3,11 @@
 Sets a string key to a value in a map.
 
 
+
+## Category
+
+- `map`
+
 ## Syntax
 
 ```

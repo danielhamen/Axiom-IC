@@ -3,6 +3,11 @@
 Computes the angle between two vectors in radians.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

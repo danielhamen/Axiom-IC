@@ -3,6 +3,11 @@
 Checks whether a map contains a string key.
 
 
+
+## Category
+
+- `map`
+
 ## Syntax
 
 ```

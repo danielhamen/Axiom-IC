@@ -3,6 +3,11 @@
 Computes the inverse of a square matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

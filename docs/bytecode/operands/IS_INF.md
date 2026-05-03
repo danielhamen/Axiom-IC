@@ -3,6 +3,11 @@
 Tests whether a value is floating infinity.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

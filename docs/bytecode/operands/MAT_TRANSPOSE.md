@@ -3,6 +3,11 @@
 Transposes a matrix.
 
 
+
+## Category
+
+- `matrix`
+
 ## Syntax
 
 ```

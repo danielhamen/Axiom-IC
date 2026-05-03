@@ -3,6 +3,11 @@
 Performs boolean AND or integer bitwise AND.
 
 
+
+## Category
+
+- `logic`
+
 ## Syntax
 
 ```

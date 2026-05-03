@@ -3,6 +3,11 @@
 Compares two strings for exact equality.
 
 
+
+## Category
+
+- `string`
+
 ## Syntax
 
 ```

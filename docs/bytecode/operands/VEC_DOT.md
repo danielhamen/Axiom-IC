@@ -3,6 +3,11 @@
 Computes the dot product of two vectors.
 
 
+
+## Category
+
+- `vector`
+
 ## Syntax
 
 ```

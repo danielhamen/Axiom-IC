@@ -3,6 +3,11 @@
 Casts a value to a float.
 
 
+
+## Category
+
+- `type`
+
 ## Syntax
 
 ```

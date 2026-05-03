@@ -3,6 +3,11 @@
 Performs boolean XOR or integer bitwise XOR.
 
 
+
+## Category
+
+- `logic`
+
 ## Syntax
 
 ```

@@ -3,6 +3,11 @@
 Adds a typed field with a default value to an unsealed structure definition.
 
 
+
+## Category
+
+- `struct`
+
 ## Syntax
 
 ```

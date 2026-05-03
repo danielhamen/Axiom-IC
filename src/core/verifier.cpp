@@ -126,6 +126,7 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::END_TRY:
         case OperationKind::THROW:
         case OperationKind::ERR_CLEAR:
+        case OperationKind::LITERAL:
             return false;
         default:
             return true;
@@ -255,22 +256,26 @@ void verify_operand_shape(std::vector<VerificationDiagnostic>& diagnostics,
                           const Function& function,
                           const Instruction& ins,
                           size_t pc) {
-    if (writes_first_operand(ins.op) && !ins.operands.empty() && ins.operands[0].kind != OperandKind::Slot) {
+    if (writes_first_operand(ins.op) && !ins.operands.empty() &&
+        ins.operands[0].kind != OperandKind::Slot &&
+        ins.operands[0].kind != OperandKind::Label) {
         add(diagnostics,
             DiagnosticSeverity::Error,
             function,
             pc,
             ins.op,
-            "destination operand must be a slot");
+            "destination operand must be a slot or writable literal alias");
     }
 
-    if (is_mutating_first_operand(ins.op) && !ins.operands.empty() && ins.operands[0].kind != OperandKind::Slot) {
+    if (is_mutating_first_operand(ins.op) && !ins.operands.empty() &&
+        ins.operands[0].kind != OperandKind::Slot &&
+        ins.operands[0].kind != OperandKind::Label) {
         add(diagnostics,
             DiagnosticSeverity::Error,
             function,
             pc,
             ins.op,
-            "mutating first operand must be a slot");
+            "mutating first operand must be a slot or writable literal alias");
     }
 
     for (size_t i = 0; i < ins.operands.size(); i++) {
@@ -291,6 +296,9 @@ void verify_operand_shape(std::vector<VerificationDiagnostic>& diagnostics,
                 pc,
                 ins.op,
                 "address operands are parsed but not supported by runtime read/write operations");
+        }
+        if (ins.op == OperationKind::LITERAL) {
+            continue;
         }
         if (i > 0 && !is_label_target(ins.op) && !is_function_reference_operand(ins.op, i) &&
             operand.kind == OperandKind::Label) {
@@ -314,6 +322,30 @@ void verify_operand_shape(std::vector<VerificationDiagnostic>& diagnostics,
 
     if (ins.op == OperationKind::TYPE_HINT && !ins.operands.empty() && ins.operands[0].kind != OperandKind::Slot) {
         add(diagnostics, DiagnosticSeverity::Error, function, pc, ins.op, "TYPE_HINT first operand must be a slot");
+    }
+
+    if (ins.op == OperationKind::LITERAL) {
+        if (ins.operands.size() != 2) {
+            return;
+        }
+        if (ins.operands[0].kind != OperandKind::Label) {
+            add(diagnostics,
+                DiagnosticSeverity::Error,
+                function,
+                pc,
+                ins.op,
+                "LITERAL first operand must be an identifier alias");
+        }
+        if (ins.operands[1].kind == OperandKind::None ||
+            ins.operands[1].kind == OperandKind::Function ||
+            ins.operands[1].kind == OperandKind::Address) {
+            add(diagnostics,
+                DiagnosticSeverity::Error,
+                function,
+                pc,
+                ins.op,
+                "LITERAL target must be a readable operand or another literal alias");
+        }
     }
 
     for (size_t i = 0; i < ins.operands.size(); i++) {

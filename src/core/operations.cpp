@@ -82,6 +82,9 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::ERROR_MESSAGE, "ERROR_MESSAGE", 2, "exception"},
     {OperationKind::ERROR_IS, "ERROR_IS", 3, "exception"},
 
+    // LITERALS
+    {OperationKind::LITERAL, "LITERAL", 2, "literal"},
+
     // CONTROL FLOW
     {OperationKind::JMP, "JMP", 1, "control_flow"},
     {OperationKind::HALT, "HALT", 0, "control_flow"},

@@ -906,6 +906,17 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::LITERAL: {
+        if (x.kind != OperandKind::Label) {
+            throw_exec_error(*this, "LITERAL first operand must be an identifier alias", &ins, "TypeError");
+        }
+        if (literal_aliases.contains(x.strval)) {
+            warn("LITERAL replaced existing alias: " + x.strval, &ins);
+        }
+        literal_aliases[x.strval] = y;
+        pc++;
+        return;
+    }
     case OperationKind::ADD: {
         Value lhs = read_numeric_value(*this, y, ins, "ADD");
         Value rhs = read_numeric_value(*this, z, ins, "ADD");
@@ -3458,8 +3469,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::STORE: {
-        if (x.kind != OperandKind::Slot) {
-            throw_exec_error(*this, "STORE expects Slot destination", &ins);
+        if (x.kind != OperandKind::Slot && x.kind != OperandKind::Label) {
+            throw_exec_error(*this, "STORE expects Slot destination or writable literal alias", &ins);
         }
         write_operand(x, read_operand(y));
         pc++;
@@ -3644,6 +3655,7 @@ void Program::exec(const ExecutionOptions& options) {
     stack.clear();
     pending_args.clear();
     pending_kwargs.clear();
+    literal_aliases.clear();
     memory.clear();
     warnings.clear();
     current_error = make_null_value();
@@ -3741,7 +3753,9 @@ void Program::warn(const std::string& message, const Instruction* ins) {
     std::cerr << format_warning_context(*this, message, ins) << std::endl;
 }
 
-Value Program::read_operand(const Operand& op) {
+namespace {
+
+Value read_operand_resolved(Program& program, const Operand& op, std::unordered_set<std::string>& aliases) {
     Value v{};
 
     switch (op.kind) {
@@ -3749,7 +3763,7 @@ Value Program::read_operand(const Operand& op) {
             v.kind = ValueKind::Null;
             break;
         case OperandKind::Slot:
-            v = slot(op.value);
+            v = program.slot(op.value);
             break;
         case OperandKind::Immediate:
             if (op.has_immediate) {
@@ -3760,31 +3774,50 @@ Value Program::read_operand(const Operand& op) {
             }
             break;
         case OperandKind::Constant:
-            if (op.value >= constants.size()) {
-                throw_exec_error(*this,
+            if (op.value >= program.constants.size()) {
+                throw_exec_error(program,
                                  "Constant index out of bounds: requested " + std::to_string(op.value) +
-                                     ", constant count " + std::to_string(constants.size()));
+                                     ", constant count " + std::to_string(program.constants.size()));
             }
 
-            v = constants.at(op.value);
+            v = program.constants.at(op.value);
             break;
         case OperandKind::Argument:
-            if (call_stack.empty()) {
-                throw_exec_error(*this, "Argument access attempted outside of function call frame");
+            if (program.call_stack.empty()) {
+                throw_exec_error(program, "Argument access attempted outside of function call frame");
             }
             if (op.value < 0 ||
-                static_cast<size_t>(op.value) >= call_stack.back().args.size()) {
-                throw_exec_error(*this,
+                static_cast<size_t>(op.value) >= program.call_stack.back().args.size()) {
+                throw_exec_error(program,
                                  "Function argument index out of range: arg" + std::to_string(op.value));
             }
-            v = call_stack.back().args.at(static_cast<size_t>(op.value));
+            v = program.call_stack.back().args.at(static_cast<size_t>(op.value));
             break;
+        case OperandKind::Label: {
+            const auto it = program.literal_aliases.find(op.strval);
+            if (it == program.literal_aliases.end()) {
+                throw_exec_error(program, "Unknown literal alias: " + op.strval, nullptr, "NameError");
+            }
+            if (!aliases.insert(op.strval).second) {
+                throw_exec_error(program, "Literal alias cycle detected at: " + op.strval, nullptr, "ValueError");
+            }
+            v = read_operand_resolved(program, it->second, aliases);
+            aliases.erase(op.strval);
+            break;
+        }
         default:
-            throw_exec_error(*this,
+            throw_exec_error(program,
                              "Unsupported operand kind in read_operand: " + op.kindstr());
     }
 
     return v;
+}
+
+} // namespace
+
+Value Program::read_operand(const Operand& op) {
+    std::unordered_set<std::string> aliases;
+    return read_operand_resolved(*this, op, aliases);
 }
 
 Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
@@ -3801,6 +3834,21 @@ Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
 }
 
 void Program::write_operand(const Operand& op, const Value& v) {
+    if (op.kind == OperandKind::Label) {
+        const auto it = literal_aliases.find(op.strval);
+        if (it == literal_aliases.end()) {
+            throw_exec_error(*this, "Unknown literal alias destination: " + op.strval, nullptr, "NameError");
+        }
+        if (it->second.kind != OperandKind::Slot) {
+            throw_exec_error(*this,
+                             "Literal alias destination is not writable: " + op.strval,
+                             nullptr,
+                             "TypeError");
+        }
+        write_operand(it->second, v);
+        return;
+    }
+
     if (op.kind != OperandKind::Slot) {
         throw_exec_error(*this,
                          "Operand kind mismatch: expected Slot destination, actual " + op.kindstr(),

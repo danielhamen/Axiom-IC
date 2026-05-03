@@ -156,6 +156,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "ERROR_MESSAGE";
         case OperationKind::ERROR_IS:
             return "ERROR_IS";
+        case OperationKind::LITERAL:
+            return "LITERAL";
         case OperationKind::HALT:
             return "HALT";
         case OperationKind::JMP:

@@ -101,6 +101,13 @@ enum class OperationKind : int16_t {
     ERROR_IS,
 
     /**
+     * ========
+     * LITERALS
+     * ========
+     */
+    LITERAL,
+
+    /**
      * ============
      * CONTROL FLOW
      * ============

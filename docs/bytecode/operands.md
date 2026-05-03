@@ -133,6 +133,10 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`ERROR_MESSAGE`](operands/ERROR_MESSAGE.md): `ERROR_MESSAGE <dst>, <error>`
 - [`ERROR_IS`](operands/ERROR_IS.md): `ERROR_IS <dst>, <error>, <type>`
 
+## Literal Operations
+
+- [`LITERAL`](operands/LITERAL.md): `LITERAL <name>, <target>`
+
 ## I/O Operations
 
 - [`PRINT`](operands/PRINT.md): `PRINT <value>`

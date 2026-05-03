@@ -346,6 +346,12 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STR_EQ";
         case OperationKind::TYPEOF:
             return "TYPEOF";
+        case OperationKind::TYPE_IS:
+            return "TYPE_IS";
+        case OperationKind::TYPE_ASSERT:
+            return "TYPE_ASSERT";
+        case OperationKind::TYPE_HINT:
+            return "TYPE_HINT";
         case OperationKind::CAST_INT:
             return "CAST_INT";
         case OperationKind::CAST_FLOAT:

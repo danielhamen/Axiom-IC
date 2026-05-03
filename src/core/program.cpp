@@ -145,7 +145,43 @@ bool set_contains_value(const std::vector<Value>& values, const Value& needle) {
     return false;
 }
 
-bool type_name_matches_value(const std::string& type_name, const Value& value) {
+std::string trim_copy(const std::string& in);
+
+bool is_type_name_char(char ch) {
+    return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+}
+
+std::vector<std::string> parse_type_union(const std::string& type_expr) {
+    std::vector<std::string> out;
+    std::string current;
+    size_t i = 0;
+    while (i < type_expr.size()) {
+        if (type_expr[i] == '|') {
+            out.push_back(trim_copy(current));
+            current.clear();
+            i++;
+            continue;
+        }
+
+        if ((i == 0 || !is_type_name_char(type_expr[i - 1])) &&
+            i + 2 <= type_expr.size() &&
+            type_expr.substr(i, 2) == "OR" &&
+            (i + 2 == type_expr.size() || !is_type_name_char(type_expr[i + 2]))) {
+            out.push_back(trim_copy(current));
+            current.clear();
+            i += 2;
+            continue;
+        }
+
+        current += type_expr[i];
+        i++;
+    }
+
+    out.push_back(trim_copy(current));
+    return out;
+}
+
+bool single_type_name_matches_value(const std::string& type_name, const Value& value) {
     if (type_name == "Any") {
         return true;
     }
@@ -156,6 +192,45 @@ bool type_name_matches_value(const std::string& type_name, const Value& value) {
         return type_name == "Struct" || type_name == value.struct_name;
     }
     return type_name == value_kind_to_string(value.kind);
+}
+
+bool type_name_matches_value(const std::string& type_name, const Value& value) {
+    for (const std::string& option : parse_type_union(type_name)) {
+        if (!option.empty() && single_type_name_matches_value(option, value)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool type_expression_is_valid(const std::string& type_expr) {
+    for (const std::string& option : parse_type_union(type_expr)) {
+        if (option.empty()) {
+            return false;
+        }
+        for (char ch : option) {
+            if (!is_type_name_char(ch)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+std::string type_description_for_value(const Value& value) {
+    if (value.kind == ValueKind::Struct && !value.struct_name.empty()) {
+        return value_kind_to_string(value.kind) + "(" + value.struct_name + ")";
+    }
+    return value_kind_to_string(value.kind);
+}
+
+void ensure_type_expression_valid(Program& program,
+                                  const std::string& type_expr,
+                                  const Instruction& ins,
+                                  const std::string& opname) {
+    if (!type_expression_is_valid(type_expr)) {
+        throw_exec_error(program, opname + " invalid type expression: " + type_expr, &ins);
+    }
 }
 
 size_t find_struct_field_index(Program& program,
@@ -192,7 +267,7 @@ void ensure_struct_value_type(Program& program,
     if (!type_name_matches_value(type_name, value)) {
         throw_exec_error(program,
                          opname + " field '" + field_name + "' expected " + type_name +
-                             ", got " + value_kind_to_string(value.kind),
+                             ", got " + type_description_for_value(value),
                          &ins);
     }
 }
@@ -1028,13 +1103,14 @@ void Program::resolve(const Instruction& ins) {
         CallFrame& frame = current_call_frame(*this, ins, "ARG_REQUIRE");
         size_t index = read_non_negative_integer_operand(*this, x, ins, "ARG_REQUIRE index");
         Value type_name = read_string_strict(*this, y);
+        ensure_type_expression_valid(*this, type_name.s, ins, "ARG_REQUIRE");
         if (index >= frame.args.size()) {
             throw_exec_error(*this, "ARG_REQUIRE missing arg" + std::to_string(index), &ins);
         }
         if (!type_name_matches_value(type_name.s, frame.args[index])) {
             throw_exec_error(*this,
                              "ARG_REQUIRE arg" + std::to_string(index) + " expected " + type_name.s +
-                                 ", got " + value_kind_to_string(frame.args[index].kind),
+                                 ", got " + type_description_for_value(frame.args[index]),
                              &ins);
         }
         pc++;
@@ -1044,6 +1120,7 @@ void Program::resolve(const Instruction& ins) {
         CallFrame& frame = current_call_frame(*this, ins, "KWARG_REQUIRE");
         Value key = read_string_strict(*this, x);
         Value type_name = read_string_strict(*this, y);
+        ensure_type_expression_valid(*this, type_name.s, ins, "KWARG_REQUIRE");
         auto it = frame.kwargs.find(key.s);
         if (it == frame.kwargs.end()) {
             throw_exec_error(*this, "KWARG_REQUIRE missing key: " + key.s, &ins);
@@ -1051,7 +1128,7 @@ void Program::resolve(const Instruction& ins) {
         if (!type_name_matches_value(type_name.s, it->second)) {
             throw_exec_error(*this,
                              "KWARG_REQUIRE " + key.s + " expected " + type_name.s +
-                                 ", got " + value_kind_to_string(it->second.kind),
+                                 ", got " + type_description_for_value(it->second),
                              &ins);
         }
         pc++;
@@ -1393,6 +1470,7 @@ void Program::resolve(const Instruction& ins) {
         if (field_type.s.empty()) {
             throw_exec_error(*this, opname + " requires a non-empty field type", &ins);
         }
+        ensure_type_expression_valid(*this, field_type.s, ins, opname);
         if (std::find(def.struct_field_names.begin(), def.struct_field_names.end(), field_name.s) !=
             def.struct_field_names.end()) {
             throw_exec_error(*this, opname + " duplicate field: " + field_name.s, &ins);
@@ -2273,6 +2351,43 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::TYPE_IS: {
+        Value value = read_operand(y);
+        Value type_expr = read_string_strict(*this, z);
+        ensure_type_expression_valid(*this, type_expr.s, ins, "TYPE_IS");
+        write_operand(x, make_bool_value(type_name_matches_value(type_expr.s, value)));
+        pc++;
+        return;
+    }
+    case OperationKind::TYPE_ASSERT: {
+        Value value = read_operand(x);
+        Value type_expr = read_string_strict(*this, y);
+        ensure_type_expression_valid(*this, type_expr.s, ins, "TYPE_ASSERT");
+        if (!type_name_matches_value(type_expr.s, value)) {
+            throw_exec_error(*this,
+                             "TYPE_ASSERT expected " + type_expr.s +
+                                 ", got " + type_description_for_value(value),
+                             &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::TYPE_HINT: {
+        if (x.kind != OperandKind::Slot) {
+            throw_exec_error(*this, "TYPE_HINT expects a slot as first operand", &ins);
+        }
+        Value type_expr = read_string_strict(*this, y);
+        ensure_type_expression_valid(*this, type_expr.s, ins, "TYPE_HINT");
+        std::vector<std::string>& active_hints = call_stack.empty()
+                                                     ? slot_type_hints
+                                                     : call_stack.back().slot_type_hints;
+        if (static_cast<size_t>(x.value) >= active_hints.size()) {
+            active_hints.resize(static_cast<size_t>(x.value) + 1);
+        }
+        active_hints[static_cast<size_t>(x.value)] = type_expr.s;
+        pc++;
+        return;
+    }
     case OperationKind::CAST_INT: {
         Value in = read_operand(y);
         Value out{};
@@ -2475,7 +2590,7 @@ void Program::resolve(const Instruction& ins) {
         if (x.kind != OperandKind::Slot) {
             throw_exec_error(*this, "STORE expects Slot destination", &ins);
         }
-        slot(x.value) = read_operand(y);
+        write_operand(x, read_operand(y));
         pc++;
         return;
     }
@@ -2782,6 +2897,17 @@ void Program::write_operand(const Operand& op, const Value& v) {
     if (op.kind != OperandKind::Slot) {
         throw_exec_error(*this,
                          "Operand kind mismatch: expected Slot destination, actual " + op.kindstr());
+    }
+
+    std::vector<std::string>& active_hints = call_stack.empty()
+                                                 ? slot_type_hints
+                                                 : call_stack.back().slot_type_hints;
+    const size_t index = static_cast<size_t>(op.value);
+    if (index < active_hints.size() && !active_hints[index].empty() &&
+        !type_name_matches_value(active_hints[index], v)) {
+        throw_exec_error(*this,
+                         "Slot $" + std::to_string(index) + " expected " + active_hints[index] +
+                             ", got " + type_description_for_value(v));
     }
 
     slot(op.value) = v;

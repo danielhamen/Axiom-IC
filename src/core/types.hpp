@@ -256,6 +256,9 @@ enum class OperationKind : int16_t {
      * =========
      */
     TYPEOF,
+    TYPE_IS,
+    TYPE_ASSERT,
+    TYPE_HINT,
     CAST_INT,
     CAST_FLOAT,
     CAST_BOOL,

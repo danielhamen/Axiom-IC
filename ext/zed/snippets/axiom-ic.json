@@ -1464,6 +1464,36 @@
     "body": "TYPEOF \\$${1:0}, ${2:#1}$0",
     "description": "Axiom-IC type operation: TYPEOF"
   },
+  "TYPE_IS": {
+    "prefix": "TYPE_IS",
+    "body": "TYPE_IS \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC type operation: TYPE_IS"
+  },
+  "TYPE_IS short prefix": {
+    "prefix": "TYP",
+    "body": "TYPE_IS \\$${1:0}, ${2:#1}, ${3:#1}$0",
+    "description": "Axiom-IC type operation: TYPE_IS"
+  },
+  "TYPE_ASSERT": {
+    "prefix": "TYPE_ASSERT",
+    "body": "TYPE_ASSERT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: TYPE_ASSERT"
+  },
+  "TYPE_ASSERT short prefix": {
+    "prefix": "TYP",
+    "body": "TYPE_ASSERT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: TYPE_ASSERT"
+  },
+  "TYPE_HINT": {
+    "prefix": "TYPE_HINT",
+    "body": "TYPE_HINT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: TYPE_HINT"
+  },
+  "TYPE_HINT short prefix": {
+    "prefix": "TYP",
+    "body": "TYPE_HINT \\$${1:0}, ${2:#1}$0",
+    "description": "Axiom-IC type operation: TYPE_HINT"
+  },
   "CAST_INT": {
     "prefix": "CAST_INT",
     "body": "CAST_INT \\$${1:0}, ${2:#1}$0",

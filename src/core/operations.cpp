@@ -196,6 +196,9 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
 
     // TYPE/CAST
     {OperationKind::TYPEOF, "TYPEOF", 2, "type"},
+    {OperationKind::TYPE_IS, "TYPE_IS", 3, "type"},
+    {OperationKind::TYPE_ASSERT, "TYPE_ASSERT", 2, "type"},
+    {OperationKind::TYPE_HINT, "TYPE_HINT", 2, "type"},
     {OperationKind::CAST_INT, "CAST_INT", 2, "type"},
     {OperationKind::CAST_FLOAT, "CAST_FLOAT", 2, "type"},
     {OperationKind::CAST_BOOL, "CAST_BOOL", 2, "type"},

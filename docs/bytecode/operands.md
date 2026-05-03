@@ -242,6 +242,9 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 ## Type and Cast Operations
 
 - [`TYPEOF`](operands/TYPEOF.md): `TYPEOF <dst>, <value>`
+- [`TYPE_IS`](operands/TYPE_IS.md): `TYPE_IS <dst>, <value>, <type>`
+- [`TYPE_ASSERT`](operands/TYPE_ASSERT.md): `TYPE_ASSERT <value>, <type>`
+- [`TYPE_HINT`](operands/TYPE_HINT.md): `TYPE_HINT <slot>, <type>`
 - [`CAST_INT`](operands/CAST_INT.md): `CAST_INT <dst>, <value>`
 - [`CAST_FLOAT`](operands/CAST_FLOAT.md): `CAST_FLOAT <dst>, <value>`
 - [`CAST_BOOL`](operands/CAST_BOOL.md): `CAST_BOOL <dst>, <value>`

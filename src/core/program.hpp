@@ -17,6 +17,7 @@ struct CallFrame {
     std::vector<Value> args;
     std::unordered_map<std::string, Value> kwargs;
     std::vector<Value> memory;
+    std::vector<std::string> slot_type_hints;
     Value return_value{};
     bool has_return_value = false;
 };
@@ -29,6 +30,7 @@ struct Program {
     std::vector<Value> constants;
     // Root frame memory for .main. Called functions store slots in their CallFrame.
     std::vector<Value> memory;
+    std::vector<std::string> slot_type_hints;
     std::vector<Value> stack;
     std::vector<Value> pending_args;
     std::unordered_map<std::string, Value> pending_kwargs;

@@ -8,4 +8,4 @@ repository = "https://github.com/axiom-ic/axiom-ic"
 
 [grammars.axiom_ic]
 repository = "file:///Users/danielhamen/Desktop/projects/dev/Axiom-IC/axiom-ic/ext/zed/tree-sitter-axiom-ic"
-rev = "55c8fe51a7b10e6158585ed90e3f43048b11abb5"
+rev = "48ca6206b0f111e8000f4778de96d92baa445e7e"

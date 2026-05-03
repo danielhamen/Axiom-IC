@@ -83,6 +83,15 @@ Built-in type names include:
 
 For structure values, a field type can also be a structure name. A `Struct` value matches its own `struct_name`, and also matches `Struct`.
 
+Field types also support union expressions:
+
+```aic
+STRUCT_DEF_FIELD $0, #~"value", #~"Integer|Float"
+STRUCT_DEF_FIELD $0, #~"value", #~"Integer OR Float"
+```
+
+Both `|` and `OR` mean that any listed type is accepted.
+
 
 ## Construction
 

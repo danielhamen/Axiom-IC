@@ -9,6 +9,17 @@
 
 namespace aic {
 
+namespace {
+
+[[noreturn]] void throw_tokenize_error(size_t line, size_t column, const std::string& message) {
+    throw std::runtime_error(format_error_context(ErrorPhase::Tokenize,
+                                                  message,
+                                                  static_cast<int>(line),
+                                                  static_cast<int>(column)));
+}
+
+} // namespace
+
 std::string token_type_to_string(TokenType type) {
     switch (type) {
         case TokenType::Identifier:
@@ -45,7 +56,7 @@ std::string token_type_to_string(TokenType type) {
             return "Invalid";
     }
 
-    throw std::runtime_error("Unknown TokenType");
+    throw std::runtime_error(format_error_context(ErrorPhase::Tokenize, "Unknown TokenType"));
 }
 
 std::vector<Token> tokenize(const std::string& in) {
@@ -86,7 +97,7 @@ std::vector<Token> tokenize(const std::string& in) {
 
                 if (jch == '\\') {
                     if (j + 1 >= len) {
-                        throw std::runtime_error("Unterminated escape sequence in string");
+                        throw_tokenize_error(line, column, "Unterminated escape sequence in string literal");
                     }
 
                     char esch = in[j + 1];
@@ -103,7 +114,7 @@ std::vector<Token> tokenize(const std::string& in) {
                 }
 
                 else if (jch == '\n') {
-                    throw std::runtime_error("Newline occurred prior to string termination");
+                    throw_tokenize_error(line, column, "Newline occurred before string literal was terminated");
                 }
 
                 contents += jch;
@@ -111,7 +122,7 @@ std::vector<Token> tokenize(const std::string& in) {
                 column++;
 
                 if (j == len) {
-                    throw std::runtime_error("String not terminated");
+                    throw_tokenize_error(tok_line, tok_col, "String literal was not terminated");
                 }
             }
 

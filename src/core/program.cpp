@@ -18,7 +18,55 @@ namespace aic {
 
 namespace {
 
-[[noreturn]] void throw_exec_error(Program& program, const std::string& message, const Instruction* ins = nullptr) {
+Value make_error_value(const std::string& type, const std::string& message) {
+    Value out{};
+    out.kind = ValueKind::Error;
+    out.error_type = type.empty() ? "RuntimeError" : type;
+    out.error_message = message;
+    return out;
+}
+
+std::string infer_standard_error_type(const std::string& message) {
+    if (message.find("Division by zero") != std::string::npos ||
+        message.find("Modulo by zero") != std::string::npos) {
+        return "ZeroDivisionError";
+    }
+    if (message.find("Type mismatch") != std::string::npos ||
+        message.find(" expects ") != std::string::npos ||
+        message.find(" expected ") != std::string::npos ||
+        message.find("Operand kind mismatch") != std::string::npos ||
+        message.find("unsupported source type") != std::string::npos) {
+        return "TypeError";
+    }
+    if (message.find("out of bounds") != std::string::npos ||
+        message.find("out of range") != std::string::npos ||
+        message.find("index") != std::string::npos) {
+        return "IndexError";
+    }
+    if (message.find("missing key") != std::string::npos ||
+        message.find("Duplicate pending keyword") != std::string::npos ||
+        message.find("missing arg") != std::string::npos) {
+        return "KeyError";
+    }
+    if (message.find("does not exist") != std::string::npos ||
+        message.find("Undefined label") != std::string::npos ||
+        message.find("undefined label") != std::string::npos ||
+        message.find("missing method") != std::string::npos) {
+        return "NameError";
+    }
+    if (message.find("invalid") != std::string::npos ||
+        message.find("Invalid") != std::string::npos ||
+        message.find("must be") != std::string::npos ||
+        message.find("requires") != std::string::npos ||
+        message.find("failed") != std::string::npos) {
+        return "ValueError";
+    }
+    return "RuntimeError";
+}
+
+std::string format_warning_context(const Program& program,
+                                   const std::string& message,
+                                   const Instruction* ins) {
     std::string fn_name;
     if (program.fc < program.functions.size()) {
         fn_name = program.functions.at(program.fc)->name;
@@ -29,13 +77,61 @@ namespace {
         opcode = operation_kind_to_string(ins->op);
     }
 
-    throw std::runtime_error(format_error_context(ErrorPhase::Exec,
-                                                  message,
-                                                  -1,
-                                                  -1,
-                                                  fn_name,
-                                                  opcode,
-                                                  program.pc));
+    std::string out = "Warning";
+    if (!fn_name.empty()) {
+        out += " in function '" + fn_name + "'";
+    }
+    if (!opcode.empty()) {
+        out += " (op=" + opcode + ")";
+    }
+    if (program.pc != static_cast<size_t>(-1)) {
+        out += " at pc=" + std::to_string(program.pc);
+    }
+    out += ": " + message;
+    return out;
+}
+
+class VmException : public std::exception {
+public:
+    explicit VmException(Value error) : error_(std::move(error)), text_(error_.to_str()) {}
+
+    const char* what() const noexcept override {
+        return text_.c_str();
+    }
+
+    const Value& error() const {
+        return error_;
+    }
+
+private:
+    Value error_;
+    std::string text_;
+};
+
+[[noreturn]] void throw_exec_error(Program& program,
+                                   const std::string& message,
+                                   const Instruction* ins = nullptr,
+                                   const std::string& error_type = "RuntimeError") {
+    std::string fn_name;
+    if (program.fc < program.functions.size()) {
+        fn_name = program.functions.at(program.fc)->name;
+    }
+
+    std::string opcode;
+    if (ins != nullptr) {
+        opcode = operation_kind_to_string(ins->op);
+    }
+
+    const std::string resolved_type = error_type == "RuntimeError" ? infer_standard_error_type(message) : error_type;
+    Value error = make_error_value(resolved_type, message);
+    error.s = format_error_context(ErrorPhase::Exec,
+                                   message,
+                                   -1,
+                                   -1,
+                                   fn_name,
+                                   opcode,
+                                   program.pc);
+    throw VmException(std::move(error));
 }
 
 } // namespace
@@ -146,6 +242,7 @@ bool set_contains_value(const std::vector<Value>& values, const Value& needle) {
 }
 
 std::string trim_copy(const std::string& in);
+bool value_truthy(const Value& value);
 
 bool is_type_name_char(char ch) {
     return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
@@ -278,6 +375,98 @@ Value make_null_value() {
     return out;
 }
 
+Value make_string_value(const std::string& value) {
+    Value out{};
+    out.kind = ValueKind::String;
+    out.s = value;
+    return out;
+}
+
+Value make_int_value(int64_t value) {
+    Value out{};
+    out.kind = ValueKind::Integer;
+    out.i = value;
+    return out;
+}
+
+std::string read_function_name(Program& program, const Operand& op, const Instruction& ins, const std::string& opname) {
+    if (op.kind == OperandKind::Function || op.kind == OperandKind::Label) {
+        return op.strval;
+    }
+    Value name = program.read_operand_strict(op, ValueKind::String);
+    if (name.s.empty()) {
+        throw_exec_error(program, opname + " requires a non-empty function name", &ins);
+    }
+    return name.s;
+}
+
+Value call_function_for_value(Program& program,
+                              const std::string& function_name,
+                              std::vector<Value> args,
+                              const Instruction& ins,
+                              const std::string& opname) {
+    const auto callee_index = program.functions.try_index_of(function_name);
+    if (!callee_index.has_value()) {
+        throw_exec_error(program, opname + " target function does not exist: " + function_name, &ins);
+    }
+
+    Function* callee = program.functions.at(*callee_index);
+    if (callee->arg_count > args.size()) {
+        throw_exec_error(program,
+                         opname + " callback " + function_name + " expects " +
+                             std::to_string(callee->arg_count) + " argument(s), got " +
+                             std::to_string(args.size()),
+                         &ins);
+    }
+
+    const size_t caller_fc = program.fc;
+    const size_t caller_pc = program.pc;
+    const bool caller_halted = program.halted;
+    const size_t stack_size = program.stack.size();
+    const size_t frame_depth = program.call_stack.size();
+
+    CallFrame frame;
+    frame.return_fc = caller_fc;
+    frame.return_pc = caller_pc;
+    frame.args = std::move(args);
+    program.call_stack.push_back(std::move(frame));
+    program.fc = *callee_index;
+    program.pc = 0;
+
+    while (program.call_stack.size() > frame_depth && !program.halted) {
+        Function* current_function = program.functions.at(program.fc);
+        if (program.pc >= current_function->ins.size()) {
+            throw runtime_error_with_context(
+                current_function,
+                program.pc,
+                std::format("Instruction pointer out of range (function size={})", current_function->ins.size()));
+        }
+        const Instruction& nested = current_function->ins[program.pc];
+        program.resolve(nested);
+    }
+
+    if (program.call_stack.size() > frame_depth) {
+        throw_exec_error(program, opname + " callback halted before returning: " + function_name, &ins);
+    }
+
+    Value out = make_null_value();
+    if (program.stack.size() > stack_size) {
+        out = program.stack.back();
+        program.stack.resize(stack_size);
+    }
+
+    program.fc = caller_fc;
+    program.pc = caller_pc;
+    program.halted = caller_halted;
+    return out;
+}
+
+bool collection_values_match_type(const std::vector<Value>& values, const std::string& type_expr) {
+    return std::all_of(values.begin(), values.end(), [&](const Value& value) {
+        return type_name_matches_value(type_expr, value);
+    });
+}
+
 Value make_struct_from_def(Program& program, const Value& def, const Instruction& ins, const std::string& opname) {
     if (def.kind != ValueKind::StructDef) {
         throw_exec_error(program,
@@ -296,6 +485,11 @@ Value make_struct_from_def(Program& program, const Value& def, const Instruction
     out.struct_name = def.struct_name;
     out.struct_field_names = def.struct_field_names;
     out.struct_field_types = def.struct_field_types;
+    out.struct_field_visibility = def.struct_field_visibility;
+    out.struct_field_immutable = def.struct_field_immutable;
+    out.struct_methods = def.struct_methods;
+    out.struct_interfaces = def.struct_interfaces;
+    out.struct_validator = def.struct_validator;
     out.struct_values.reserve(def.struct_field_names.size());
     for (size_t i = 0; i < def.struct_field_names.size(); i++) {
         if (i < def.struct_field_has_defaults.size() && def.struct_field_has_defaults[i]) {
@@ -305,6 +499,16 @@ Value make_struct_from_def(Program& program, const Value& def, const Instruction
         }
     }
     return out;
+}
+
+void validate_struct_constructor(Program& program, Value& obj, const Instruction& ins, const std::string& opname) {
+    if (obj.struct_validator.empty()) {
+        return;
+    }
+    Value result = call_function_for_value(program, obj.struct_validator, {obj}, ins, opname);
+    if (!value_truthy(result)) {
+        throw_exec_error(program, opname + " constructor validation failed for " + obj.struct_name, &ins);
+    }
 }
 
 std::string read_struct_type_name(Program& program, const Operand& op, const Instruction& ins, const std::string& opname) {
@@ -550,6 +754,40 @@ void jump_to_label(Program& program, const Operand& label_operand, const Instruc
     program.pc = dst_pc;
 }
 
+size_t resolve_label_pc(Program& program, const Operand& label_operand, const Instruction& ins, const std::string& opname) {
+    if (label_operand.kind != OperandKind::Label) {
+        throw_exec_error(program,
+                         opname + " expects Label operand, got " + label_operand.kindstr(),
+                         &ins,
+                         "TypeError");
+    }
+    Function* current_function = program.functions.at(program.fc);
+    const auto& labels = current_function->labels;
+    const std::string& label_name = label_operand.strval;
+    if (!labels.contains(label_name)) {
+        throw_exec_error(program, opname + " references undefined label '" + label_name + "'", &ins, "NameError");
+    }
+    return labels.at(label_name);
+}
+
+bool handle_vm_exception(Program& program, const Value& error) {
+    if (program.exception_handlers.empty()) {
+        return false;
+    }
+
+    ExceptionHandler handler = program.exception_handlers.back();
+    program.exception_handlers.pop_back();
+    if (handler.call_stack_depth < program.call_stack.size()) {
+        program.call_stack.resize(handler.call_stack_depth);
+    }
+
+    program.current_error = error;
+    program.has_current_error = true;
+    program.fc = handler.function_index;
+    program.pc = handler.finally_pc == static_cast<size_t>(-1) ? handler.catch_pc : handler.finally_pc;
+    return true;
+}
+
 bool value_truthy(const Value& value) {
     switch (value.kind) {
         case ValueKind::Boolean:
@@ -576,6 +814,10 @@ bool value_truthy(const Value& value) {
             return !value.vec.empty();
         case ValueKind::Matrix:
             return !value.matrix.empty();
+        case ValueKind::Interface:
+            return !value.interface_name.empty();
+        case ValueKind::Error:
+            return true;
     }
     return false;
 }
@@ -591,6 +833,79 @@ void Program::resolve(const Instruction& ins) {
     const Operand& z = ins.z;
 
     switch (op) {
+    case OperationKind::TRY: {
+        ExceptionHandler handler;
+        handler.function_index = fc;
+        handler.catch_pc = resolve_label_pc(*this, x, ins, "TRY");
+        handler.call_stack_depth = call_stack.size();
+        exception_handlers.push_back(handler);
+        pc++;
+        return;
+    }
+    case OperationKind::CATCH: {
+        pc++;
+        return;
+    }
+    case OperationKind::FINALLY: {
+        if (exception_handlers.empty()) {
+            throw_exec_error(*this, "FINALLY used without an active TRY", &ins, "RuntimeError");
+        }
+        exception_handlers.back().finally_pc = resolve_label_pc(*this, x, ins, "FINALLY");
+        pc++;
+        return;
+    }
+    case OperationKind::END_TRY: {
+        if (!exception_handlers.empty() && exception_handlers.back().function_index == fc) {
+            exception_handlers.pop_back();
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::THROW: {
+        Value thrown = read_operand(x);
+        if (thrown.kind != ValueKind::Error) {
+            thrown = make_error_value(value_kind_to_string(thrown.kind), thrown.to_str());
+        }
+        throw VmException(std::move(thrown));
+    }
+    case OperationKind::ERR_GET: {
+        write_operand(x, has_current_error ? current_error : make_null_value());
+        pc++;
+        return;
+    }
+    case OperationKind::ERR_CLEAR: {
+        current_error = make_null_value();
+        has_current_error = false;
+        pc++;
+        return;
+    }
+    case OperationKind::ERROR_NEW: {
+        Value type = read_string_strict(*this, y);
+        Value message = read_string_strict(*this, z);
+        write_operand(x, make_error_value(type.s, message.s));
+        pc++;
+        return;
+    }
+    case OperationKind::ERROR_TYPE: {
+        Value error = read_operand_strict(y, ValueKind::Error);
+        write_operand(x, make_string_value(error.error_type));
+        pc++;
+        return;
+    }
+    case OperationKind::ERROR_MESSAGE: {
+        Value error = read_operand_strict(y, ValueKind::Error);
+        write_operand(x, make_string_value(error.error_message));
+        pc++;
+        return;
+    }
+    case OperationKind::ERROR_IS: {
+        Value error = read_operand_strict(y, ValueKind::Error);
+        Value type = read_string_strict(*this, z);
+        write_operand(x, make_bool_value(error.error_type == type.s ||
+                                         (type.s == "Exception" && !error.error_type.empty())));
+        pc++;
+        return;
+    }
     case OperationKind::ADD: {
         Value lhs = read_numeric_value(*this, y, ins, "ADD");
         Value rhs = read_numeric_value(*this, z, ins, "ADD");
@@ -650,7 +965,7 @@ void Program::resolve(const Instruction& ins) {
         Value rhs = read_numeric_value(*this, z, ins, "DIV");
         const double rhs_num = rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f;
         if (rhs_num == 0.0) {
-            throw_exec_error(*this, "Division by zero", &ins);
+            throw_exec_error(*this, "Division by zero", &ins, "ZeroDivisionError");
         }
 
         Value out{};
@@ -671,7 +986,7 @@ void Program::resolve(const Instruction& ins) {
         Value rhs = read_operand_strict(z, ValueKind::Integer);
 
         if (rhs.i == 0) {
-            throw_exec_error(*this, "Modulo by zero", &ins);
+            throw_exec_error(*this, "Modulo by zero", &ins, "ZeroDivisionError");
         }
 
         Value out{};
@@ -1307,6 +1622,100 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::LIST_MAP: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        const std::string fn_name = read_function_name(*this, z, ins, "LIST_MAP");
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list.reserve(list_value.list.size());
+        for (size_t i = 0; i < list_value.list.size(); i++) {
+            out.list.push_back(call_function_for_value(*this,
+                                                       fn_name,
+                                                       {list_value.list[i], make_int_value(static_cast<int64_t>(i))},
+                                                       ins,
+                                                       "LIST_MAP"));
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_FILTER: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        const std::string fn_name = read_function_name(*this, z, ins, "LIST_FILTER");
+        Value out{};
+        out.kind = ValueKind::List;
+        for (size_t i = 0; i < list_value.list.size(); i++) {
+            Value keep = call_function_for_value(*this,
+                                                 fn_name,
+                                                 {list_value.list[i], make_int_value(static_cast<int64_t>(i))},
+                                                 ins,
+                                                 "LIST_FILTER");
+            if (value_truthy(keep)) {
+                out.list.push_back(list_value.list[i]);
+            }
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_REDUCE: {
+        Value list_value = read_operand_strict(y, ValueKind::List);
+        const std::string fn_name = read_function_name(*this, z, ins, "LIST_REDUCE");
+        Value acc = read_operand(ins.operands[3]);
+        for (size_t i = 0; i < list_value.list.size(); i++) {
+            acc = call_function_for_value(*this,
+                                          fn_name,
+                                          {acc, list_value.list[i], make_int_value(static_cast<int64_t>(i))},
+                                          ins,
+                                          "LIST_REDUCE");
+        }
+        write_operand(x, acc);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_CONCAT: {
+        Value lhs = read_operand_strict(y, ValueKind::List);
+        Value rhs = read_operand_strict(z, ValueKind::List);
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list = lhs.list;
+        out.list.insert(out.list.end(), rhs.list.begin(), rhs.list.end());
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_CLONE: {
+        write_operand(x, read_operand_strict(y, ValueKind::List));
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_DESTRUCTURE: {
+        Value list_value = read_operand_strict(ins.operands[0], ValueKind::List);
+        const size_t dst_count = ins.operands.size() - 1;
+        if (dst_count > list_value.list.size()) {
+            throw_exec_error(*this, "LIST_DESTRUCTURE has more destinations than list values", &ins);
+        }
+        for (size_t i = 0; i < dst_count; i++) {
+            write_operand(ins.operands[i + 1], list_value.list[i]);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_VALIDATE:
+    case OperationKind::LIST_ASSERT: {
+        const bool returns_bool = ins.op == OperationKind::LIST_VALIDATE;
+        Value list_value = read_operand_strict(returns_bool ? y : x, ValueKind::List);
+        Value type_expr = read_string_strict(*this, returns_bool ? z : y);
+        ensure_type_expression_valid(*this, type_expr.s, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
+        const bool ok = collection_values_match_type(list_value.list, type_expr.s);
+        if (returns_bool) {
+            write_operand(x, make_bool_value(ok));
+        } else if (!ok) {
+            throw_exec_error(*this, "LIST_ASSERT failed for element type " + type_expr.s, &ins);
+        }
+        pc++;
+        return;
+    }
     case OperationKind::MAP_NEW: {
         Value out{};
         out.kind = ValueKind::Map;
@@ -1343,7 +1752,9 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::MAP_DELETE: {
         Value map_value = read_operand_strict(x, ValueKind::Map);
         Value key = read_string_strict(*this, y);
-        map_value.map.erase(key.s);
+        if (map_value.map.erase(key.s) == 0) {
+            warn("MAP_DELETE ignored missing key: " + key.s, &ins);
+        }
         write_operand(x, map_value);
         pc++;
         return;
@@ -1375,6 +1786,51 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::MAP_MERGE: {
+        Value lhs = read_operand_strict(y, ValueKind::Map);
+        Value rhs = read_operand_strict(z, ValueKind::Map);
+        Value out = lhs;
+        for (const auto& [key, value] : rhs.map) {
+            out.map[key] = value;
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_ENTRIES: {
+        Value map_value = read_operand_strict(y, ValueKind::Map);
+        Value out{};
+        out.kind = ValueKind::List;
+        out.list.reserve(map_value.map.size());
+        for (const auto& [key, value] : map_value.map) {
+            Value entry{};
+            entry.kind = ValueKind::List;
+            entry.list.push_back(make_string_value(key));
+            entry.list.push_back(value);
+            out.list.push_back(entry);
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::MAP_VALIDATE: {
+        Value map_value = read_operand_strict(y, ValueKind::Map);
+        Value key_type = read_string_strict(*this, z);
+        Value value_type = read_string_strict(*this, ins.operands[3]);
+        ensure_type_expression_valid(*this, key_type.s, ins, "MAP_VALIDATE");
+        ensure_type_expression_valid(*this, value_type.s, ins, "MAP_VALIDATE");
+        bool ok = true;
+        for (const auto& [key, value] : map_value.map) {
+            if (!type_name_matches_value(key_type.s, make_string_value(key)) ||
+                !type_name_matches_value(value_type.s, value)) {
+                ok = false;
+                break;
+            }
+        }
+        write_operand(x, make_bool_value(ok));
+        pc++;
+        return;
+    }
     case OperationKind::SET_NEW: {
         Value out{};
         out.kind = ValueKind::Set;
@@ -1384,7 +1840,11 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::SET_ADD: {
         Value set_value = read_operand_strict(x, ValueKind::Set);
-        set_add_unique(set_value.set, read_operand(y));
+        Value item = read_operand(y);
+        if (set_contains_value(set_value.set, item)) {
+            warn("SET_ADD ignored duplicate value: " + item.to_str(), &ins);
+        }
+        set_add_unique(set_value.set, item);
         write_operand(x, set_value);
         pc++;
         return;
@@ -1403,6 +1863,8 @@ void Program::resolve(const Instruction& ins) {
         });
         if (it != set_value.set.end()) {
             set_value.set.erase(it);
+        } else {
+            warn("SET_DELETE ignored missing value: " + needle.to_str(), &ins);
         }
         write_operand(x, set_value);
         pc++;
@@ -1432,6 +1894,54 @@ void Program::resolve(const Instruction& ins) {
             }
         }
         write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_DIFFERENCE: {
+        Value lhs = read_operand_strict(y, ValueKind::Set);
+        Value rhs = read_operand_strict(z, ValueKind::Set);
+        Value out{};
+        out.kind = ValueKind::Set;
+        for (const Value& item : lhs.set) {
+            if (!set_contains_value(rhs.set, item)) {
+                set_add_unique(out.set, item);
+            }
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_SYMMETRIC_DIFF: {
+        Value lhs = read_operand_strict(y, ValueKind::Set);
+        Value rhs = read_operand_strict(z, ValueKind::Set);
+        Value out{};
+        out.kind = ValueKind::Set;
+        for (const Value& item : lhs.set) {
+            if (!set_contains_value(rhs.set, item)) {
+                set_add_unique(out.set, item);
+            }
+        }
+        for (const Value& item : rhs.set) {
+            if (!set_contains_value(lhs.set, item)) {
+                set_add_unique(out.set, item);
+            }
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::SET_VALIDATE:
+    case OperationKind::SET_ASSERT: {
+        const bool returns_bool = ins.op == OperationKind::SET_VALIDATE;
+        Value set_value = read_operand_strict(returns_bool ? y : x, ValueKind::Set);
+        Value type_expr = read_string_strict(*this, returns_bool ? z : y);
+        ensure_type_expression_valid(*this, type_expr.s, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
+        const bool ok = collection_values_match_type(set_value.set, type_expr.s);
+        if (returns_bool) {
+            write_operand(x, make_bool_value(ok));
+        } else if (!ok) {
+            throw_exec_error(*this, "SET_ASSERT failed for element type " + type_expr.s, &ins);
+        }
         pc++;
         return;
     }
@@ -1494,8 +2004,139 @@ void Program::resolve(const Instruction& ins) {
 
         def.struct_field_names.push_back(field_name.s);
         def.struct_field_types.push_back(field_type.s);
+        def.struct_field_visibility.push_back("public");
+        def.struct_field_immutable.push_back(false);
         def.struct_field_defaults.push_back(default_value);
         def.struct_field_has_defaults.push_back(has_default);
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_FIELD_VISIBILITY: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_FIELD_VISIBILITY");
+        Value field_name = read_string_strict(*this, y);
+        Value visibility = read_string_strict(*this, z);
+        if (visibility.s != "public" && visibility.s != "private" && visibility.s != "protected") {
+            throw_exec_error(*this, "STRUCT_DEF_FIELD_VISIBILITY expects public, private, or protected", &ins);
+        }
+        const size_t index = find_struct_field_index(*this, def, field_name.s, ins, "STRUCT_DEF_FIELD_VISIBILITY");
+        if (def.struct_field_visibility.size() < def.struct_field_names.size()) {
+            def.struct_field_visibility.resize(def.struct_field_names.size(), "public");
+        }
+        def.struct_field_visibility[index] = visibility.s;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_FIELD_IMMUTABLE: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_FIELD_IMMUTABLE");
+        Value field_name = read_string_strict(*this, y);
+        Value immutable = read_operand_strict(z, ValueKind::Boolean);
+        const size_t index = find_struct_field_index(*this, def, field_name.s, ins, "STRUCT_DEF_FIELD_IMMUTABLE");
+        if (def.struct_field_immutable.size() < def.struct_field_names.size()) {
+            def.struct_field_immutable.resize(def.struct_field_names.size(), false);
+        }
+        def.struct_field_immutable[index] = immutable.b;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_METHOD: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_METHOD");
+        Value method_name = read_string_strict(*this, y);
+        const std::string fn_name = read_function_name(*this, z, ins, "STRUCT_DEF_METHOD");
+        if (method_name.s.empty()) {
+            throw_exec_error(*this, "STRUCT_DEF_METHOD requires a non-empty method name", &ins);
+        }
+        if (!functions.exists(fn_name)) {
+            throw_exec_error(*this, "STRUCT_DEF_METHOD target function does not exist: " + fn_name, &ins);
+        }
+        def.struct_methods[method_name.s] = fn_name;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_VALIDATOR: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_VALIDATOR");
+        const std::string fn_name = read_function_name(*this, y, ins, "STRUCT_DEF_VALIDATOR");
+        if (!functions.exists(fn_name)) {
+            throw_exec_error(*this, "STRUCT_DEF_VALIDATOR target function does not exist: " + fn_name, &ins);
+        }
+        def.struct_validator = fn_name;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_IMPLEMENT: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_IMPLEMENT");
+        Value iface = read_operand(y);
+        std::string iface_name;
+        std::vector<std::string> required_methods;
+        if (iface.kind == ValueKind::Interface) {
+            iface_name = iface.interface_name;
+            required_methods = iface.interface_methods;
+        } else if (iface.kind == ValueKind::String) {
+            iface_name = iface.s;
+        } else {
+            throw_exec_error(*this, "STRUCT_DEF_IMPLEMENT expects Interface or String", &ins);
+        }
+        if (iface_name.empty()) {
+            throw_exec_error(*this, "STRUCT_DEF_IMPLEMENT requires a named interface", &ins);
+        }
+        for (const std::string& method : required_methods) {
+            if (!def.struct_methods.contains(method)) {
+                throw_exec_error(*this,
+                                 "STRUCT_DEF_IMPLEMENT missing required method '" + method + "'",
+                                 &ins);
+            }
+        }
+        if (std::find(def.struct_interfaces.begin(), def.struct_interfaces.end(), iface_name) ==
+            def.struct_interfaces.end()) {
+            def.struct_interfaces.push_back(iface_name);
+        }
+        write_operand(x, def);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DEF_EXTEND: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_EXTEND");
+        Value parent = read_operand_strict(y, ValueKind::StructDef);
+        for (size_t i = 0; i < parent.struct_field_names.size(); i++) {
+            if (std::find(def.struct_field_names.begin(), def.struct_field_names.end(), parent.struct_field_names[i]) !=
+                def.struct_field_names.end()) {
+                warn("STRUCT_DEF_EXTEND skipped duplicate inherited field: " + parent.struct_field_names[i], &ins);
+                continue;
+            }
+            def.struct_field_names.push_back(parent.struct_field_names[i]);
+            def.struct_field_types.push_back(parent.struct_field_types[i]);
+            def.struct_field_visibility.push_back(
+                i < parent.struct_field_visibility.size() ? parent.struct_field_visibility[i] : "public");
+            def.struct_field_immutable.push_back(
+                i < parent.struct_field_immutable.size() ? parent.struct_field_immutable[i] : false);
+            def.struct_field_defaults.push_back(
+                i < parent.struct_field_defaults.size() ? parent.struct_field_defaults[i] : make_null_value());
+            def.struct_field_has_defaults.push_back(
+                i < parent.struct_field_has_defaults.size() ? parent.struct_field_has_defaults[i] : false);
+        }
+        for (const auto& [method, fn] : parent.struct_methods) {
+            if (def.struct_methods.contains(method)) {
+                warn("STRUCT_DEF_EXTEND kept existing method override: " + method, &ins);
+            } else {
+                def.struct_methods.emplace(method, fn);
+            }
+        }
+        for (const std::string& iface : parent.struct_interfaces) {
+            if (std::find(def.struct_interfaces.begin(), def.struct_interfaces.end(), iface) ==
+                def.struct_interfaces.end()) {
+                def.struct_interfaces.push_back(iface);
+            }
+        }
         write_operand(x, def);
         pc++;
         return;
@@ -1518,6 +2159,7 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::STRUCT_NEW: {
         Value def = read_operand(y);
         Value out = make_struct_from_def(*this, def, ins, "STRUCT_NEW");
+        validate_struct_constructor(*this, out, ins, "STRUCT_NEW");
         write_operand(x, out);
         pc++;
         return;
@@ -1546,6 +2188,7 @@ void Program::resolve(const Instruction& ins) {
                                      "STRUCT_INIT");
             out.struct_values[i] = value;
         }
+        validate_struct_constructor(*this, out, ins, "STRUCT_INIT");
         write_operand(ins.operands[0], out);
         pc++;
         return;
@@ -1554,6 +2197,9 @@ void Program::resolve(const Instruction& ins) {
         Value obj = read_operand_strict(y, ValueKind::Struct);
         Value field_name = read_string_strict(*this, z);
         const size_t index = find_struct_field_index(*this, obj, field_name.s, ins, "STRUCT_GET");
+        if (index < obj.struct_field_visibility.size() && obj.struct_field_visibility[index] == "private") {
+            throw_exec_error(*this, "STRUCT_GET cannot read private field: " + field_name.s, &ins);
+        }
         write_operand(x, obj.struct_values[index]);
         pc++;
         return;
@@ -1562,6 +2208,12 @@ void Program::resolve(const Instruction& ins) {
         Value obj = read_operand_strict(x, ValueKind::Struct);
         Value field_name = read_string_strict(*this, y);
         const size_t index = find_struct_field_index(*this, obj, field_name.s, ins, "STRUCT_SET");
+        if (index < obj.struct_field_visibility.size() && obj.struct_field_visibility[index] == "private") {
+            throw_exec_error(*this, "STRUCT_SET cannot write private field: " + field_name.s, &ins);
+        }
+        if (index < obj.struct_field_immutable.size() && obj.struct_field_immutable[index]) {
+            throw_exec_error(*this, "STRUCT_SET cannot write immutable field: " + field_name.s, &ins);
+        }
         Value value = read_operand(z);
         ensure_struct_value_type(*this,
                                  obj.struct_field_names[index],
@@ -1580,6 +2232,9 @@ void Program::resolve(const Instruction& ins) {
         if (index >= obj.struct_values.size()) {
             throw_exec_error(*this, "STRUCT_GET_I index out of bounds", &ins);
         }
+        if (index < obj.struct_field_visibility.size() && obj.struct_field_visibility[index] == "private") {
+            throw_exec_error(*this, "STRUCT_GET_I cannot read private field", &ins);
+        }
         write_operand(x, obj.struct_values[index]);
         pc++;
         return;
@@ -1589,6 +2244,12 @@ void Program::resolve(const Instruction& ins) {
         const size_t index = read_non_negative_integer_operand(*this, y, ins, "STRUCT_SET_I index");
         if (index >= obj.struct_values.size()) {
             throw_exec_error(*this, "STRUCT_SET_I index out of bounds", &ins);
+        }
+        if (index < obj.struct_field_visibility.size() && obj.struct_field_visibility[index] == "private") {
+            throw_exec_error(*this, "STRUCT_SET_I cannot write private field", &ins);
+        }
+        if (index < obj.struct_field_immutable.size() && obj.struct_field_immutable[index]) {
+            throw_exec_error(*this, "STRUCT_SET_I cannot write immutable field", &ins);
         }
         Value value = read_operand(z);
         ensure_struct_value_type(*this,
@@ -1628,6 +2289,175 @@ void Program::resolve(const Instruction& ins) {
         Value lhs = read_operand_strict(y, ValueKind::Struct);
         Value rhs = read_operand_strict(z, ValueKind::Struct);
         write_operand(x, make_bool_value(value_equals(lhs, rhs)));
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_CALL: {
+        Value obj = read_operand_strict(y, ValueKind::Struct);
+        Value method_name = read_string_strict(*this, z);
+        auto it = obj.struct_methods.find(method_name.s);
+        if (it == obj.struct_methods.end()) {
+            throw_exec_error(*this, "STRUCT_CALL missing method: " + method_name.s, &ins);
+        }
+        Value result = call_function_for_value(*this, it->second, {obj}, ins, "STRUCT_CALL");
+        write_operand(x, result);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_FIELDS: {
+        Value value = read_operand(y);
+        if (value.kind != ValueKind::Struct && value.kind != ValueKind::StructDef) {
+            throw_exec_error(*this, "STRUCT_FIELDS expects Struct or StructDef", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::List;
+        for (const std::string& field : value.struct_field_names) {
+            out.list.push_back(make_string_value(field));
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_FIELD_INFO: {
+        Value value = read_operand(y);
+        if (value.kind != ValueKind::Struct && value.kind != ValueKind::StructDef) {
+            throw_exec_error(*this, "STRUCT_FIELD_INFO expects Struct or StructDef", &ins);
+        }
+        Value field_name = read_string_strict(*this, z);
+        const size_t index = find_struct_field_index(*this, value, field_name.s, ins, "STRUCT_FIELD_INFO");
+        Value out{};
+        out.kind = ValueKind::Map;
+        out.map["name"] = make_string_value(value.struct_field_names[index]);
+        out.map["type"] = make_string_value(value.struct_field_types[index]);
+        out.map["visibility"] = make_string_value(
+            index < value.struct_field_visibility.size() ? value.struct_field_visibility[index] : "public");
+        out.map["immutable"] = make_bool_value(index < value.struct_field_immutable.size() &&
+                                               value.struct_field_immutable[index]);
+        out.map["has_default"] = make_bool_value(index < value.struct_field_has_defaults.size() &&
+                                                 value.struct_field_has_defaults[index]);
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_METHODS: {
+        Value value = read_operand(y);
+        if (value.kind != ValueKind::Struct && value.kind != ValueKind::StructDef) {
+            throw_exec_error(*this, "STRUCT_METHODS expects Struct or StructDef", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::List;
+        for (const auto& [method, _] : value.struct_methods) {
+            out.list.push_back(make_string_value(method));
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_INTERFACES: {
+        Value value = read_operand(y);
+        if (value.kind != ValueKind::Struct && value.kind != ValueKind::StructDef) {
+            throw_exec_error(*this, "STRUCT_INTERFACES expects Struct or StructDef", &ins);
+        }
+        Value out{};
+        out.kind = ValueKind::List;
+        for (const std::string& iface : value.struct_interfaces) {
+            out.list.push_back(make_string_value(iface));
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_IMPLEMENTS: {
+        Value value = read_operand(y);
+        if (value.kind != ValueKind::Struct && value.kind != ValueKind::StructDef) {
+            throw_exec_error(*this, "STRUCT_IMPLEMENTS expects Struct or StructDef", &ins);
+        }
+        Value iface = read_operand(z);
+        std::string iface_name = iface.kind == ValueKind::Interface ? iface.interface_name
+                                  : iface.kind == ValueKind::String ? iface.s
+                                                                    : "";
+        if (iface_name.empty()) {
+            throw_exec_error(*this, "STRUCT_IMPLEMENTS expects named Interface or String", &ins);
+        }
+        write_operand(x,
+                      make_bool_value(std::find(value.struct_interfaces.begin(),
+                                                value.struct_interfaces.end(),
+                                                iface_name) != value.struct_interfaces.end()));
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_COMPOSE: {
+        Value lhs = read_operand_strict(y, ValueKind::Struct);
+        Value rhs = read_operand_strict(z, ValueKind::Struct);
+        Value out = lhs;
+        for (size_t i = 0; i < rhs.struct_field_names.size(); i++) {
+            if (std::find(out.struct_field_names.begin(), out.struct_field_names.end(), rhs.struct_field_names[i]) !=
+                out.struct_field_names.end()) {
+                continue;
+            }
+            out.struct_field_names.push_back(rhs.struct_field_names[i]);
+            out.struct_field_types.push_back(rhs.struct_field_types[i]);
+            out.struct_field_visibility.push_back(
+                i < rhs.struct_field_visibility.size() ? rhs.struct_field_visibility[i] : "public");
+            out.struct_field_immutable.push_back(
+                i < rhs.struct_field_immutable.size() ? rhs.struct_field_immutable[i] : false);
+            out.struct_values.push_back(i < rhs.struct_values.size() ? rhs.struct_values[i] : make_null_value());
+        }
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_DESTRUCTURE: {
+        Value obj = read_operand_strict(ins.operands[0], ValueKind::Struct);
+        const size_t dst_count = ins.operands.size() - 1;
+        if (dst_count > obj.struct_values.size()) {
+            throw_exec_error(*this, "STRUCT_DESTRUCTURE has more destinations than struct fields", &ins);
+        }
+        for (size_t i = 0; i < dst_count; i++) {
+            write_operand(ins.operands[i + 1], obj.struct_values[i]);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::INTERFACE_NEW: {
+        Value out{};
+        out.kind = ValueKind::Interface;
+        write_operand(x, out);
+        pc++;
+        return;
+    }
+    case OperationKind::INTERFACE_NAME: {
+        Value iface = read_operand_strict(x, ValueKind::Interface);
+        Value name = read_string_strict(*this, y);
+        if (name.s.empty()) {
+            throw_exec_error(*this, "INTERFACE_NAME requires a non-empty name", &ins);
+        }
+        iface.interface_name = name.s;
+        write_operand(x, iface);
+        pc++;
+        return;
+    }
+    case OperationKind::INTERFACE_METHOD: {
+        Value iface = read_operand_strict(x, ValueKind::Interface);
+        Value method = read_string_strict(*this, y);
+        if (method.s.empty()) {
+            throw_exec_error(*this, "INTERFACE_METHOD requires a non-empty method name", &ins);
+        }
+        if (std::find(iface.interface_methods.begin(), iface.interface_methods.end(), method.s) ==
+            iface.interface_methods.end()) {
+            iface.interface_methods.push_back(method.s);
+        }
+        write_operand(x, iface);
+        pc++;
+        return;
+    }
+    case OperationKind::INTERFACE_HAS: {
+        Value iface = read_operand_strict(y, ValueKind::Interface);
+        Value method = read_string_strict(*this, z);
+        write_operand(x,
+                      make_bool_value(std::find(iface.interface_methods.begin(),
+                                                iface.interface_methods.end(),
+                                                method.s) != iface.interface_methods.end()));
         pc++;
         return;
     }
@@ -2191,6 +3021,9 @@ void Program::resolve(const Instruction& ins) {
         }
 
         Value out = invert_square_matrix(in);
+        if (out.kind == ValueKind::Null) {
+            warn("MAT_INV returned null because the matrix is singular", &ins);
+        }
         write_operand(x, out);
         pc++;
         return;
@@ -2246,12 +3079,17 @@ void Program::resolve(const Instruction& ins) {
         Value inout = read_string_strict(*this, x);
         Value from = read_string_strict(*this, y);
         Value to = read_string_strict(*this, z);
-        if (!from.s.empty()) {
-            size_t pos = 0;
-            while ((pos = inout.s.find(from.s, pos)) != std::string::npos) {
-                inout.s.replace(pos, from.s.size(), to.s);
-                pos += to.s.size();
-            }
+        if (from.s.empty()) {
+            warn("STR_REPLACE ignored empty search string", &ins);
+            write_operand(x, inout);
+            pc++;
+            return;
+        }
+
+        size_t pos = 0;
+        while ((pos = inout.s.find(from.s, pos)) != std::string::npos) {
+            inout.s.replace(pos, from.s.size(), to.s);
+            pos += to.s.size();
         }
         write_operand(x, inout);
         pc++;
@@ -2384,6 +3222,9 @@ void Program::resolve(const Instruction& ins) {
         if (static_cast<size_t>(x.value) >= active_hints.size()) {
             active_hints.resize(static_cast<size_t>(x.value) + 1);
         }
+        if (!active_hints[static_cast<size_t>(x.value)].empty()) {
+            warn("TYPE_HINT replaced existing hint on slot $" + std::to_string(x.value), &ins);
+        }
         active_hints[static_cast<size_t>(x.value)] = type_expr.s;
         pc++;
         return;
@@ -2395,7 +3236,13 @@ void Program::resolve(const Instruction& ins) {
         if (in.kind == ValueKind::Integer) out.i = in.i;
         else if (in.kind == ValueKind::Float) out.i = static_cast<int64_t>(in.f);
         else if (in.kind == ValueKind::Boolean) out.i = in.b ? 1 : 0;
-        else if (in.kind == ValueKind::String) out.i = std::stoll(in.s);
+        else if (in.kind == ValueKind::String) {
+            try {
+                out.i = std::stoll(in.s);
+            } catch (const std::exception&) {
+                throw_exec_error(*this, "CAST_INT cannot parse string as integer: " + in.s, &ins, "ValueError");
+            }
+        }
         else throw_exec_error(*this, "CAST_INT unsupported source type", &ins);
         write_operand(x, out);
         pc++;
@@ -2408,7 +3255,13 @@ void Program::resolve(const Instruction& ins) {
         if (in.kind == ValueKind::Integer) out.f = static_cast<double>(in.i);
         else if (in.kind == ValueKind::Float) out.f = in.f;
         else if (in.kind == ValueKind::Boolean) out.f = in.b ? 1.0 : 0.0;
-        else if (in.kind == ValueKind::String) out.f = std::stod(in.s);
+        else if (in.kind == ValueKind::String) {
+            try {
+                out.f = std::stod(in.s);
+            } catch (const std::exception&) {
+                throw_exec_error(*this, "CAST_FLOAT cannot parse string as float: " + in.s, &ins, "ValueError");
+            }
+        }
         else throw_exec_error(*this, "CAST_FLOAT unsupported source type", &ins);
         write_operand(x, out);
         pc++;
@@ -2485,13 +3338,31 @@ void Program::resolve(const Instruction& ins) {
     }
     case OperationKind::FILE_EXISTS: {
         Value path = read_string_strict(*this, y);
-        write_operand(x, make_bool_value(std::filesystem::exists(path.s)));
+        std::error_code ec;
+        const bool exists = std::filesystem::exists(path.s, ec);
+        if (ec) {
+            throw_exec_error(*this,
+                             "FILE_EXISTS failed for '" + path.s + "': " + ec.message(),
+                             &ins,
+                             "IOError");
+        }
+        write_operand(x, make_bool_value(exists));
         pc++;
         return;
     }
     case OperationKind::DELETE_FILE: {
         Value path = read_string_strict(*this, x);
-        (void)std::filesystem::remove(path.s);
+        std::error_code ec;
+        const bool removed = std::filesystem::remove(path.s, ec);
+        if (ec) {
+            throw_exec_error(*this,
+                             "DELETE_FILE failed for '" + path.s + "': " + ec.message(),
+                             &ins,
+                             "IOError");
+        }
+        if (!removed) {
+            warn("DELETE_FILE ignored missing path: " + path.s, &ins);
+        }
         pc++;
         return;
     }
@@ -2769,10 +3640,14 @@ void Program::exec(const ExecutionOptions& options) {
     halted = false;
     fc = *main_index;
     call_stack.clear();
+    exception_handlers.clear();
     stack.clear();
     pending_args.clear();
     pending_kwargs.clear();
     memory.clear();
+    warnings.clear();
+    current_error = make_null_value();
+    has_current_error = false;
 
     Function* main_function = functions.at(fc);
     if (main_function->ins.empty()) {
@@ -2805,7 +3680,19 @@ void Program::exec(const ExecutionOptions& options) {
         const Instruction& ins = current_function->ins[before_pc];
 
         const auto start = collect_timing ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-        resolve(ins);
+        try {
+            resolve(ins);
+        } catch (const VmException& ex) {
+            if (!handle_vm_exception(*this, ex.error())) {
+                throw std::runtime_error(format_error_context(ErrorPhase::Exec,
+                                                              ex.error().to_str(),
+                                                              -1,
+                                                              -1,
+                                                              current_function->name,
+                                                              operation_kind_to_string(ins.op),
+                                                              before_pc));
+            }
+        }
         const auto end = collect_timing ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
 
         if (collect_opcode_counts && options.stats != nullptr) {
@@ -2834,6 +3721,24 @@ void Program::exec(const ExecutionOptions& options) {
 
 void Program::exec() {
     exec(ExecutionOptions{});
+}
+
+void Program::warn(const std::string& message, const Instruction* ins) {
+    if (!warnings_enabled) {
+        return;
+    }
+
+    DiagnosticWarning warning;
+    warning.message = message;
+    warning.pc = pc;
+    if (fc < functions.size()) {
+        warning.function_name = functions.at(fc)->name;
+    }
+    if (ins != nullptr) {
+        warning.opcode = operation_kind_to_string(ins->op);
+    }
+    warnings.push_back(warning);
+    std::cerr << format_warning_context(*this, message, ins) << std::endl;
 }
 
 Value Program::read_operand(const Operand& op) {
@@ -2887,7 +3792,9 @@ Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
     if (v.kind != enforced_type) {
         throw_exec_error(*this,
                          "Type mismatch: expected " + value_kind_to_string(enforced_type) +
-                             ", actual " + value_kind_to_string(v.kind));
+                             ", actual " + value_kind_to_string(v.kind),
+                         nullptr,
+                         "TypeError");
     }
 
     return v;
@@ -2896,7 +3803,9 @@ Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
 void Program::write_operand(const Operand& op, const Value& v) {
     if (op.kind != OperandKind::Slot) {
         throw_exec_error(*this,
-                         "Operand kind mismatch: expected Slot destination, actual " + op.kindstr());
+                         "Operand kind mismatch: expected Slot destination, actual " + op.kindstr(),
+                         nullptr,
+                         "TypeError");
     }
 
     std::vector<std::string>& active_hints = call_stack.empty()
@@ -2907,7 +3816,9 @@ void Program::write_operand(const Operand& op, const Value& v) {
         !type_name_matches_value(active_hints[index], v)) {
         throw_exec_error(*this,
                          "Slot $" + std::to_string(index) + " expected " + active_hints[index] +
-                             ", got " + type_description_for_value(v));
+                             ", got " + type_description_for_value(v),
+                         nullptr,
+                         "TypeError");
     }
 
     slot(op.value) = v;

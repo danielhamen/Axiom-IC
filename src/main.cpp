@@ -1,4 +1,5 @@
 #include "core/operations.hpp"
+#include "core/verifier.hpp"
 #include "parser/parser.hpp"
 #include "parser/tokenizer.hpp"
 
@@ -199,7 +200,8 @@ CliOptions parse_cli(int argc, char** argv) {
 std::string read_file(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        throw std::runtime_error("Could not open file: " + path);
+        throw std::runtime_error(aic::format_error_context(aic::ErrorPhase::Parse,
+                                                           "Could not open input file: " + path));
     }
 
     std::string in;
@@ -388,6 +390,13 @@ int main(int argc, char** argv) {
             }
 
             aic::Program vm = aic::parse(tokens);
+            std::vector<aic::VerificationDiagnostic> verification = aic::verify(vm);
+            for (const aic::VerificationDiagnostic& diagnostic : verification) {
+                std::cerr << aic::format_verification_diagnostic(diagnostic) << std::endl;
+            }
+            if (aic::has_verification_errors(verification)) {
+                return 1;
+            }
 
             if (options.dump_bytecode) {
                 print_bytecode(vm);

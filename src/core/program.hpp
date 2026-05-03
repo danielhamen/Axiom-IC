@@ -22,6 +22,20 @@ struct CallFrame {
     bool has_return_value = false;
 };
 
+struct ExceptionHandler {
+    size_t function_index = 0;
+    size_t catch_pc = 0;
+    size_t finally_pc = static_cast<size_t>(-1);
+    size_t call_stack_depth = 0;
+};
+
+struct DiagnosticWarning {
+    std::string message;
+    std::string function_name;
+    std::string opcode;
+    size_t pc = static_cast<size_t>(-1);
+};
+
 struct Program {
     size_t pc;
     size_t fc;
@@ -36,6 +50,11 @@ struct Program {
     std::unordered_map<std::string, Value> pending_kwargs;
     std::unordered_set<std::string> imported_categories;
     std::vector<CallFrame> call_stack;
+    std::vector<ExceptionHandler> exception_handlers;
+    Value current_error{};
+    bool has_current_error = false;
+    std::vector<DiagnosticWarning> warnings;
+    bool warnings_enabled = true;
     static std::mt19937 rng;
 
     Value& slot(size_t index);
@@ -59,6 +78,7 @@ struct Program {
     Value read_operand(const Operand& op);
     Value read_operand_strict(const Operand& op, ValueKind enforced_type);
     void write_operand(const Operand& op, const Value& v);
+    void warn(const std::string& message, const Instruction* ins = nullptr);
 };
 
 } // namespace aic

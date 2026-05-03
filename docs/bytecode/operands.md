@@ -119,6 +119,20 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`JMP_GT`](operands/JMP_GT.md): `JMP_GT <label>, <lhs>, <rhs>`
 - [`JMP_GTE`](operands/JMP_GTE.md): `JMP_GTE <label>, <lhs>, <rhs>`
 
+## Exception Operations
+
+- [`TRY`](operands/TRY.md): `TRY <catch_label>`
+- [`CATCH`](operands/CATCH.md): `CATCH`
+- [`FINALLY`](operands/FINALLY.md): `FINALLY <label>`
+- [`END_TRY`](operands/END_TRY.md): `END_TRY`
+- [`THROW`](operands/THROW.md): `THROW <error>`
+- [`ERR_GET`](operands/ERR_GET.md): `ERR_GET <dst>`
+- [`ERR_CLEAR`](operands/ERR_CLEAR.md): `ERR_CLEAR`
+- [`ERROR_NEW`](operands/ERROR_NEW.md): `ERROR_NEW <dst>, <type>, <message>`
+- [`ERROR_TYPE`](operands/ERROR_TYPE.md): `ERROR_TYPE <dst>, <error>`
+- [`ERROR_MESSAGE`](operands/ERROR_MESSAGE.md): `ERROR_MESSAGE <dst>, <error>`
+- [`ERROR_IS`](operands/ERROR_IS.md): `ERROR_IS <dst>, <error>, <type>`
+
 ## I/O Operations
 
 - [`PRINT`](operands/PRINT.md): `PRINT <value>`
@@ -164,6 +178,14 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`LIST_GET`](operands/LIST_GET.md): `LIST_GET <dst>, <list>, <index>`
 - [`LIST_SET`](operands/LIST_SET.md): `LIST_SET <list>, <index>, <value>`
 - [`LIST_LEN`](operands/LIST_LEN.md): `LIST_LEN <dst>, <list>`
+- `LIST_MAP <dst>, <list>, <fn>`: calls `<fn>(value, index)` for each element and returns the mapped list.
+- `LIST_FILTER <dst>, <list>, <fn>`: calls `<fn>(value, index)` and keeps truthy results.
+- `LIST_REDUCE <dst>, <list>, <fn>, <initial>`: calls `<fn>(accumulator, value, index)` and returns the final accumulator.
+- `LIST_CONCAT <dst>, <lhs>, <rhs>`: returns a new list containing both inputs.
+- `LIST_CLONE <dst>, <list>`: copies a list value.
+- `LIST_DESTRUCTURE <list>, <dst>...`: writes list elements into destination slots in order.
+- `LIST_VALIDATE <dst>, <list>, <type>`: returns whether every element matches a type expression.
+- `LIST_ASSERT <list>, <type>`: throws unless every element matches a type expression.
 
 ## Map Operations
 
@@ -174,6 +196,9 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`MAP_DELETE`](operands/MAP_DELETE.md): `MAP_DELETE <map>, <key>`
 - [`MAP_KEYS`](operands/MAP_KEYS.md): `MAP_KEYS <dst>, <map>`
 - [`MAP_VALUES`](operands/MAP_VALUES.md): `MAP_VALUES <dst>, <map>`
+- `MAP_MERGE <dst>, <lhs>, <rhs>`: returns a merged map where right-side keys override left-side keys.
+- `MAP_ENTRIES <dst>, <map>`: returns a list of `[key, value]` entry lists.
+- `MAP_VALIDATE <dst>, <map>, <key_type>, <value_type>`: returns whether every key/value matches the supplied type expressions.
 
 ## Set Operations
 
@@ -183,6 +208,46 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`SET_DELETE`](operands/SET_DELETE.md): `SET_DELETE <set>, <value>`
 - [`SET_UNION`](operands/SET_UNION.md): `SET_UNION <dst>, <a>, <b>`
 - [`SET_INTERSECT`](operands/SET_INTERSECT.md): `SET_INTERSECT <dst>, <a>, <b>`
+- `SET_DIFFERENCE <dst>, <lhs>, <rhs>`: returns values present in `lhs` but not `rhs`.
+- `SET_SYMMETRIC_DIFF <dst>, <lhs>, <rhs>`: returns values present in exactly one input set.
+- `SET_VALIDATE <dst>, <set>, <type>`: returns whether every set member matches a type expression.
+- `SET_ASSERT <set>, <type>`: throws unless every set member matches a type expression.
+
+## Struct and Interface Operations
+
+- `STRUCT_DEF_NEW <dst>`: creates a mutable structure definition.
+- `STRUCT_DEF_NAME <def>, <name>`: names a structure definition.
+- `STRUCT_DEF_FIELD <def>, <name>, <type>`: adds a typed field.
+- `STRUCT_DEF_FIELD_DEFAULT <def>, <name>, <type>, <default>`: adds a typed field with a default value.
+- `STRUCT_DEF_FIELD_VISIBILITY <def>, <name>, <visibility>`: sets `public`, `private`, or `protected` field metadata.
+- `STRUCT_DEF_FIELD_IMMUTABLE <def>, <name>, <bool>`: marks whether a field can be changed after construction.
+- `STRUCT_DEF_METHOD <def>, <method>, <fn>`: binds a method name to a function.
+- `STRUCT_DEF_VALIDATOR <def>, <fn>`: registers a constructor validation hook.
+- `STRUCT_DEF_IMPLEMENT <def>, <interface>`: records and validates an interface/protocol implementation.
+- `STRUCT_DEF_EXTEND <def>, <parent_def>`: copies parent fields, methods, and interfaces into a definition.
+- `STRUCT_DEF_SEAL <def>`: seals a definition so instances can be created.
+- `STRUCT_NEW <dst>, <def>`: creates an instance from defaults.
+- `STRUCT_INIT <dst>, <def>, <value>...`: creates an instance with positional field values.
+- `STRUCT_GET <dst>, <struct>, <field>`: reads a public field by name.
+- `STRUCT_SET <struct>, <field>, <value>`: writes a public mutable field by name.
+- `STRUCT_GET_I <dst>, <struct>, <index>`: reads a public field by index.
+- `STRUCT_SET_I <struct>, <index>, <value>`: writes a public mutable field by index.
+- `STRUCT_TYPEOF <dst>, <struct>`: returns the declared structure name.
+- `STRUCT_IS <dst>, <struct>, <type>`: checks a structure's declared type.
+- `STRUCT_COPY <dst>, <struct>`: copies a structure value.
+- `STRUCT_EQ <dst>, <lhs>, <rhs>`: compares two structures.
+- `STRUCT_CALL <dst>, <struct>, <method>`: calls a bound method with the struct as `arg0`.
+- `STRUCT_FIELDS <dst>, <struct_or_def>`: returns field names.
+- `STRUCT_FIELD_INFO <dst>, <struct_or_def>, <field>`: returns field metadata as a map.
+- `STRUCT_METHODS <dst>, <struct_or_def>`: returns method names.
+- `STRUCT_INTERFACES <dst>, <struct_or_def>`: returns implemented interface names.
+- `STRUCT_IMPLEMENTS <dst>, <struct_or_def>, <interface>`: checks interface implementation.
+- `STRUCT_COMPOSE <dst>, <lhs>, <rhs>`: copies missing fields from `rhs` into `lhs`.
+- `STRUCT_DESTRUCTURE <struct>, <dst>...`: writes field values into destination slots in declaration order.
+- `INTERFACE_NEW <dst>`: creates an interface/protocol value.
+- `INTERFACE_NAME <interface>, <name>`: names an interface.
+- `INTERFACE_METHOD <interface>, <method>`: adds a required method name.
+- `INTERFACE_HAS <dst>, <interface>, <method>`: checks whether an interface requires a method.
 
 ## Vector Operations
 

@@ -69,6 +69,19 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::MAX, "MAX", 3, "math"},
     {OperationKind::CLAMP, "CLAMP", 3, "math"},
 
+    // EXCEPTIONS
+    {OperationKind::TRY, "TRY", 1, "exception"},
+    {OperationKind::CATCH, "CATCH", 0, "exception"},
+    {OperationKind::FINALLY, "FINALLY", 1, "exception"},
+    {OperationKind::END_TRY, "END_TRY", 0, "exception"},
+    {OperationKind::THROW, "THROW", 1, "exception"},
+    {OperationKind::ERR_GET, "ERR_GET", 1, "exception"},
+    {OperationKind::ERR_CLEAR, "ERR_CLEAR", 0, "exception"},
+    {OperationKind::ERROR_NEW, "ERROR_NEW", 3, "exception"},
+    {OperationKind::ERROR_TYPE, "ERROR_TYPE", 2, "exception"},
+    {OperationKind::ERROR_MESSAGE, "ERROR_MESSAGE", 2, "exception"},
+    {OperationKind::ERROR_IS, "ERROR_IS", 3, "exception"},
+
     // CONTROL FLOW
     {OperationKind::JMP, "JMP", 1, "control_flow"},
     {OperationKind::HALT, "HALT", 0, "control_flow"},
@@ -107,6 +120,14 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::LIST_GET, "LIST_GET", 3, "list"},
     {OperationKind::LIST_SET, "LIST_SET", 3, "list"},
     {OperationKind::LIST_LEN, "LIST_LEN", 2, "list"},
+    {OperationKind::LIST_MAP, "LIST_MAP", 3, "list"},
+    {OperationKind::LIST_FILTER, "LIST_FILTER", 3, "list"},
+    {OperationKind::LIST_REDUCE, "LIST_REDUCE", 4, "list"},
+    {OperationKind::LIST_CONCAT, "LIST_CONCAT", 3, "list"},
+    {OperationKind::LIST_CLONE, "LIST_CLONE", 2, "list"},
+    {OperationKind::LIST_DESTRUCTURE, "LIST_DESTRUCTURE", kVariadicArity, "list"},
+    {OperationKind::LIST_VALIDATE, "LIST_VALIDATE", 3, "list"},
+    {OperationKind::LIST_ASSERT, "LIST_ASSERT", 2, "list"},
 
     // MAPS
     {OperationKind::MAP_NEW, "MAP_NEW", 1, "map"},
@@ -116,6 +137,9 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::MAP_DELETE, "MAP_DELETE", 2, "map"},
     {OperationKind::MAP_KEYS, "MAP_KEYS", 2, "map"},
     {OperationKind::MAP_VALUES, "MAP_VALUES", 2, "map"},
+    {OperationKind::MAP_MERGE, "MAP_MERGE", 3, "map"},
+    {OperationKind::MAP_ENTRIES, "MAP_ENTRIES", 2, "map"},
+    {OperationKind::MAP_VALIDATE, "MAP_VALIDATE", 4, "map"},
 
     // SETS
     {OperationKind::SET_NEW, "SET_NEW", 1, "set"},
@@ -124,12 +148,22 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::SET_DELETE, "SET_DELETE", 2, "set"},
     {OperationKind::SET_UNION, "SET_UNION", 3, "set"},
     {OperationKind::SET_INTERSECT, "SET_INTERSECT", 3, "set"},
+    {OperationKind::SET_DIFFERENCE, "SET_DIFFERENCE", 3, "set"},
+    {OperationKind::SET_SYMMETRIC_DIFF, "SET_SYMMETRIC_DIFF", 3, "set"},
+    {OperationKind::SET_VALIDATE, "SET_VALIDATE", 3, "set"},
+    {OperationKind::SET_ASSERT, "SET_ASSERT", 2, "set"},
 
     // STRUCTURES
     {OperationKind::STRUCT_DEF_NEW, "STRUCT_DEF_NEW", 1, "struct"},
     {OperationKind::STRUCT_DEF_NAME, "STRUCT_DEF_NAME", 2, "struct"},
     {OperationKind::STRUCT_DEF_FIELD, "STRUCT_DEF_FIELD", 3, "struct"},
     {OperationKind::STRUCT_DEF_FIELD_DEFAULT, "STRUCT_DEF_FIELD_DEFAULT", 4, "struct"},
+    {OperationKind::STRUCT_DEF_FIELD_VISIBILITY, "STRUCT_DEF_FIELD_VISIBILITY", 3, "struct"},
+    {OperationKind::STRUCT_DEF_FIELD_IMMUTABLE, "STRUCT_DEF_FIELD_IMMUTABLE", 3, "struct"},
+    {OperationKind::STRUCT_DEF_METHOD, "STRUCT_DEF_METHOD", 3, "struct"},
+    {OperationKind::STRUCT_DEF_VALIDATOR, "STRUCT_DEF_VALIDATOR", 2, "struct"},
+    {OperationKind::STRUCT_DEF_IMPLEMENT, "STRUCT_DEF_IMPLEMENT", 2, "struct"},
+    {OperationKind::STRUCT_DEF_EXTEND, "STRUCT_DEF_EXTEND", 2, "struct"},
     {OperationKind::STRUCT_DEF_SEAL, "STRUCT_DEF_SEAL", 1, "struct"},
     {OperationKind::STRUCT_NEW, "STRUCT_NEW", 2, "struct"},
     {OperationKind::STRUCT_INIT, "STRUCT_INIT", kVariadicArity, "struct"},
@@ -141,6 +175,20 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::STRUCT_IS, "STRUCT_IS", 3, "struct"},
     {OperationKind::STRUCT_COPY, "STRUCT_COPY", 2, "struct"},
     {OperationKind::STRUCT_EQ, "STRUCT_EQ", 3, "struct"},
+    {OperationKind::STRUCT_CALL, "STRUCT_CALL", 3, "struct"},
+    {OperationKind::STRUCT_FIELDS, "STRUCT_FIELDS", 2, "struct"},
+    {OperationKind::STRUCT_FIELD_INFO, "STRUCT_FIELD_INFO", 3, "struct"},
+    {OperationKind::STRUCT_METHODS, "STRUCT_METHODS", 2, "struct"},
+    {OperationKind::STRUCT_INTERFACES, "STRUCT_INTERFACES", 2, "struct"},
+    {OperationKind::STRUCT_IMPLEMENTS, "STRUCT_IMPLEMENTS", 3, "struct"},
+    {OperationKind::STRUCT_COMPOSE, "STRUCT_COMPOSE", 3, "struct"},
+    {OperationKind::STRUCT_DESTRUCTURE, "STRUCT_DESTRUCTURE", kVariadicArity, "struct"},
+
+    // INTERFACES
+    {OperationKind::INTERFACE_NEW, "INTERFACE_NEW", 1, "interface"},
+    {OperationKind::INTERFACE_NAME, "INTERFACE_NAME", 2, "interface"},
+    {OperationKind::INTERFACE_METHOD, "INTERFACE_METHOD", 2, "interface"},
+    {OperationKind::INTERFACE_HAS, "INTERFACE_HAS", 3, "interface"},
 
     // VECTOR
     {OperationKind::VEC_NEW, "VEC_NEW", 2, "vector"},
@@ -275,14 +323,16 @@ void register_operations() {
     for (const auto& definition : kOperationTable) {
         const auto [_, inserted_name] = seen_names.emplace(definition.name);
         if (!inserted_name) {
-            throw std::runtime_error("Duplicate operation name: " + std::string(definition.name));
+            throw std::runtime_error(format_error_context(
+                ErrorPhase::Parse,
+                "Duplicate operation name in operation table: " + std::string(definition.name)));
         }
 
         const auto [__, inserted_kind] = seen_kinds.emplace(static_cast<int>(definition.kind));
         if (!inserted_kind) {
-            throw std::runtime_error(
-                "Duplicate operation kind for opcode: " + std::string(definition.name)
-            );
+            throw std::runtime_error(format_error_context(
+                ErrorPhase::Parse,
+                "Duplicate operation kind for opcode: " + std::string(definition.name)));
         }
 
         operation_by_name.emplace(

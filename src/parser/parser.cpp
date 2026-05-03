@@ -44,6 +44,16 @@ int64_t parse_non_negative_index(const Token& token, const std::string& usage) {
     return value;
 }
 
+double parse_double_literal(const Token& token, const std::string& usage) {
+    try {
+        return std::stod(token.lexeme);
+    } catch (const std::invalid_argument&) {
+        throw_parse_error(token, "Invalid float literal for " + usage + ": '" + token.lexeme + "'");
+    } catch (const std::out_of_range&) {
+        throw_parse_error(token, "Float literal out of range for " + usage + ": '" + token.lexeme + "'");
+    }
+}
+
 Value parse_immediate_literal(const Token& token) {
     Value out{};
     if (token.type == TokenType::Integer) {
@@ -54,7 +64,7 @@ Value parse_immediate_literal(const Token& token) {
 
     if (token.type == TokenType::Float) {
         out.kind = ValueKind::Float;
-        out.f = std::stod(token.lexeme);
+        out.f = parse_double_literal(token, "immediate float");
         return out;
     }
 
@@ -283,7 +293,7 @@ void parse_line(const std::vector<Token>& line,
                 throw_parse_error(head_token, "FLOAT requires a float literal");
             }
 
-            double param = std::stod(line[1].lexeme);
+            double param = parse_double_literal(line[1], ".const FLOAT");
             Value v;
             v.kind = ValueKind::Float;
             v.f = param;
@@ -466,10 +476,17 @@ void parse_line(const std::vector<Token>& line,
     size_t expected_arity = ins_op.arity;
     size_t received_arity = parsed_operands.size();
     if (expected_arity == kVariadicArity) {
-        if (ins.op == OperationKind::STRUCT_INIT && received_arity < 2) {
+        size_t minimum_arity = 0;
+        if (ins.op == OperationKind::STRUCT_INIT ||
+            ins.op == OperationKind::LIST_DESTRUCTURE ||
+            ins.op == OperationKind::STRUCT_DESTRUCTURE) {
+            minimum_arity = 2;
+        }
+        if (received_arity < minimum_arity) {
             throw_parse_error(head_token,
                               "Instruction '" + ins_op.name +
-                                  "' takes at least 2 operand(s); received " +
+                                  "' takes at least " + std::to_string(minimum_arity) +
+                                  " operand(s); received " +
                                   std::to_string(received_arity));
         }
     } else if (expected_arity != received_arity) {

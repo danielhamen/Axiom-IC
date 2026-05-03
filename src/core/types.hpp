@@ -84,6 +84,23 @@ enum class OperationKind : int16_t {
     CLAMP,
 
     /**
+     * ==========
+     * EXCEPTIONS
+     * ==========
+     */
+    TRY,
+    CATCH,
+    FINALLY,
+    END_TRY,
+    THROW,
+    ERR_GET,
+    ERR_CLEAR,
+    ERROR_NEW,
+    ERROR_TYPE,
+    ERROR_MESSAGE,
+    ERROR_IS,
+
+    /**
      * ============
      * CONTROL FLOW
      * ============
@@ -139,6 +156,14 @@ enum class OperationKind : int16_t {
     LIST_GET,
     LIST_SET,
     LIST_LEN,
+    LIST_MAP,
+    LIST_FILTER,
+    LIST_REDUCE,
+    LIST_CONCAT,
+    LIST_CLONE,
+    LIST_DESTRUCTURE,
+    LIST_VALIDATE,
+    LIST_ASSERT,
 
     /**
      * ==============
@@ -152,6 +177,9 @@ enum class OperationKind : int16_t {
     MAP_DELETE,
     MAP_KEYS,
     MAP_VALUES,
+    MAP_MERGE,
+    MAP_ENTRIES,
+    MAP_VALIDATE,
 
     /**
      * ==============
@@ -164,6 +192,10 @@ enum class OperationKind : int16_t {
     SET_DELETE,
     SET_UNION,
     SET_INTERSECT,
+    SET_DIFFERENCE,
+    SET_SYMMETRIC_DIFF,
+    SET_VALIDATE,
+    SET_ASSERT,
 
     /**
      * =====================
@@ -174,6 +206,12 @@ enum class OperationKind : int16_t {
     STRUCT_DEF_NAME,
     STRUCT_DEF_FIELD,
     STRUCT_DEF_FIELD_DEFAULT,
+    STRUCT_DEF_FIELD_VISIBILITY,
+    STRUCT_DEF_FIELD_IMMUTABLE,
+    STRUCT_DEF_METHOD,
+    STRUCT_DEF_VALIDATOR,
+    STRUCT_DEF_IMPLEMENT,
+    STRUCT_DEF_EXTEND,
     STRUCT_DEF_SEAL,
     STRUCT_NEW,
     STRUCT_INIT,
@@ -185,6 +223,24 @@ enum class OperationKind : int16_t {
     STRUCT_IS,
     STRUCT_COPY,
     STRUCT_EQ,
+    STRUCT_CALL,
+    STRUCT_FIELDS,
+    STRUCT_FIELD_INFO,
+    STRUCT_METHODS,
+    STRUCT_INTERFACES,
+    STRUCT_IMPLEMENTS,
+    STRUCT_COMPOSE,
+    STRUCT_DESTRUCTURE,
+
+    /**
+     * ==========
+     * INTERFACES
+     * ==========
+     */
+    INTERFACE_NEW,
+    INTERFACE_NAME,
+    INTERFACE_METHOD,
+    INTERFACE_HAS,
 
     /**
      * =======
@@ -372,7 +428,9 @@ enum class ValueKind : uint8_t {
     StructDef,
     Struct,
     Vector,
-    Matrix
+    Matrix,
+    Interface,
+    Error
 };
 
 struct Value {
@@ -388,9 +446,18 @@ struct Value {
     bool struct_sealed = false;
     std::vector<std::string> struct_field_names{};
     std::vector<std::string> struct_field_types{};
+    std::vector<std::string> struct_field_visibility{};
+    std::vector<bool> struct_field_immutable{};
     std::vector<Value> struct_field_defaults{};
     std::vector<bool> struct_field_has_defaults{};
     std::vector<Value> struct_values{};
+    std::map<std::string, std::string> struct_methods{};
+    std::vector<std::string> struct_interfaces{};
+    std::string struct_validator{};
+    std::string interface_name{};
+    std::vector<std::string> interface_methods{};
+    std::string error_type{};
+    std::string error_message{};
     std::vector<double> vec{};
     std::vector<double> matrix{};
     size_t rows = 0;
@@ -408,6 +475,8 @@ struct Value {
     bool is_struct() const { return kind == ValueKind::Struct; }
     bool is_vec() const { return kind == ValueKind::Vector; }
     bool is_matrix() const { return kind == ValueKind::Matrix; }
+    bool is_interface() const { return kind == ValueKind::Interface; }
+    bool is_error() const { return kind == ValueKind::Error; }
 
     std::string to_str() const {
         switch (kind) {
@@ -469,6 +538,13 @@ struct Value {
                     out += struct_field_names[idx];
                     out += ": ";
                     out += struct_field_types[idx];
+                    if (idx < struct_field_visibility.size() && struct_field_visibility[idx] != "public") {
+                        out += " ";
+                        out += struct_field_visibility[idx];
+                    }
+                    if (idx < struct_field_immutable.size() && struct_field_immutable[idx]) {
+                        out += " immutable";
+                    }
                     if (idx < struct_field_has_defaults.size() && struct_field_has_defaults[idx]) {
                         out += " = ";
                         out += struct_field_defaults[idx].to_str();
@@ -520,6 +596,27 @@ struct Value {
                     out += "]";
                 }
                 out += "]";
+                return out;
+            }
+            case ValueKind::Interface: {
+                std::string out = "interface ";
+                out += interface_name.empty() ? "<anonymous>" : interface_name;
+                out += " {";
+                for (size_t idx = 0; idx < interface_methods.size(); idx++) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += interface_methods[idx];
+                }
+                out += "}";
+                return out;
+            }
+            case ValueKind::Error: {
+                std::string out = error_type.empty() ? "RuntimeError" : error_type;
+                if (!error_message.empty()) {
+                    out += ": ";
+                    out += error_message;
+                }
                 return out;
             }
         }

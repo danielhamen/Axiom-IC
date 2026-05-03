@@ -34,6 +34,14 @@ Structure-related fields are stored directly on `Value`:
 
 `StructDef` values use the definition fields. `Struct` values copy the relevant name, field names, field types, and instance values.
 
+Additional object metadata is also carried on structure definitions and copied to instances:
+
+- field visibility (`public`, `private`, or `protected`)
+- immutable-field flags
+- method name to function name bindings
+- implemented interface/protocol names
+- an optional constructor validation function
+
 
 ## Definition Lifecycle
 
@@ -44,6 +52,7 @@ STRUCT_DEF_NEW $0
 STRUCT_DEF_NAME $0, #~"Point"
 STRUCT_DEF_FIELD $0, #~"x", #~"Integer"
 STRUCT_DEF_FIELD_DEFAULT $0, #~"y", #~"Integer", #0
+STRUCT_DEF_FIELD_IMMUTABLE $0, #~"x", #true
 STRUCT_DEF_SEAL $0
 ```
 
@@ -109,6 +118,8 @@ STRUCT_INIT $1, $0, #3, #7
 
 Values are assigned by declaration order. If fewer values are supplied than fields exist, the remaining fields keep their default or `null`.
 
+If a definition has `STRUCT_DEF_VALIDATOR`, the validator function is called with the newly-created struct as `arg0`. Construction fails unless the return value is truthy.
+
 
 ## Field Access
 
@@ -127,6 +138,42 @@ STRUCT_SET_I $1, #0, #10
 ```
 
 Indexes follow field declaration order.
+
+Private fields cannot be read or written through the public field access opcodes. Immutable fields can be initialized, but cannot be changed by `STRUCT_SET` or `STRUCT_SET_I`.
+
+
+## Methods and Interfaces
+
+Methods bind a structure method name to an existing function:
+
+```aic
+STRUCT_DEF_METHOD $0, #~"name", person_name
+```
+
+`STRUCT_CALL <dst>, <struct>, <method>` calls that function with the struct instance as `arg0`.
+
+Interfaces are runtime protocol values:
+
+```aic
+INTERFACE_NEW $10
+INTERFACE_NAME $10, #~"Named"
+INTERFACE_METHOD $10, #~"name"
+STRUCT_DEF_IMPLEMENT $0, $10
+```
+
+When an interface value is supplied to `STRUCT_DEF_IMPLEMENT`, all required method names must already be bound on the structure definition.
+
+
+## Reflection and Destructuring
+
+Use these opcodes to inspect or unpack structures:
+
+- `STRUCT_FIELDS <dst>, <struct_or_def>`
+- `STRUCT_FIELD_INFO <dst>, <struct_or_def>, <field>`
+- `STRUCT_METHODS <dst>, <struct_or_def>`
+- `STRUCT_INTERFACES <dst>, <struct_or_def>`
+- `STRUCT_IMPLEMENTS <dst>, <struct_or_def>, <interface>`
+- `STRUCT_DESTRUCTURE <struct>, <dst>...`
 
 
 ## Type Operations

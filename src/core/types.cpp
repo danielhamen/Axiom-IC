@@ -134,6 +134,28 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "MAX";
         case OperationKind::CLAMP:
             return "CLAMP";
+        case OperationKind::TRY:
+            return "TRY";
+        case OperationKind::CATCH:
+            return "CATCH";
+        case OperationKind::FINALLY:
+            return "FINALLY";
+        case OperationKind::END_TRY:
+            return "END_TRY";
+        case OperationKind::THROW:
+            return "THROW";
+        case OperationKind::ERR_GET:
+            return "ERR_GET";
+        case OperationKind::ERR_CLEAR:
+            return "ERR_CLEAR";
+        case OperationKind::ERROR_NEW:
+            return "ERROR_NEW";
+        case OperationKind::ERROR_TYPE:
+            return "ERROR_TYPE";
+        case OperationKind::ERROR_MESSAGE:
+            return "ERROR_MESSAGE";
+        case OperationKind::ERROR_IS:
+            return "ERROR_IS";
         case OperationKind::HALT:
             return "HALT";
         case OperationKind::JMP:
@@ -196,6 +218,22 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "LIST_SET";
         case OperationKind::LIST_LEN:
             return "LIST_LEN";
+        case OperationKind::LIST_MAP:
+            return "LIST_MAP";
+        case OperationKind::LIST_FILTER:
+            return "LIST_FILTER";
+        case OperationKind::LIST_REDUCE:
+            return "LIST_REDUCE";
+        case OperationKind::LIST_CONCAT:
+            return "LIST_CONCAT";
+        case OperationKind::LIST_CLONE:
+            return "LIST_CLONE";
+        case OperationKind::LIST_DESTRUCTURE:
+            return "LIST_DESTRUCTURE";
+        case OperationKind::LIST_VALIDATE:
+            return "LIST_VALIDATE";
+        case OperationKind::LIST_ASSERT:
+            return "LIST_ASSERT";
         case OperationKind::MAP_NEW:
             return "MAP_NEW";
         case OperationKind::MAP_SET:
@@ -210,6 +248,12 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "MAP_KEYS";
         case OperationKind::MAP_VALUES:
             return "MAP_VALUES";
+        case OperationKind::MAP_MERGE:
+            return "MAP_MERGE";
+        case OperationKind::MAP_ENTRIES:
+            return "MAP_ENTRIES";
+        case OperationKind::MAP_VALIDATE:
+            return "MAP_VALIDATE";
         case OperationKind::SET_NEW:
             return "SET_NEW";
         case OperationKind::SET_ADD:
@@ -222,6 +266,14 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "SET_UNION";
         case OperationKind::SET_INTERSECT:
             return "SET_INTERSECT";
+        case OperationKind::SET_DIFFERENCE:
+            return "SET_DIFFERENCE";
+        case OperationKind::SET_SYMMETRIC_DIFF:
+            return "SET_SYMMETRIC_DIFF";
+        case OperationKind::SET_VALIDATE:
+            return "SET_VALIDATE";
+        case OperationKind::SET_ASSERT:
+            return "SET_ASSERT";
         case OperationKind::STRUCT_DEF_NEW:
             return "STRUCT_DEF_NEW";
         case OperationKind::STRUCT_DEF_NAME:
@@ -230,6 +282,18 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STRUCT_DEF_FIELD";
         case OperationKind::STRUCT_DEF_FIELD_DEFAULT:
             return "STRUCT_DEF_FIELD_DEFAULT";
+        case OperationKind::STRUCT_DEF_FIELD_VISIBILITY:
+            return "STRUCT_DEF_FIELD_VISIBILITY";
+        case OperationKind::STRUCT_DEF_FIELD_IMMUTABLE:
+            return "STRUCT_DEF_FIELD_IMMUTABLE";
+        case OperationKind::STRUCT_DEF_METHOD:
+            return "STRUCT_DEF_METHOD";
+        case OperationKind::STRUCT_DEF_VALIDATOR:
+            return "STRUCT_DEF_VALIDATOR";
+        case OperationKind::STRUCT_DEF_IMPLEMENT:
+            return "STRUCT_DEF_IMPLEMENT";
+        case OperationKind::STRUCT_DEF_EXTEND:
+            return "STRUCT_DEF_EXTEND";
         case OperationKind::STRUCT_DEF_SEAL:
             return "STRUCT_DEF_SEAL";
         case OperationKind::STRUCT_NEW:
@@ -252,6 +316,30 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STRUCT_COPY";
         case OperationKind::STRUCT_EQ:
             return "STRUCT_EQ";
+        case OperationKind::STRUCT_CALL:
+            return "STRUCT_CALL";
+        case OperationKind::STRUCT_FIELDS:
+            return "STRUCT_FIELDS";
+        case OperationKind::STRUCT_FIELD_INFO:
+            return "STRUCT_FIELD_INFO";
+        case OperationKind::STRUCT_METHODS:
+            return "STRUCT_METHODS";
+        case OperationKind::STRUCT_INTERFACES:
+            return "STRUCT_INTERFACES";
+        case OperationKind::STRUCT_IMPLEMENTS:
+            return "STRUCT_IMPLEMENTS";
+        case OperationKind::STRUCT_COMPOSE:
+            return "STRUCT_COMPOSE";
+        case OperationKind::STRUCT_DESTRUCTURE:
+            return "STRUCT_DESTRUCTURE";
+        case OperationKind::INTERFACE_NEW:
+            return "INTERFACE_NEW";
+        case OperationKind::INTERFACE_NAME:
+            return "INTERFACE_NAME";
+        case OperationKind::INTERFACE_METHOD:
+            return "INTERFACE_METHOD";
+        case OperationKind::INTERFACE_HAS:
+            return "INTERFACE_HAS";
         case OperationKind::VEC_NEW:
             return "VEC_NEW";
         case OperationKind::VEC_PUSH:
@@ -465,6 +553,10 @@ std::string value_kind_to_string(ValueKind kind) {
             return "Vector";
         case ValueKind::Matrix:
             return "Matrix";
+        case ValueKind::Interface:
+            return "Interface";
+        case ValueKind::Error:
+            return "Error";
     }
 
     throw std::runtime_error("Unmatched ValueKind");
@@ -549,7 +641,10 @@ const Function* FunctionList::find(const std::string& fn_name) const {
 
 Function* FunctionList::at(size_t idx) {
     if (idx >= functions.size()) {
-        throw std::runtime_error("Error referencing function at index " + std::to_string(idx) + " as it exceeds the size of the function map");
+        throw std::runtime_error(format_error_context(
+            ErrorPhase::Exec,
+            "Function index out of range: requested " + std::to_string(idx) +
+                ", function count " + std::to_string(functions.size())));
     }
 
     return &functions[idx];
@@ -557,7 +652,10 @@ Function* FunctionList::at(size_t idx) {
 
 const Function* FunctionList::at(size_t idx) const {
     if (idx >= functions.size()) {
-        throw std::runtime_error("Error referencing function at index " + std::to_string(idx) + " as it exceeds the size of the function map");
+        throw std::runtime_error(format_error_context(
+            ErrorPhase::Exec,
+            "Function index out of range: requested " + std::to_string(idx) +
+                ", function count " + std::to_string(functions.size())));
     }
 
     return &functions[idx];
@@ -576,12 +674,14 @@ size_t FunctionList::index_of(const std::string& fn_name) const {
     if (index.has_value()) {
         return *index;
     }
-    throw std::runtime_error("Error indexing function that does not exist");
+    throw std::runtime_error(format_error_context(ErrorPhase::Exec,
+                                                  "Function does not exist: " + fn_name));
 }
 
 void FunctionList::insert(const Function& fn) {
     if (function_indices.contains(fn.name)) {
-        throw std::runtime_error("Duplicate function declaration: " + fn.name);
+        throw std::runtime_error(format_error_context(ErrorPhase::Parse,
+                                                      "Duplicate function declaration: " + fn.name));
     }
     const size_t index = functions.size();
     functions.push_back(fn);
@@ -591,7 +691,8 @@ void FunctionList::insert(const Function& fn) {
 void FunctionList::insert(Function&& fn) {
     const std::string name = fn.name;
     if (function_indices.contains(name)) {
-        throw std::runtime_error("Duplicate function declaration: " + name);
+        throw std::runtime_error(format_error_context(ErrorPhase::Parse,
+                                                      "Duplicate function declaration: " + name));
     }
     const size_t index = functions.size();
     functions.push_back(std::move(fn));

@@ -1,0 +1,19 @@
+.import <literal>
+.import <memory>
+.import <type>
+.import <control_flow>
+.import <io>
+
+.const FLOAT 3.14159
+.const 55 STR ~"alias-ok"
+
+.main
+  LITERAL PI, @0
+  LITERAL MESSAGE, @55
+  STORE $0, #true
+  TYPE_ALIAS NonAddable, #~"Boolean|String"
+  TYPE_ASSERT $0, NonAddable
+  PRINTLN PI
+  PRINTLN MESSAGE
+  PRINTLN $0
+  HALT

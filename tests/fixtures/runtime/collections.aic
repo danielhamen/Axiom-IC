@@ -1,0 +1,29 @@
+.import <list>
+.import <map>
+.import <set>
+.import <control_flow>
+.import <io>
+
+.main
+  LIST_NEW $0, #0
+  LIST_PUSH $0, #1
+  LIST_PUSH $0, #2
+  LIST_CLONE $1, $0
+  LIST_CONCAT $2, $0, $1
+  LIST_LEN $3, $2
+  MAP_NEW $4
+  MAP_SET $4, #~"count", $3
+  MAP_GET $5, $4, #~"count"
+  SET_NEW $6
+  SET_ADD $6, #1
+  SET_ADD $6, #2
+  SET_NEW $7
+  SET_ADD $7, #2
+  SET_ADD $7, #3
+  SET_DIFFERENCE $8, $6, $7
+  SET_SYMMETRIC_DIFF $9, $6, $7
+  PRINTLN $2
+  PRINTLN $5
+  PRINTLN $8
+  PRINTLN $9
+  HALT

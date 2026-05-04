@@ -1,0 +1,21 @@
+.import <arithmetic>
+.import <logic>
+.import <comparison>
+.import <control_flow>
+.import <io>
+
+.main
+  ADD $0, #2, #3
+  SUB $1, $0, #1
+  MUL $2, $1, #5
+  DIV $3, $2, #2
+  MOD $4, $2, #7
+  EQ $5, $0, #5
+  AND $6, $5, #true
+  PRINTLN $0
+  PRINTLN $1
+  PRINTLN $2
+  PRINTLN $3
+  PRINTLN $4
+  PRINTLN $6
+  HALT

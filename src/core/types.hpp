@@ -641,6 +641,7 @@ struct Operand {
     std::string strval;
     Value immediate{};
     bool has_immediate = false;
+    bool resolved = false;
 
     bool is_none() const {
         return kind == OperandKind::None;

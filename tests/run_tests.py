@@ -226,6 +226,26 @@ class RuntimeFixtureTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn(".const PrimaryConstant start=@", proc.stdout)
 
+    def test_optimizer_rewrites_bytecode(self) -> None:
+        fixture = RUNTIME_FIXTURES / "optimizer.aic"
+        proc = subprocess.run(
+            [str(self.aic), "--bytecode", str(fixture)],
+            cwd=self.aic.parent,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Instruction(op=LOAD", proc.stdout)
+        self.assertIn("immediate=5", proc.stdout)
+        self.assertNotIn("Instruction(op=ADD", proc.stdout)
+        self.assertNotIn("Instruction(op=JMP,", proc.stdout)
+        self.assertRegex(proc.stdout, r"Instruction\(op=JMP_IF, operands=\[Operand\(kind=Label, value=done, resolved=\d+\)")
+        self.assertNotIn("Operand(kind=Slot, value=0), Operand(kind=Slot, value=0)", proc.stdout)
+        self.assertNotIn("unreachable", proc.stdout)
+        self.assertRegex(proc.stdout, r"Instruction\(op=CALL, operands=\[Operand\(kind=Function, value=product, resolved=\d+\)\]\)")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

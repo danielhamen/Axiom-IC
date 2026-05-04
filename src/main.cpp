@@ -1,4 +1,5 @@
 #include "core/operations.hpp"
+#include "core/optimizer.hpp"
 #include "core/verifier.hpp"
 #include "parser/parser.hpp"
 #include "parser/tokenizer.hpp"
@@ -716,6 +717,7 @@ int main(int argc, char** argv) {
             }
 
             aic::Program vm = load_program_with_modules(filename);
+            aic::optimize_program(vm);
             std::vector<aic::VerificationDiagnostic> verification = aic::verify(vm);
             for (const aic::VerificationDiagnostic& diagnostic : verification) {
                 std::cerr << aic::format_verification_diagnostic(diagnostic) << std::endl;

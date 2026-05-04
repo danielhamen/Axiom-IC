@@ -1,0 +1,23 @@
+.import <arithmetic>
+.import <control_flow>
+.import <function>
+.import <io>
+.import <memory>
+.import <stack>
+
+.fn product
+  RET #12
+
+.main
+  ADD $0, #2, #3
+  LOAD $0, $0
+  JMP after_jump
+after_jump:
+  JMP_IF done, #false
+  CALL product
+  POP $1
+  PRINTLN $0
+  PRINTLN $1
+done:
+  HALT
+  PRINTLN #~"unreachable"

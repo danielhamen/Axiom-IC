@@ -713,6 +713,9 @@ std::string Operand::to_str() const {
     }
 
     if (kind == OperandKind::Label || kind == OperandKind::Function) {
+        if (resolved) {
+            return std::format("Operand(kind={}, value={}, resolved={})", kindstr(), strval, value);
+        }
         return std::format("Operand(kind={}, value={})", kindstr(), strval);
     }
 

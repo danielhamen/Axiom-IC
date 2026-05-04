@@ -456,17 +456,13 @@ std::string read_function_name(Program& program, const Operand& op, const Instru
     return name.s;
 }
 
-Value call_function_for_value(Program& program,
+Value call_function_for_index(Program& program,
+                              size_t callee_index,
                               const std::string& function_name,
                               std::vector<Value> args,
                               const Instruction& ins,
                               const std::string& opname) {
-    const auto callee_index = program.functions.try_index_of(function_name);
-    if (!callee_index.has_value()) {
-        throw_exec_error(program, opname + " target function does not exist: " + function_name, &ins);
-    }
-
-    Function* callee = program.functions.at(*callee_index);
+    Function* callee = program.functions.at(callee_index);
     if (callee->arg_count > args.size()) {
         throw_exec_error(program,
                          opname + " callback " + function_name + " expects " +
@@ -486,7 +482,7 @@ Value call_function_for_value(Program& program,
     frame.return_pc = caller_pc;
     frame.args = std::move(args);
     program.call_stack.push_back(std::move(frame));
-    program.fc = *callee_index;
+    program.fc = callee_index;
     program.pc = 0;
 
     while (program.call_stack.size() > frame_depth && !program.halted) {
@@ -515,6 +511,19 @@ Value call_function_for_value(Program& program,
     program.pc = caller_pc;
     program.halted = caller_halted;
     return out;
+}
+
+Value call_function_for_value(Program& program,
+                              const std::string& function_name,
+                              std::vector<Value> args,
+                              const Instruction& ins,
+                              const std::string& opname) {
+    const auto callee_index = program.functions.try_index_of(function_name);
+    if (!callee_index.has_value()) {
+        throw_exec_error(program, opname + " target function does not exist: " + function_name, &ins);
+    }
+
+    return call_function_for_index(program, *callee_index, function_name, std::move(args), ins, opname);
 }
 
 bool collection_values_match_type(Program& program, const std::vector<Value>& values, const std::string& type_expr) {
@@ -798,6 +807,14 @@ void jump_to_label(Program& program, const Operand& label_operand, const Instruc
                          &ins);
     }
     Function* current_function = program.functions.at(program.fc);
+    if (label_operand.resolved) {
+        const size_t dst_pc = static_cast<size_t>(label_operand.value);
+        if (dst_pc >= current_function->ins.size()) {
+            throw_exec_error(program, opname + " target label pc out of range", &ins);
+        }
+        program.pc = dst_pc;
+        return;
+    }
     const auto& labels = current_function->labels;
     const std::string& label_name = label_operand.strval;
     if (!labels.contains(label_name)) {
@@ -818,6 +835,13 @@ size_t resolve_label_pc(Program& program, const Operand& label_operand, const In
                          "TypeError");
     }
     Function* current_function = program.functions.at(program.fc);
+    if (label_operand.resolved) {
+        const size_t dst_pc = static_cast<size_t>(label_operand.value);
+        if (dst_pc >= current_function->ins.size()) {
+            throw_exec_error(program, opname + " target label pc out of range", &ins, "NameError");
+        }
+        return dst_pc;
+    }
     const auto& labels = current_function->labels;
     const std::string& label_name = label_operand.strval;
     if (!labels.contains(label_name)) {
@@ -1306,6 +1330,18 @@ void Program::resolve(const Instruction& ins) {
         }
 
         Function* current_function = functions.at(fc);
+        if (x.resolved) {
+            const size_t dst_pc = static_cast<size_t>(x.value);
+            if (dst_pc >= current_function->ins.size()) {
+                throw runtime_error_with_context(
+                    current_function,
+                    pc,
+                    std::format("Jump target pc={} out of range", dst_pc));
+            }
+            pc = dst_pc;
+            return;
+        }
+
         const auto& labels = current_function->labels;
         const std::string& label_name = x.strval;
 
@@ -1387,12 +1423,19 @@ void Program::resolve(const Instruction& ins) {
             throw_exec_error(*this, "CALL expects a function operand", &ins);
         }
 
-        const auto callee_index = functions.try_index_of(x.strval);
-        if (!callee_index.has_value()) {
-            throw_exec_error(*this, "CALL target function does not exist: " + x.strval, &ins);
+        size_t callee_fc = 0;
+        if (x.resolved) {
+            callee_fc = static_cast<size_t>(x.value);
+            if (callee_fc >= functions.size()) {
+                throw_exec_error(*this, "CALL target function index out of range: " + std::to_string(callee_fc), &ins);
+            }
+        } else {
+            const auto callee_index = functions.try_index_of(x.strval);
+            if (!callee_index.has_value()) {
+                throw_exec_error(*this, "CALL target function does not exist: " + x.strval, &ins);
+            }
+            callee_fc = *callee_index;
         }
-
-        size_t callee_fc = *callee_index;
         Function* callee = functions.at(callee_fc);
         const bool use_pending_args = !pending_args.empty() || !pending_kwargs.empty();
         std::vector<Value> args;
@@ -1697,15 +1740,17 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::LIST_MAP: {
         Value list_value = read_operand_strict(y, ValueKind::List);
         const std::string fn_name = read_function_name(*this, z, ins, "LIST_MAP");
+        const bool resolved_callback = z.resolved && z.kind == OperandKind::Function &&
+                                       static_cast<size_t>(z.value) < functions.size();
+        const size_t callback_index = resolved_callback ? static_cast<size_t>(z.value) : 0;
         Value out{};
         out.kind = ValueKind::List;
         out.list.reserve(list_value.list.size());
         for (size_t i = 0; i < list_value.list.size(); i++) {
-            out.list.push_back(call_function_for_value(*this,
-                                                       fn_name,
-                                                       {list_value.list[i], make_int_value(static_cast<int64_t>(i))},
-                                                       ins,
-                                                       "LIST_MAP"));
+            std::vector<Value> args{list_value.list[i], make_int_value(static_cast<int64_t>(i))};
+            out.list.push_back(resolved_callback
+                                   ? call_function_for_index(*this, callback_index, fn_name, std::move(args), ins, "LIST_MAP")
+                                   : call_function_for_value(*this, fn_name, std::move(args), ins, "LIST_MAP"));
         }
         write_operand(x, out);
         pc++;
@@ -1714,14 +1759,16 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::LIST_FILTER: {
         Value list_value = read_operand_strict(y, ValueKind::List);
         const std::string fn_name = read_function_name(*this, z, ins, "LIST_FILTER");
+        const bool resolved_callback = z.resolved && z.kind == OperandKind::Function &&
+                                       static_cast<size_t>(z.value) < functions.size();
+        const size_t callback_index = resolved_callback ? static_cast<size_t>(z.value) : 0;
         Value out{};
         out.kind = ValueKind::List;
         for (size_t i = 0; i < list_value.list.size(); i++) {
-            Value keep = call_function_for_value(*this,
-                                                 fn_name,
-                                                 {list_value.list[i], make_int_value(static_cast<int64_t>(i))},
-                                                 ins,
-                                                 "LIST_FILTER");
+            std::vector<Value> args{list_value.list[i], make_int_value(static_cast<int64_t>(i))};
+            Value keep = resolved_callback
+                             ? call_function_for_index(*this, callback_index, fn_name, std::move(args), ins, "LIST_FILTER")
+                             : call_function_for_value(*this, fn_name, std::move(args), ins, "LIST_FILTER");
             if (value_truthy(keep)) {
                 out.list.push_back(list_value.list[i]);
             }
@@ -1733,13 +1780,15 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::LIST_REDUCE: {
         Value list_value = read_operand_strict(y, ValueKind::List);
         const std::string fn_name = read_function_name(*this, z, ins, "LIST_REDUCE");
+        const bool resolved_callback = z.resolved && z.kind == OperandKind::Function &&
+                                       static_cast<size_t>(z.value) < functions.size();
+        const size_t callback_index = resolved_callback ? static_cast<size_t>(z.value) : 0;
         Value acc = read_operand(ins.operands[3]);
         for (size_t i = 0; i < list_value.list.size(); i++) {
-            acc = call_function_for_value(*this,
-                                          fn_name,
-                                          {acc, list_value.list[i], make_int_value(static_cast<int64_t>(i))},
-                                          ins,
-                                          "LIST_REDUCE");
+            std::vector<Value> args{acc, list_value.list[i], make_int_value(static_cast<int64_t>(i))};
+            acc = resolved_callback
+                      ? call_function_for_index(*this, callback_index, fn_name, std::move(args), ins, "LIST_REDUCE")
+                      : call_function_for_value(*this, fn_name, std::move(args), ins, "LIST_REDUCE");
         }
         write_operand(x, acc);
         pc++;

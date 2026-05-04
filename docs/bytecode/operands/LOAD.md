@@ -49,5 +49,5 @@ An error is raised if:
 
 ## Notes
 
-- The operation kind is named `COPY` internally, but the public bytecode mnemonic is `LOAD`.
+- The public and internal operation name is `LOAD`.
 - `$n` operands read and write slots in the active function call frame.

@@ -280,7 +280,7 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::JMP_GTE, "JMP_GTE", 3, "control_flow"},
 
     // MEMORY/STACK
-    {OperationKind::COPY, "LOAD", 2, "memory"},
+    {OperationKind::LOAD, "LOAD", 2, "memory"},
     {OperationKind::STORE, "STORE", 2, "memory"},
     {OperationKind::SWAP, "SWAP", 2, "memory"},
     {OperationKind::CLEAR, "CLEAR", 1, "memory"},

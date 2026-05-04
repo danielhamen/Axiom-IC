@@ -12,16 +12,17 @@ Returns from the current function.
 
 ```
 RET
+RET <value>
 ```
 
-- Takes no operands.
+- `<value>` optional return value pushed to the caller's stack.
 
 
 ## Semantics
 
 - If no call frame exists, halts the program.
-- Otherwise restores the caller function and program counter.
-- Pushes a pending `RETVAL` value onto the stack.
+- Otherwise optionally records `<value>`, restores the caller function and program counter.
+- Pushes an inline `RET <value>` or pending `RETVAL` value onto the caller stack.
 - Discards the returning function's local slot frame.
 - Advances to the next instruction unless this instruction explicitly changes control flow.
 
@@ -36,7 +37,7 @@ RET
 ```
 .main
 start:
-  RET
+  RET #4
   HALT
 ```
 
@@ -52,3 +53,4 @@ An error is raised if:
 
 - Returning from top-level execution halts the program.
 - Returned values are transported through the stack; local slots are not returned.
+- `RETVAL <value>` followed by `RET` remains valid; `RET <value>` is shorthand for simple returns.

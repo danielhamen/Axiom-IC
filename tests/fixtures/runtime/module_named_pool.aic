@@ -1,0 +1,11 @@
+.import <function>
+.import <stack>
+.import <io>
+.import <control_flow>
+.import modules\Constants{PrimaryConstant, get_primary}
+
+.main
+  CALL get_primary
+  POP $0
+  PRINTLN $0
+  HALT

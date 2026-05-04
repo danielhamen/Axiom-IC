@@ -5,7 +5,7 @@ Language support for Axiom-IC bytecode in Zed.
 ## Features
 
 - Associates `.aic` files with the `Axiom-IC` language.
-- Provides a Tree-sitter grammar for directives, labels, constants, instructions, and operands.
+- Provides a Tree-sitter grammar for directives, module imports/exports, labels, constants, instructions, and operands.
 - Highlights all currently registered operations from `src/core/operations.cpp`.
 - Highlights slots, immediates, constants, addresses, strings, numbers, booleans, nulls, labels, comments, and function declarations.
 - Provides snippets for every current operation with tab-stop operands, plus directive, import, and constant declaration snippets.

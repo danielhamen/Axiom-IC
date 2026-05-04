@@ -1,0 +1,17 @@
+.module Math
+.import <arithmetic>
+.import <function>
+
+.fn product
+  MUL $0, arg0, arg1
+  RET $0
+
+.fn quotient
+  DIV $0, arg0, arg1
+  RET $0
+
+.fn private_helper
+  RET
+
+.export product
+.export quotient

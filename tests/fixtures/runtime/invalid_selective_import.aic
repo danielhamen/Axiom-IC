@@ -1,0 +1,5 @@
+.import <control_flow>
+.import modules\Math{private_helper}
+
+.main
+  HALT

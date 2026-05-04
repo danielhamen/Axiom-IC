@@ -5,8 +5,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -18,6 +20,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -213,6 +216,324 @@ std::string read_file(const std::string& path) {
     return in;
 }
 
+namespace fs = std::filesystem;
+
+struct ModuleExportInfo {
+    fs::path path;
+    std::string module_name;
+    std::unordered_map<std::string, std::string> exported_functions;
+    std::unordered_map<std::string, aic::ConstantPoolRange> exported_constant_pools;
+};
+
+struct ModuleLinkContext {
+    std::unordered_map<std::string, ModuleExportInfo> linked_modules;
+    std::unordered_set<std::string> active_modules;
+};
+
+std::string canonical_key(const fs::path& path) {
+    return fs::weakly_canonical(path).string();
+}
+
+std::string sanitize_module_id(const aic::ModuleImport& import) {
+    std::string out;
+    for (const std::string& part : import.path) {
+        if (!out.empty()) {
+            out += "_";
+        }
+        out += part;
+    }
+    return out;
+}
+
+fs::path resolve_module_file(const fs::path& importer_dir, const aic::ModuleImport& import) {
+    fs::path path = importer_dir;
+    for (const std::string& segment : import.path) {
+        path /= segment;
+    }
+    path += ".aic";
+    return path;
+}
+
+aic::Program parse_file_to_program(const fs::path& path) {
+    std::string in = read_file(path.string());
+    std::vector<aic::Token> tokens = aic::tokenize(in);
+    return aic::parse(tokens);
+}
+
+void validate_module_file(const aic::Program& program, const fs::path& path, bool required_module) {
+    if (program.module_name.empty()) {
+        if (required_module) {
+            throw std::runtime_error(aic::format_error_context(
+                aic::ErrorPhase::Parse,
+                "Cannot import '" + path.string() + "' because it has no `.module <moduleName>` declaration"));
+        }
+        return;
+    }
+
+    const std::string stem = path.stem().string();
+    if (program.module_name != stem) {
+        throw std::runtime_error(aic::format_error_context(
+            aic::ErrorPhase::Parse,
+            "Module declaration `.module " + program.module_name +
+                "` must match filename `" + stem + ".aic`"));
+    }
+}
+
+bool is_link_function_reference(aic::OperationKind op, size_t operand_index) {
+    switch (op) {
+        case aic::OperationKind::CALL:
+            return operand_index == 0;
+        case aic::OperationKind::LIST_MAP:
+        case aic::OperationKind::LIST_FILTER:
+        case aic::OperationKind::LIST_REDUCE:
+        case aic::OperationKind::STRUCT_DEF_METHOD:
+            return operand_index == 2;
+        case aic::OperationKind::STRUCT_DEF_VALIDATOR:
+            return operand_index == 1;
+        default:
+            return false;
+    }
+}
+
+void refresh_instruction_short_operands(aic::Instruction& ins) {
+    aic::Operand null_op{aic::OperandKind::None};
+    ins.x = ins.operands.size() > 0 ? ins.operands[0] : null_op;
+    ins.y = ins.operands.size() > 1 ? ins.operands[1] : null_op;
+    ins.z = ins.operands.size() > 2 ? ins.operands[2] : null_op;
+}
+
+void rewrite_instruction_for_link(aic::Instruction& ins,
+                                  size_t constant_offset,
+                                  const std::unordered_map<std::string, std::string>& local_functions,
+                                  const std::unordered_map<std::string, std::string>& imported_functions) {
+    for (size_t i = 0; i < ins.operands.size(); i++) {
+        aic::Operand& operand = ins.operands[i];
+        if (operand.kind == aic::OperandKind::Constant) {
+            operand.value += static_cast<int64_t>(constant_offset);
+        }
+
+        if (!is_link_function_reference(ins.op, i)) {
+            continue;
+        }
+
+        if (operand.kind != aic::OperandKind::Function && operand.kind != aic::OperandKind::Label) {
+            continue;
+        }
+
+        auto local_it = local_functions.find(operand.strval);
+        if (local_it != local_functions.end()) {
+            operand.strval = local_it->second;
+            operand.kind = aic::OperandKind::Function;
+            continue;
+        }
+
+        auto import_it = imported_functions.find(operand.strval);
+        if (import_it != imported_functions.end()) {
+            operand.strval = import_it->second;
+            operand.kind = aic::OperandKind::Function;
+        }
+    }
+
+    refresh_instruction_short_operands(ins);
+}
+
+void add_imported_symbol(std::unordered_map<std::string, std::string>& function_aliases,
+                         aic::Program& linked,
+                         const std::string& symbol,
+                         const ModuleExportInfo& exports) {
+    auto fn_it = exports.exported_functions.find(symbol);
+    if (fn_it != exports.exported_functions.end()) {
+        if (function_aliases.contains(symbol)) {
+            throw std::runtime_error(aic::format_error_context(aic::ErrorPhase::Parse,
+                                                               "Ambiguous imported function: " + symbol));
+        }
+        function_aliases[symbol] = fn_it->second;
+        return;
+    }
+
+    auto pool_it = exports.exported_constant_pools.find(symbol);
+    if (pool_it != exports.exported_constant_pools.end()) {
+        if (linked.constant_pools.contains(symbol)) {
+            throw std::runtime_error(aic::format_error_context(aic::ErrorPhase::Parse,
+                                                               "Duplicate imported constant pool: " + symbol));
+        }
+        linked.constant_pools[symbol] = pool_it->second;
+        return;
+    }
+
+    throw std::runtime_error(aic::format_error_context(
+        aic::ErrorPhase::Parse,
+        "Module `" + exports.module_name + "` does not export symbol: " + symbol));
+}
+
+ModuleExportInfo link_module_file(const fs::path& module_path,
+                                  const aic::ModuleImport& import,
+                                  aic::Program& linked,
+                                  ModuleLinkContext& context);
+
+std::unordered_map<std::string, std::string> collect_import_aliases(const fs::path& importer_dir,
+                                                                    const std::vector<aic::ModuleImport>& imports,
+                                                                    aic::Program& linked,
+                                                                    ModuleLinkContext& context) {
+    std::unordered_map<std::string, std::string> function_aliases;
+
+    for (const aic::ModuleImport& import : imports) {
+        ModuleExportInfo exports = link_module_file(resolve_module_file(importer_dir, import),
+                                                    import,
+                                                    linked,
+                                                    context);
+
+        if (import.imports_all()) {
+            for (const auto& [symbol, _] : exports.exported_functions) {
+                add_imported_symbol(function_aliases, linked, symbol, exports);
+            }
+            for (const auto& [symbol, _] : exports.exported_constant_pools) {
+                add_imported_symbol(function_aliases, linked, symbol, exports);
+            }
+            continue;
+        }
+
+        for (const std::string& symbol : import.selected_symbols) {
+            add_imported_symbol(function_aliases, linked, symbol, exports);
+        }
+    }
+
+    return function_aliases;
+}
+
+ModuleExportInfo link_module_file(const fs::path& module_path,
+                                  const aic::ModuleImport& import,
+                                  aic::Program& linked,
+                                  ModuleLinkContext& context) {
+    const fs::path canonical_path = fs::weakly_canonical(module_path);
+    const std::string key = canonical_path.string();
+
+    auto cached = context.linked_modules.find(key);
+    if (cached != context.linked_modules.end()) {
+        return cached->second;
+    }
+
+    if (!fs::exists(canonical_path)) {
+        throw std::runtime_error(aic::format_error_context(aic::ErrorPhase::Parse,
+                                                           "Imported module file does not exist: " +
+                                                               module_path.string()));
+    }
+    if (!context.active_modules.insert(key).second) {
+        throw std::runtime_error(aic::format_error_context(aic::ErrorPhase::Parse,
+                                                           "Module import cycle detected at: " +
+                                                               module_path.string()));
+    }
+
+    aic::Program module = parse_file_to_program(canonical_path);
+    validate_module_file(module, canonical_path, true);
+    linked.imported_categories.insert(module.imported_categories.begin(), module.imported_categories.end());
+
+    if (!import.path.empty() && module.module_name != import.path.back()) {
+        throw std::runtime_error(aic::format_error_context(
+            aic::ErrorPhase::Parse,
+            "Import path `" + import.module_path() + "` resolved to module `" + module.module_name +
+                "`, expected `" + import.path.back() + "`"));
+    }
+
+    std::unordered_map<std::string, std::string> imported_functions =
+        collect_import_aliases(canonical_path.parent_path(), module.module_imports, linked, context);
+
+    std::unordered_map<std::string, std::string> local_functions;
+    const std::string module_id = sanitize_module_id(import);
+    for (size_t i = 0; i < module.functions.size(); i++) {
+        const aic::Function* fn = module.functions.at(i);
+        local_functions[fn->name] = "@module/" + module_id + "/" + fn->name;
+    }
+
+    for (const auto& [symbol, _] : imported_functions) {
+        if (local_functions.contains(symbol)) {
+            throw std::runtime_error(aic::format_error_context(
+                aic::ErrorPhase::Parse,
+                "Imported symbol conflicts with local function in module `" + module.module_name + "`: " + symbol));
+        }
+    }
+
+    const size_t constant_offset = linked.constants.size();
+    linked.constants.insert(linked.constants.end(), module.constants.begin(), module.constants.end());
+
+    for (size_t i = 0; i < module.functions.size(); i++) {
+        aic::Function fn = *module.functions.at(i);
+        fn.name = local_functions.at(fn.name);
+        for (aic::Instruction& ins : fn.ins) {
+            rewrite_instruction_for_link(ins, constant_offset, local_functions, imported_functions);
+        }
+        linked.functions.insert(std::move(fn));
+    }
+
+    ModuleExportInfo exports;
+    exports.path = canonical_path;
+    exports.module_name = module.module_name;
+
+    for (const std::string& symbol : module.exported_symbols) {
+        auto fn_it = local_functions.find(symbol);
+        if (fn_it != local_functions.end()) {
+            exports.exported_functions[symbol] = fn_it->second;
+            continue;
+        }
+
+        auto pool_it = module.constant_pools.find(symbol);
+        if (pool_it != module.constant_pools.end()) {
+            aic::ConstantPoolRange pool = pool_it->second;
+            pool.start += constant_offset;
+            exports.exported_constant_pools[symbol] = pool;
+            continue;
+        }
+
+        throw std::runtime_error(aic::format_error_context(
+            aic::ErrorPhase::Parse,
+            "Module `" + module.module_name + "` exports unknown symbol: " + symbol));
+    }
+
+    context.active_modules.erase(key);
+    context.linked_modules.emplace(key, exports);
+    return exports;
+}
+
+aic::Program load_program_with_modules(const std::string& filename) {
+    const fs::path root_path = fs::weakly_canonical(fs::path(filename));
+    aic::Program root = parse_file_to_program(root_path);
+    validate_module_file(root, root_path, false);
+
+    aic::Program linked;
+    linked.pc = 0;
+    linked.fc = 0;
+    linked.imported_categories = root.imported_categories;
+    linked.module_name = root.module_name;
+    linked.constants = root.constants;
+    linked.constant_pools = root.constant_pools;
+
+    ModuleLinkContext context;
+    std::unordered_map<std::string, std::string> imported_functions =
+        collect_import_aliases(root_path.parent_path(), root.module_imports, linked, context);
+
+    std::unordered_map<std::string, std::string> local_functions;
+    for (size_t i = 0; i < root.functions.size(); i++) {
+        const aic::Function* fn = root.functions.at(i);
+        if (imported_functions.contains(fn->name)) {
+            throw std::runtime_error(aic::format_error_context(
+                aic::ErrorPhase::Parse,
+                "Imported function conflicts with local function: " + fn->name));
+        }
+        local_functions[fn->name] = fn->name;
+    }
+
+    for (size_t i = 0; i < root.functions.size(); i++) {
+        aic::Function fn = *root.functions.at(i);
+        for (aic::Instruction& ins : fn.ins) {
+            rewrite_instruction_for_link(ins, 0, local_functions, imported_functions);
+        }
+        linked.functions.insert(std::move(fn));
+    }
+
+    linked.exported_symbols = root.exported_symbols;
+    return linked;
+}
+
 void print_help() {
     std::cout << "AxiomIC compiler/runtime (aic)\n"
               << "Usage: aic [flags] [input_files...]\n\n"
@@ -251,6 +572,12 @@ void print_constants(const aic::Program& vm) {
         const aic::Value& v = vm.constants.at(i);
         std::cout << "@" << i << " kind=" << aic::value_kind_to_string(v.kind)
                   << " value=" << v.to_str() << std::endl;
+    }
+    for (const auto& [name, pool] : vm.constant_pools) {
+        std::cout << ".const " << name
+                  << " start=@" << pool.start
+                  << " count=" << pool.count
+                  << std::endl;
     }
 }
 
@@ -382,14 +709,13 @@ int main(int argc, char** argv) {
 
         for (const std::string& filename : options.input_files) {
             std::cout << "=== Running: " << filename << " ===" << std::endl;
-            std::string in = read_file(filename);
-
-            std::vector<aic::Token> tokens = aic::tokenize(in);
             if (options.dump_tokens) {
+                std::string in = read_file(filename);
+                std::vector<aic::Token> tokens = aic::tokenize(in);
                 aic::print_tokens(tokens);
             }
 
-            aic::Program vm = aic::parse(tokens);
+            aic::Program vm = load_program_with_modules(filename);
             std::vector<aic::VerificationDiagnostic> verification = aic::verify(vm);
             for (const aic::VerificationDiagnostic& diagnostic : verification) {
                 std::cerr << aic::format_verification_diagnostic(diagnostic) << std::endl;

@@ -490,8 +490,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "JMP_GT";
         case OperationKind::JMP_GTE:
             return "JMP_GTE";
-        case OperationKind::COPY:
-            return "COPY";
+        case OperationKind::LOAD:
+            return "LOAD";
         case OperationKind::STORE:
             return "STORE";
         case OperationKind::SWAP:

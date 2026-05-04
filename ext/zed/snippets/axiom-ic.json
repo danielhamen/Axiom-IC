@@ -386,8 +386,8 @@
   },
   "RET": {
     "prefix": "RET",
-    "body": "RET$0",
-    "description": "Axiom-IC function operation: RET"
+    "body": "RET ${1:<value>}$0",
+    "description": "Axiom-IC function operation: RET <value>"
   },
   "RETVAL": {
     "prefix": "RETVAL",
@@ -1448,5 +1448,30 @@
     "prefix": ".const index STR",
     "body": ".const ${1:0} STR ${2:~\"text\"}$0",
     "description": "Declare an indexed STR constant"
+  },
+  "directive module": {
+    "prefix": ".module",
+    "body": ".module ${1:ModuleName}$0",
+    "description": "Declare an importable Axiom-IC module"
+  },
+  "directive export": {
+    "prefix": ".export",
+    "body": ".export ${1:symbol}$0",
+    "description": "Export a module function or named constant pool"
+  },
+  "directive import module": {
+    "prefix": ".import module",
+    "body": ".import ${1:ModuleName}$0",
+    "description": "Import all exported symbols from a module"
+  },
+  "directive import selective": {
+    "prefix": ".import select",
+    "body": ".import ${1:ModuleName}{${2:symbol}}$0",
+    "description": "Import selected exported symbols from a module"
+  },
+  "directive const named": {
+    "prefix": ".const named",
+    "body": ".const ${1:PoolName}\n  ${2:NULL}$0",
+    "description": "Open a named constant pool section"
   }
 }

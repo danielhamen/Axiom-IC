@@ -109,11 +109,12 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(stale, [], "Operand docs exist for unknown operations")
 
     def test_directive_docs_cover_current_directives(self) -> None:
-        for directive in ("const", "fn", "main"):
+        for directive in ("const", "export", "fn", "import", "main", "module"):
             self.assertTrue((DIRECTIVES_DOC_DIR / f"{directive}.md").exists())
         const_doc = read_text(DIRECTIVES_DOC_DIR / "const.md")
         self.assertIn(".const FLOAT 3.14159", const_doc)
         self.assertIn(".const 55 FLOAT 5.5", const_doc)
+        self.assertIn(".const PrimaryConstant", const_doc)
 
 
 class ExtensionCoverageTests(unittest.TestCase):
@@ -160,9 +161,14 @@ class ExtensionCoverageTests(unittest.TestCase):
     def test_directive_and_constant_snippets_exist(self) -> None:
         for key in (
             "directive import",
+            "directive import module",
+            "directive import selective",
             "directive main",
+            "directive module",
+            "directive export",
             "directive fn",
             "directive const section",
+            "directive const named",
             "const FLOAT",
             "const indexed FLOAT",
             "const STR",
@@ -206,6 +212,19 @@ class RuntimeFixtureTests(unittest.TestCase):
                 self.assertEqual(normalized_stdout(proc.stdout), expected_stdout)
                 if expected_stderr:
                     self.assertIn(expected_stderr.strip(), proc.stderr)
+
+    def test_exported_named_constant_pool_is_linked(self) -> None:
+        fixture = RUNTIME_FIXTURES / "module_named_pool.aic"
+        proc = subprocess.run(
+            [str(self.aic), "--constants", str(fixture)],
+            cwd=self.aic.parent,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(".const PrimaryConstant start=@", proc.stdout)
 
 
 def main() -> int:

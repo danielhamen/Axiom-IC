@@ -15,7 +15,9 @@ enum class Directive : int8_t {
     Function,
     None,
     Include,
-    Import
+    Import,
+    Module,
+    Export
 };
 
 enum class OperationKind : int16_t {
@@ -364,7 +366,7 @@ enum class OperationKind : int16_t {
      * MEMORY/STACK
      * ============
      */
-    COPY,
+    LOAD,
     STORE,
     SWAP,
     CLEAR,
@@ -682,6 +684,34 @@ struct Function {
     std::string name;
     std::unordered_map<std::string, size_t> labels;
     size_t arg_count = 0;
+};
+
+struct ConstantPoolRange {
+    std::string name;
+    size_t start = 0;
+    size_t count = 0;
+};
+
+struct ModuleImport {
+    std::vector<std::string> path;
+    std::vector<std::string> selected_symbols;
+    size_t line = 0;
+    size_t column = 0;
+
+    std::string module_path() const {
+        std::string out;
+        for (size_t i = 0; i < path.size(); i++) {
+            if (i > 0) {
+                out += "\\";
+            }
+            out += path[i];
+        }
+        return out;
+    }
+
+    bool imports_all() const {
+        return selected_symbols.empty();
+    }
 };
 
 class FunctionList {

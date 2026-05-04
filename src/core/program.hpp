@@ -42,6 +42,10 @@ struct Program {
     bool halted = false;
     FunctionList functions;
     std::vector<Value> constants;
+    std::string module_name;
+    std::unordered_map<std::string, ConstantPoolRange> constant_pools;
+    std::vector<ModuleImport> module_imports;
+    std::unordered_set<std::string> exported_symbols;
     // Root frame memory for .main. Called functions store slots in their CallFrame.
     std::vector<Value> memory;
     std::vector<std::string> slot_type_hints;

@@ -1,0 +1,18 @@
+.import <function>
+.import <stack>
+.import <io>
+.import <control_flow>
+.import modules\Math{product, quotient}
+
+.main
+  ARG #6
+  ARG #7
+  CALL product
+  POP $0
+  ARG #21
+  ARG #3
+  CALL quotient
+  POP $1
+  PRINTLN $0
+  PRINTLN $1
+  HALT

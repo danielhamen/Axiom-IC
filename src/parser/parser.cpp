@@ -3,6 +3,7 @@
 #include "../core/operations.hpp"
 #include "../util/symbols.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <stdexcept>
 #include <string>
@@ -98,10 +99,10 @@ bool is_const_declaration(const std::string& token) {
     return token == "INT" || token == "FLOAT" || token == "BOOL" || token == "NULL" || token == "STR";
 }
 
-void write_constant(Program& vm, std::optional<size_t> index, const Value& value) {
+size_t write_constant(Program& vm, std::optional<size_t> index, const Value& value) {
     if (!index.has_value()) {
         vm.constants.push_back(value);
-        return;
+        return vm.constants.size() - 1;
     }
 
     if (*index >= vm.constants.size()) {
@@ -110,12 +111,14 @@ void write_constant(Program& vm, std::optional<size_t> index, const Value& value
         vm.constants.resize(*index + 1, null_value);
     }
     vm.constants[*index] = value;
+    return *index;
 }
 
-void parse_constant_declaration(const std::vector<Token>& line,
-                                size_t offset,
-                                Program& vm,
-                                const std::string& usage) {
+size_t parse_constant_declaration(const std::vector<Token>& line,
+                                  size_t offset,
+                                  Program& vm,
+                                  const std::string& usage,
+                                  const std::string& current_pool = "") {
     std::optional<size_t> explicit_index;
     if (offset < line.size() && line[offset].type == TokenType::Integer) {
         int64_t parsed_index = parse_non_negative_index(line[offset], usage + " constant index");
@@ -137,8 +140,15 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::Integer;
         v.i = parse_int64_literal(line[offset + 1], usage + " INT");
-        write_constant(vm, explicit_index, v);
-        return;
+        size_t written = write_constant(vm, explicit_index, v);
+        if (!current_pool.empty()) {
+            ConstantPoolRange& pool = vm.constant_pools[current_pool];
+            if (written < pool.start) {
+                throw_parse_error(type_token, "Named constant pool entries cannot be written before the pool start");
+            }
+            pool.count = std::max(pool.count, written - pool.start + 1);
+        }
+        return written;
     }
 
     if (type == "FLOAT") {
@@ -149,8 +159,15 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::Float;
         v.f = parse_double_literal(line[offset + 1], usage + " FLOAT");
-        write_constant(vm, explicit_index, v);
-        return;
+        size_t written = write_constant(vm, explicit_index, v);
+        if (!current_pool.empty()) {
+            ConstantPoolRange& pool = vm.constant_pools[current_pool];
+            if (written < pool.start) {
+                throw_parse_error(type_token, "Named constant pool entries cannot be written before the pool start");
+            }
+            pool.count = std::max(pool.count, written - pool.start + 1);
+        }
+        return written;
     }
 
     if (type == "BOOL") {
@@ -162,8 +179,15 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::Boolean;
         v.b = line[offset + 1].lexeme == "true";
-        write_constant(vm, explicit_index, v);
-        return;
+        size_t written = write_constant(vm, explicit_index, v);
+        if (!current_pool.empty()) {
+            ConstantPoolRange& pool = vm.constant_pools[current_pool];
+            if (written < pool.start) {
+                throw_parse_error(type_token, "Named constant pool entries cannot be written before the pool start");
+            }
+            pool.count = std::max(pool.count, written - pool.start + 1);
+        }
+        return written;
     }
 
     if (type == "NULL") {
@@ -173,8 +197,15 @@ void parse_constant_declaration(const std::vector<Token>& line,
 
         Value v;
         v.kind = ValueKind::Null;
-        write_constant(vm, explicit_index, v);
-        return;
+        size_t written = write_constant(vm, explicit_index, v);
+        if (!current_pool.empty()) {
+            ConstantPoolRange& pool = vm.constant_pools[current_pool];
+            if (written < pool.start) {
+                throw_parse_error(type_token, "Named constant pool entries cannot be written before the pool start");
+            }
+            pool.count = std::max(pool.count, written - pool.start + 1);
+        }
+        return written;
     }
 
     if (type == "STR") {
@@ -185,8 +216,15 @@ void parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::String;
         v.s = line[offset + 1].lexeme;
-        write_constant(vm, explicit_index, v);
-        return;
+        size_t written = write_constant(vm, explicit_index, v);
+        if (!current_pool.empty()) {
+            ConstantPoolRange& pool = vm.constant_pools[current_pool];
+            if (written < pool.start) {
+                throw_parse_error(type_token, "Named constant pool entries cannot be written before the pool start");
+            }
+            pool.count = std::max(pool.count, written - pool.start + 1);
+        }
+        return written;
     }
 
     throw_parse_error(type_token, "Unknown constant type '" + type + "'");
@@ -256,11 +294,110 @@ std::string parse_import_category(const std::vector<Token>& line) {
     return category;
 }
 
+bool is_module_path_separator(TokenType type) {
+    return type == TokenType::Backslash || type == TokenType::Slash;
+}
+
+std::vector<std::string> parse_module_path(const std::vector<Token>& line, size_t& index) {
+    std::vector<std::string> path;
+    bool expect_segment = true;
+
+    while (index < line.size()) {
+        const Token& token = line[index];
+        if (expect_segment) {
+            if (token.type != TokenType::Identifier || !is_symbol(token.lexeme)) {
+                throw_parse_error(token, "Expected module path segment");
+            }
+            path.push_back(token.lexeme);
+            index++;
+            expect_segment = false;
+            continue;
+        }
+
+        if (!is_module_path_separator(token.type)) {
+            break;
+        }
+
+        index++;
+        expect_segment = true;
+    }
+
+    if (path.empty() || expect_segment) {
+        throw_parse_error(line[index - 1], "Module import path cannot be empty or end with a separator");
+    }
+
+    return path;
+}
+
+ModuleImport parse_module_import(const std::vector<Token>& line) {
+    if (line.size() < 2) {
+        throw_parse_error(line[0], "`.import` requires a category import or module path");
+    }
+
+    size_t index = 1;
+    ModuleImport import;
+    import.line = line[0].line;
+    import.column = line[0].column;
+    import.path = parse_module_path(line, index);
+
+    if (index == line.size()) {
+        return import;
+    }
+
+    if (line[index].type != TokenType::LeftBrace) {
+        throw_parse_error(line[index], "Unexpected token in module import: " + line[index].lexeme);
+    }
+    index++;
+
+    while (index < line.size()) {
+        const Token& token = line[index];
+        if (token.type == TokenType::RightBrace) {
+            index++;
+            if (index != line.size()) {
+                throw_parse_error(line[index], "Unexpected token after selective import list");
+            }
+            if (import.selected_symbols.empty()) {
+                throw_parse_error(token, "Selective import list cannot be empty");
+            }
+            return import;
+        }
+
+        if (token.type != TokenType::Identifier || !is_symbol(token.lexeme)) {
+            throw_parse_error(token, "Expected exported symbol name in selective import");
+        }
+        if (std::find(import.selected_symbols.begin(), import.selected_symbols.end(), token.lexeme) !=
+            import.selected_symbols.end()) {
+            throw_parse_error(token, "Duplicate selective import symbol: " + token.lexeme);
+        }
+        import.selected_symbols.push_back(token.lexeme);
+        index++;
+
+        if (index >= line.size()) {
+            break;
+        }
+        if (line[index].type == TokenType::Comma) {
+            index++;
+            if (index >= line.size() || line[index].type == TokenType::RightBrace) {
+                throw_parse_error(line[index - 1], "Selective import list cannot end with a comma");
+            }
+            continue;
+        }
+        if (line[index].type == TokenType::RightBrace) {
+            continue;
+        }
+        throw_parse_error(line[index], "Expected comma or closing brace in selective import");
+    }
+
+    throw_parse_error(line.back(), "Unterminated selective import list");
+}
+
 void parse_line(const std::vector<Token>& line,
                 Program& vm,
                 Directive& current_directive,
                 ParseMode& parse_mode,
-                bool& imports_closed) {
+                bool& imports_closed,
+                bool& module_declaration_allowed,
+                std::string& current_constant_pool) {
     if (line.empty()) {
         return;
     }
@@ -278,7 +415,30 @@ void parse_line(const std::vector<Token>& line,
 
             current_directive = Directive::Import;
             parse_mode = ParseMode::None;
-            vm.imported_categories.insert(parse_import_category(line));
+            current_constant_pool.clear();
+            if (line.size() >= 2 && line[1].type == TokenType::Less) {
+                vm.imported_categories.insert(parse_import_category(line));
+            } else {
+                vm.module_imports.push_back(parse_module_import(line));
+            }
+            return;
+        }
+
+        if (directive == "module") {
+            if (!module_declaration_allowed || parse_mode != ParseMode::None) {
+                throw_parse_error(head_token, "`.module` must appear at the top level before functions or constants");
+            }
+            if (line.size() != 2 || line[1].type != TokenType::Identifier || !is_symbol(line[1].lexeme)) {
+                throw_parse_error(head_token, "`.module` requires exactly one module name");
+            }
+            if (!vm.module_name.empty()) {
+                throw_parse_error(head_token, "Module already declared: " + vm.module_name);
+            }
+
+            current_directive = Directive::Module;
+            parse_mode = ParseMode::None;
+            current_constant_pool.clear();
+            vm.module_name = line[1].lexeme;
             return;
         }
 
@@ -288,7 +448,38 @@ void parse_line(const std::vector<Token>& line,
             if (line.size() == 1) {
                 current_directive = Directive::Constant;
                 parse_mode = ParseMode::ConstSection;
+                current_constant_pool.clear();
+                module_declaration_allowed = false;
                 return;
+            }
+
+            if (line.size() == 2 &&
+                line[1].type == TokenType::Identifier &&
+                !is_const_declaration(line[1].lexeme)) {
+                const std::string& pool_name = line[1].lexeme;
+                if (!is_symbol(pool_name)) {
+                    throw_parse_error(line[1], "Invalid constant pool name: " + pool_name);
+                }
+                if (vm.constant_pools.contains(pool_name)) {
+                    throw_parse_error(line[1], "Constant pool already defined: " + pool_name);
+                }
+                ConstantPoolRange pool;
+                pool.name = pool_name;
+                pool.start = vm.constants.size();
+                pool.count = 0;
+                vm.constant_pools.emplace(pool_name, pool);
+
+                current_directive = Directive::Constant;
+                parse_mode = ParseMode::ConstSection;
+                current_constant_pool = pool_name;
+                module_declaration_allowed = false;
+                return;
+            }
+
+            if (line.size() > 2 &&
+                line[1].type == TokenType::Identifier &&
+                !is_const_declaration(line[1].lexeme)) {
+                throw_parse_error(line[1], "Named constant pools must use section syntax; inline named constants are invalid");
             }
 
             if (line.size() >= 2 &&
@@ -297,6 +488,8 @@ void parse_line(const std::vector<Token>& line,
                 parse_constant_declaration(line, 1, vm, ".const");
                 current_directive = Directive::Constant;
                 parse_mode = ParseMode::ConstSection;
+                current_constant_pool.clear();
+                module_declaration_allowed = false;
                 return;
             }
 
@@ -306,7 +499,25 @@ void parse_line(const std::vector<Token>& line,
         if (directive == "include") {
             current_directive = Directive::Include;
             parse_mode = ParseMode::None;
+            current_constant_pool.clear();
+            module_declaration_allowed = false;
             throw_parse_error(head_token, "`include` directives are not yet implemented");
+        }
+
+        if (directive == "export") {
+            if (line.size() != 2 || line[1].type != TokenType::Identifier || !is_symbol(line[1].lexeme)) {
+                throw_parse_error(head_token, "`.export` requires exactly one symbol name");
+            }
+            if (vm.exported_symbols.contains(line[1].lexeme)) {
+                throw_parse_error(line[1], "Symbol already exported: " + line[1].lexeme);
+            }
+
+            current_directive = Directive::Export;
+            parse_mode = ParseMode::None;
+            current_constant_pool.clear();
+            module_declaration_allowed = false;
+            vm.exported_symbols.insert(line[1].lexeme);
+            return;
         }
 
         if (directive == "fn") {
@@ -325,6 +536,8 @@ void parse_line(const std::vector<Token>& line,
             current_directive = Directive::Function;
             parse_mode = ParseMode::FunctionBody;
             vm.fc = vm.functions.size();
+            current_constant_pool.clear();
+            module_declaration_allowed = false;
 
             std::vector<Instruction> fn_ins;
             std::unordered_map<std::string, size_t> fn_labels;
@@ -341,6 +554,8 @@ void parse_line(const std::vector<Token>& line,
         current_directive = Directive::Function;
         parse_mode = ParseMode::FunctionBody;
         vm.fc = vm.functions.size();
+        current_constant_pool.clear();
+        module_declaration_allowed = false;
 
         std::string fn_name = directive;
         if (vm.functions.exists(fn_name)) {
@@ -359,6 +574,7 @@ void parse_line(const std::vector<Token>& line,
     }
 
     imports_closed = true;
+    module_declaration_allowed = false;
 
     if (line.size() >= 2 && head_token.type == TokenType::Identifier && line.at(1).type == TokenType::Colon) {
         if (current_directive != Directive::Function || parse_mode != ParseMode::FunctionBody) {
@@ -380,7 +596,7 @@ void parse_line(const std::vector<Token>& line,
     }
 
     if (parse_mode == ParseMode::ConstSection) {
-        parse_constant_declaration(line, 0, vm, ".const");
+        parse_constant_declaration(line, 0, vm, ".const", current_constant_pool);
         return;
     }
 
@@ -530,7 +746,13 @@ void parse_line(const std::vector<Token>& line,
 
     size_t expected_arity = ins_op.arity;
     size_t received_arity = parsed_operands.size();
-    if (expected_arity == kVariadicArity) {
+    if (ins.op == OperationKind::RET) {
+        if (received_arity > 1) {
+            throw_parse_error(head_token,
+                              "Instruction 'RET' takes zero operands or one return value; received " +
+                                  std::to_string(received_arity));
+        }
+    } else if (expected_arity == kVariadicArity) {
         size_t minimum_arity = 0;
         if (ins.op == OperationKind::STRUCT_INIT ||
             ins.op == OperationKind::LIST_DESTRUCTURE ||
@@ -575,11 +797,19 @@ Program parse(const std::vector<Token>& tokens) {
     Directive current_directive = Directive::None;
     ParseMode parse_mode = ParseMode::None;
     bool imports_closed = false;
+    bool module_declaration_allowed = true;
+    std::string current_constant_pool;
 
     std::vector<Token> line;
     for (const Token& tok : tokens) {
         if (tok.type == TokenType::Newline || tok.type == TokenType::EndOfFile) {
-            parse_line(line, vm, current_directive, parse_mode, imports_closed);
+            parse_line(line,
+                       vm,
+                       current_directive,
+                       parse_mode,
+                       imports_closed,
+                       module_declaration_allowed,
+                       current_constant_pool);
             line.clear();
 
             if (tok.type == TokenType::EndOfFile) {

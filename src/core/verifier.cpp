@@ -553,7 +553,17 @@ void verify_function(std::vector<VerificationDiagnostic>& diagnostics,
                 ins.op,
                 "operation is missing from operation metadata table");
         } else {
-            if (definition->arity == kVariadicArity) {
+            if (ins.op == OperationKind::RET) {
+                if (ins.operands.size() > 1) {
+                    add(diagnostics,
+                        DiagnosticSeverity::Error,
+                        function,
+                        pc,
+                        ins.op,
+                        "operand count mismatch: expected zero operands or one return value, got " +
+                            std::to_string(ins.operands.size()));
+                }
+            } else if (definition->arity == kVariadicArity) {
                 const size_t minimum = minimum_variadic_arity(ins.op);
                 if (ins.operands.size() < minimum) {
                     add(diagnostics,

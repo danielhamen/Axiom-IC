@@ -1,0 +1,7 @@
+.module Wrong
+.import <function>
+
+.fn helper
+  RET
+
+.export helper

@@ -1,0 +1,11 @@
+.module Constants
+.import <function>
+
+.const PrimaryConstant
+  STR ~"module-constant"
+
+.fn get_primary
+  RET @0
+
+.export PrimaryConstant
+.export get_primary

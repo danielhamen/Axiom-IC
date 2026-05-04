@@ -1,0 +1,4 @@
+.import <function>
+
+.fn helper
+  RET

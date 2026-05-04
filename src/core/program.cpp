@@ -1532,6 +1532,11 @@ void Program::resolve(const Instruction& ins) {
             return;
         }
 
+        if (!ins.operands.empty()) {
+            call_stack.back().return_value = read_operand(ins.operands[0]);
+            call_stack.back().has_return_value = true;
+        }
+
         CallFrame frame = call_stack.back();
         call_stack.pop_back();
         if (frame.has_return_value) {
@@ -3545,7 +3550,7 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
-    case OperationKind::COPY: {
+    case OperationKind::LOAD: {
         write_operand(x, read_operand(y));
         pc++;
         return;

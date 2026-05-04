@@ -44,6 +44,14 @@ std::string token_type_to_string(TokenType type) {
             return "Comma";
         case TokenType::Colon:
             return "Colon";
+        case TokenType::LeftBrace:
+            return "LeftBrace";
+        case TokenType::RightBrace:
+            return "RightBrace";
+        case TokenType::Backslash:
+            return "Backslash";
+        case TokenType::Slash:
+            return "Slash";
         case TokenType::Less:
             return "Less";
         case TokenType::Greater:
@@ -193,7 +201,8 @@ std::vector<Token> tokenize(const std::string& in) {
             continue;
         }
 
-        if (ch == '$' || ch == '#' || ch == '@' || ch == '&' || ch == ',' || ch == ':' || ch == '<' || ch == '>') {
+        if (ch == '$' || ch == '#' || ch == '@' || ch == '&' || ch == ',' || ch == ':' ||
+            ch == '{' || ch == '}' || ch == '\\' || ch == '/' || ch == '<' || ch == '>') {
             TokenType type = TokenType::Invalid;
             if (ch == '$') type = TokenType::Dollar;
             else if (ch == '#') type = TokenType::Hash;
@@ -201,6 +210,10 @@ std::vector<Token> tokenize(const std::string& in) {
             else if (ch == '&') type = TokenType::Amp;
             else if (ch == ',') type = TokenType::Comma;
             else if (ch == ':') type = TokenType::Colon;
+            else if (ch == '{') type = TokenType::LeftBrace;
+            else if (ch == '}') type = TokenType::RightBrace;
+            else if (ch == '\\') type = TokenType::Backslash;
+            else if (ch == '/') type = TokenType::Slash;
             else if (ch == '<') type = TokenType::Less;
             else if (ch == '>') type = TokenType::Greater;
 

@@ -29,11 +29,19 @@ enum class TokenType {
     Invalid
 };
 
+enum class StringTokenKind {
+    Normal,
+    SQL,
+    Regex,
+    Format
+};
+
 struct Token {
     TokenType type;
     std::string lexeme;
     size_t line;
     size_t column;
+    StringTokenKind string_kind = StringTokenKind::Normal;
 };
 
 std::string token_type_to_string(TokenType type);

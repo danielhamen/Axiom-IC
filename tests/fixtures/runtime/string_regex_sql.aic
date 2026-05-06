@@ -1,0 +1,37 @@
+.import <control_flow>
+.import <io>
+.import <list>
+.import <map>
+.import <memory>
+.import <regex>
+.import <sql>
+.import <string>
+
+.main
+  LOAD $0, #~"Ada"
+  LOAD $1, #f"Hello $0"
+  REG_MATCH $2, $1, #re"Hello [A-Z][a-z]+"
+  REG_FIND $3, $1, #re"Ada"
+  REG_REPLACE $4, $1, #re"Ada", #~"Grace"
+  REG_GROUPS $5, #~"id=42", #re"id=([0-9]+)"
+
+  MAP_NEW $10
+  MAP_SET $10, #~"name", #~"Ada"
+  MAP_SET $10, #~"lang", #~"AIC"
+  MAP_NEW $11
+  MAP_SET $11, #~"name", #~"Grace"
+  MAP_SET $11, #~"lang", #~"COBOL"
+  LIST_NEW $12, #0
+  LIST_PUSH $12, $10
+  LIST_PUSH $12, $11
+  SQL_LOAD $13, $12
+  SQL_QUERY $14, $13, #sql"SELECT * WHERE name = 'Ada'"
+  LIST_LEN $15, $14
+
+  PRINTLN $1
+  PRINTLN $2
+  PRINTLN $3
+  PRINTLN $4
+  PRINTLN $5
+  PRINTLN $15
+  HALT

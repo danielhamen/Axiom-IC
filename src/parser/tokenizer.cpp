@@ -93,11 +93,27 @@ std::vector<Token> tokenize(const std::string& in) {
             continue;
         }
 
-        if (ch == '~' && nextch == '"') {
+        const bool starts_normal_string = ch == '~' && nextch == '"';
+        const bool starts_sql_string = idx + 3 <= len && in.substr(idx, 4).starts_with("sql\"");
+        const bool starts_regex_string = idx + 2 < len && in.substr(idx, 3) == "re\"";
+        const bool starts_format_string = ch == 'f' && nextch == '"';
+        if (starts_normal_string || starts_sql_string || starts_regex_string || starts_format_string) {
             const size_t tok_line = line;
             const size_t tok_col = column;
-            idx += 2;
-            column += 2;
+            StringTokenKind string_kind = StringTokenKind::Normal;
+            size_t prefix_len = 2;
+            if (starts_sql_string) {
+                string_kind = StringTokenKind::SQL;
+                prefix_len = 4;
+            } else if (starts_regex_string) {
+                string_kind = StringTokenKind::Regex;
+                prefix_len = 3;
+            } else if (starts_format_string) {
+                string_kind = StringTokenKind::Format;
+                prefix_len = 2;
+            }
+            idx += prefix_len;
+            column += prefix_len;
             size_t j = idx;
             std::string contents = "";
             while (j < len) {
@@ -134,7 +150,7 @@ std::vector<Token> tokenize(const std::string& in) {
                 }
             }
 
-            tokens.push_back(Token{TokenType::String, contents, tok_line, tok_col});
+            tokens.push_back(Token{TokenType::String, contents, tok_line, tok_col, string_kind});
             idx = j + 1;
             column++;
             continue;

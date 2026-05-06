@@ -198,6 +198,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "LIST_NEW";
         case OperationKind::LIST_PUSH:
             return "LIST_PUSH";
+        case OperationKind::LIST_FILL:
+            return "LIST_FILL";
         case OperationKind::LIST_POP:
             return "LIST_POP";
         case OperationKind::LIST_INSERT:
@@ -434,6 +436,28 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STR_TRIM";
         case OperationKind::STR_EQ:
             return "STR_EQ";
+        case OperationKind::REG_MATCH:
+            return "REG_MATCH";
+        case OperationKind::REG_FIND:
+            return "REG_FIND";
+        case OperationKind::REG_REPLACE:
+            return "REG_REPLACE";
+        case OperationKind::REG_GROUPS:
+            return "REG_GROUPS";
+        case OperationKind::SQL_LOAD:
+            return "SQL_LOAD";
+        case OperationKind::SQL_QUERY:
+            return "SQL_QUERY";
+        case OperationKind::SQL_EXECUTE:
+            return "SQL_EXECUTE";
+        case OperationKind::JSON_STR_LOAD:
+            return "JSON_STR_LOAD";
+        case OperationKind::JSON_FILE_LOAD:
+            return "JSON_FILE_LOAD";
+        case OperationKind::JSON_STR_DUMP:
+            return "JSON_STR_DUMP";
+        case OperationKind::JSON_FILE_DUMP:
+            return "JSON_FILE_DUMP";
         case OperationKind::TYPEOF:
             return "TYPEOF";
         case OperationKind::TYPE_IS:
@@ -492,6 +516,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "JMP_GTE";
         case OperationKind::LOAD:
             return "LOAD";
+        case OperationKind::LOAD_RANGE:
+            return "LOAD_RANGE";
         case OperationKind::STORE:
             return "STORE";
         case OperationKind::SWAP:

@@ -2,6 +2,7 @@
 .import <control_flow>
 .import <function>
 .import <io>
+.import <list>
 .import <memory>
 .import <stack>
 
@@ -16,6 +17,15 @@ after_jump:
   JMP_IF done, #false
   CALL product
   POP $1
+  LOAD $10, #0
+  LOAD $11, #0
+  LOAD $12, #0
+  LOAD $13, #0
+  LIST_NEW $20, #0
+  LIST_PUSH $20, #0
+  LIST_PUSH $20, #0
+  LIST_PUSH $20, #0
+  LIST_PUSH $20, #0
   PRINTLN $0
   PRINTLN $1
 done:

@@ -449,6 +449,11 @@
     "body": "LIST_PUSH ${1:<list>}, ${2:<value>}$0",
     "description": "Axiom-IC list operation: LIST_PUSH <list>, <value>"
   },
+  "LIST_FILL": {
+    "prefix": "LIST_FILL",
+    "body": "LIST_FILL ${1:<list>}, ${2:<count>}, ${3:<value>}$0",
+    "description": "Axiom-IC list operation: LIST_FILL <list>, <count>, <value>"
+  },
   "LIST_POP": {
     "prefix": "LIST_POP",
     "body": "LIST_POP ${1:<dst>}, ${2:<list>}$0",
@@ -1039,6 +1044,61 @@
     "body": "STR_EQ ${1:<dst>}, ${2:<lhs>}, ${3:<rhs>}$0",
     "description": "Axiom-IC string operation: STR_EQ <dst>, <lhs>, <rhs>"
   },
+  "REG_MATCH": {
+    "prefix": "REG_MATCH",
+    "body": "REG_MATCH ${1:<dst>}, ${2:<text>}, ${3:<pattern>}$0",
+    "description": "Axiom-IC regex operation: REG_MATCH <dst>, <text>, <pattern>"
+  },
+  "REG_FIND": {
+    "prefix": "REG_FIND",
+    "body": "REG_FIND ${1:<dst>}, ${2:<text>}, ${3:<pattern>}$0",
+    "description": "Axiom-IC regex operation: REG_FIND <dst>, <text>, <pattern>"
+  },
+  "REG_REPLACE": {
+    "prefix": "REG_REPLACE",
+    "body": "REG_REPLACE ${1:<dst>}, ${2:<text>}, ${3:<pattern>}, ${4:<replacement>}$0",
+    "description": "Axiom-IC regex operation: REG_REPLACE <dst>, <text>, <pattern>, <replacement>"
+  },
+  "REG_GROUPS": {
+    "prefix": "REG_GROUPS",
+    "body": "REG_GROUPS ${1:<dst>}, ${2:<text>}, ${3:<pattern>}$0",
+    "description": "Axiom-IC regex operation: REG_GROUPS <dst>, <text>, <pattern>"
+  },
+  "SQL_LOAD": {
+    "prefix": "SQL_LOAD",
+    "body": "SQL_LOAD ${1:<dst>}, ${2:<rows>}$0",
+    "description": "Axiom-IC sql operation: SQL_LOAD <dst>, <rows>"
+  },
+  "SQL_QUERY": {
+    "prefix": "SQL_QUERY",
+    "body": "SQL_QUERY ${1:<dst>}, ${2:<rows>}, ${3:<query>}$0",
+    "description": "Axiom-IC sql operation: SQL_QUERY <dst>, <rows>, <query>"
+  },
+  "SQL_EXECUTE": {
+    "prefix": "SQL_EXECUTE",
+    "body": "SQL_EXECUTE ${1:<dst>}, ${2:<rows>}, ${3:<query>}$0",
+    "description": "Axiom-IC sql operation: SQL_EXECUTE <dst>, <rows>, <query>"
+  },
+  "JSON_STR_LOAD": {
+    "prefix": "JSON_STR_LOAD",
+    "body": "JSON_STR_LOAD ${1:<dst>}, ${2:<json>}$0",
+    "description": "Axiom-IC json operation: JSON_STR_LOAD <dst>, <json>"
+  },
+  "JSON_FILE_LOAD": {
+    "prefix": "JSON_FILE_LOAD",
+    "body": "JSON_FILE_LOAD ${1:<dst>}, ${2:<path>}$0",
+    "description": "Axiom-IC json operation: JSON_FILE_LOAD <dst>, <path>"
+  },
+  "JSON_STR_DUMP": {
+    "prefix": "JSON_STR_DUMP",
+    "body": "JSON_STR_DUMP ${1:<dst>}, ${2:<value>}$0",
+    "description": "Axiom-IC json operation: JSON_STR_DUMP <dst>, <value>"
+  },
+  "JSON_FILE_DUMP": {
+    "prefix": "JSON_FILE_DUMP",
+    "body": "JSON_FILE_DUMP ${1:<path>}, ${2:<value>}$0",
+    "description": "Axiom-IC json operation: JSON_FILE_DUMP <path>, <value>"
+  },
   "TYPEOF": {
     "prefix": "TYPEOF",
     "body": "TYPEOF ${1:<dst>}, ${2:<value>}$0",
@@ -1183,6 +1243,11 @@
     "prefix": "LOAD",
     "body": "LOAD ${1:<dst>}, ${2:<src>}$0",
     "description": "Axiom-IC memory operation: LOAD <dst>, <src>"
+  },
+  "LOAD_RANGE": {
+    "prefix": "LOAD_RANGE",
+    "body": "LOAD_RANGE ${1:<start_slot_idx>}, ${2:<end_slot_idx>}, ${3:<value>}$0",
+    "description": "Axiom-IC memory operation: LOAD_RANGE <start_slot_idx>, <end_slot_idx>, <value>"
   },
   "STORE": {
     "prefix": "STORE",
@@ -1358,6 +1423,21 @@
     "prefix": "import string",
     "body": ".import <string>$0",
     "description": "Import Axiom-IC string operations"
+  },
+  "import regex": {
+    "prefix": "import regex",
+    "body": ".import <regex>$0",
+    "description": "Import Axiom-IC regex operations"
+  },
+  "import sql": {
+    "prefix": "import sql",
+    "body": ".import <sql>$0",
+    "description": "Import Axiom-IC sql operations"
+  },
+  "import json": {
+    "prefix": "import json",
+    "body": ".import <json>$0",
+    "description": "Import Axiom-IC json operations"
   },
   "import struct": {
     "prefix": "import struct",

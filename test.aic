@@ -1,0 +1,243 @@
+.import <arithmetic>
+.import <comparison>
+.import <logic>
+.import <math>
+.import <control_flow>
+.import <list>
+.import <memory>
+.import <type>
+
+.const INT 128
+.const INT 96
+.const INT 160
+.const INT 32
+.const FLOAT -2.0
+.const FLOAT 1.0
+.const FLOAT -1.25
+.const FLOAT 1.25
+.const FLOAT 3.0
+.const FLOAT 2.5
+.const FLOAT 4.0
+.const INT 0
+.const INT 1
+.const INT 2
+.const INT 3
+.const INT 5
+.const INT 7
+.const INT 11
+.const INT 13
+.const INT 17
+.const INT 19
+.const INT 23
+.const INT 29
+.const INT 31
+
+.main
+  LIST_NEW $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+  LIST_PUSH $0, #0
+
+  LOAD $1, #0
+  LOAD $2, #0
+  LOAD $3, #0
+  LOAD $4, #0
+  LOAD $5, #0
+  LOAD $6, #0
+  LOAD $7, #0
+  LOAD $8, #0
+  LOAD $9, #0
+  LOAD $10, #0
+  LOAD $11, #0
+  LOAD $12, #0
+  LOAD $13, #0
+  LOAD $14, #0
+  LOAD $15, #0
+  LOAD $16, #0
+  LOAD $17, #0
+  LOAD $18, #0
+  LOAD $19, #0
+  LOAD $20, #0
+  LOAD $21, #0
+  LOAD $22, #0
+  LOAD $23, #0
+  LOAD $24, #0
+  LOAD $25, #0
+
+y_loop:
+  JMP_GTE done, $1, @1
+
+  CAST_FLOAT $2, $1
+  MUL $3, $2, @9
+  DIV $4, $3, @1
+  ADD $5, @6, $4
+
+  LOAD $6, #0
+
+x_loop:
+  JMP_GTE next_y, $6, @0
+
+  CAST_FLOAT $7, $6
+  MUL $8, $7, @8
+  DIV $9, $8, @0
+  ADD $10, @4, $9
+
+  LOAD $11, #0.0
+  LOAD $12, #0.0
+  LOAD $13, #0
+  LOAD $14, #0.0
+  LOAD $15, #0.0
+  LOAD $16, #0.0
+  LOAD $17, #0.0
+  LOAD $18, #0.0
+  LOAD $19, #false
+
+escape_loop:
+  JMP_GTE escaped_or_maxed, $13, @2
+
+  MUL $14, $11, $11
+  MUL $15, $12, $12
+  ADD $16, $14, $15
+  JMP_GT escaped_or_maxed, $16, @10
+
+  MUL $17, $11, $12
+  MUL $17, $17, #2.0
+  ADD $17, $17, $5
+
+  SUB $18, $14, $15
+  ADD $18, $18, $10
+
+  LOAD $11, $18
+  LOAD $12, $17
+  INC $13, $13
+
+  JMP escape_loop
+
+escaped_or_maxed:
+  MOD $20, $13, @3
+  LIST_GET $21, $0, $20
+  INC $21, $21
+  LIST_SET $0, $20, $21
+
+  INC $22, $6
+  MUL $23, $13, $22
+  ADD $24, $3, $23
+
+  INC $25, $1
+  MUL $23, $20, $25
+  ADD $24, $24, $23
+
+  MUL $23, $13, @14
+  ADD $24, $24, $23
+
+  MUL $23, $20, @15
+  ADD $24, $24, $23
+
+  ADD $3, $3, $24
+
+  INC $6, $6
+  JMP x_loop
+
+next_y:
+  MUL $26, $1, @16
+  ADD $27, $3, $26
+  FMOD $28, $27, @3
+  CAST_INT $28, $28
+  LIST_GET $29, $0, $28
+  ADD $29, $29, $1
+  LIST_SET $0, $28, $29
+
+  INC $1, $1
+  JMP y_loop
+
+done:
+  LIST_GET $30, $0, #0
+  LIST_GET $31, $0, #1
+  LIST_GET $32, $0, #2
+  LIST_GET $33, $0, #3
+  LIST_GET $34, $0, #4
+  LIST_GET $35, $0, #5
+  LIST_GET $36, $0, #6
+  LIST_GET $37, $0, #7
+  LIST_GET $38, $0, #8
+  LIST_GET $39, $0, #9
+  LIST_GET $40, $0, #10
+  LIST_GET $41, $0, #11
+  LIST_GET $42, $0, #12
+  LIST_GET $43, $0, #13
+  LIST_GET $44, $0, #14
+  LIST_GET $45, $0, #15
+  LIST_GET $46, $0, #16
+  LIST_GET $47, $0, #17
+  LIST_GET $48, $0, #18
+  LIST_GET $49, $0, #19
+  LIST_GET $50, $0, #20
+  LIST_GET $51, $0, #21
+  LIST_GET $52, $0, #22
+  LIST_GET $53, $0, #23
+  LIST_GET $54, $0, #24
+  LIST_GET $55, $0, #25
+  LIST_GET $56, $0, #26
+  LIST_GET $57, $0, #27
+  LIST_GET $58, $0, #28
+  LIST_GET $59, $0, #29
+  LIST_GET $60, $0, #30
+  LIST_GET $61, $0, #31
+
+  MUL $62, $30, @12
+  MUL $63, $31, @13
+  ADD $62, $62, $63
+  MUL $63, $32, @14
+  ADD $62, $62, $63
+  MUL $63, $33, @15
+  ADD $62, $62, $63
+  MUL $63, $34, @16
+  ADD $62, $62, $63
+  MUL $63, $35, @17
+  ADD $62, $62, $63
+  MUL $63, $36, @18
+  ADD $62, $62, $63
+  MUL $63, $37, @19
+  ADD $62, $62, $63
+  MUL $63, $38, @20
+  ADD $62, $62, $63
+  MUL $63, $39, @21
+  ADD $62, $62, $63
+  MUL $63, $40, @22
+  ADD $62, $62, $63
+  ADD $62, $62, $3
+
+  FMOD $64, $62, #2147483647
+  CAST_INT $64, $64
+  STORE $65, $64
+
+  HALT

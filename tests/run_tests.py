@@ -239,12 +239,47 @@ class RuntimeFixtureTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("Instruction(op=LOAD", proc.stdout)
         self.assertIn("immediate=5", proc.stdout)
+        self.assertIn("Instruction(op=LOAD_RANGE", proc.stdout)
+        self.assertIn("Instruction(op=LIST_FILL", proc.stdout)
         self.assertNotIn("Instruction(op=ADD", proc.stdout)
         self.assertNotIn("Instruction(op=JMP,", proc.stdout)
         self.assertRegex(proc.stdout, r"Instruction\(op=JMP_IF, operands=\[Operand\(kind=Label, value=done, resolved=\d+\)")
         self.assertNotIn("Operand(kind=Slot, value=0), Operand(kind=Slot, value=0)", proc.stdout)
         self.assertNotIn("unreachable", proc.stdout)
         self.assertRegex(proc.stdout, r"Instruction\(op=CALL, operands=\[Operand\(kind=Function, value=product, resolved=\d+\)\]\)")
+
+    def test_json_api_dump_and_validate(self) -> None:
+        fixture = RUNTIME_FIXTURES / "string_regex_sql.aic"
+        proc = subprocess.run(
+            [str(self.aic), "--json=dump", str(fixture)],
+            cwd=self.aic.parent,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(len(payload["files"]), 1)
+        file_payload = payload["files"][0]
+        self.assertTrue(file_payload["valid"])
+        self.assertIn("tokens", file_payload)
+        self.assertIn("program", file_payload)
+        ops = [
+            ins["op"]
+            for fn in file_payload["program"]["functions"]
+            for ins in fn["instructions"]
+        ]
+        self.assertIn("REG_MATCH", ops)
+        self.assertIn("SQL_QUERY", ops)
+        flavors = [
+            token.get("stringFlavor")
+            for token in file_payload["tokens"]
+            if token["type"] == "String"
+        ]
+        self.assertIn("regex", flavors)
+        self.assertIn("sql", flavors)
+        self.assertIn("format", flavors)
 
 
 def main() -> int:

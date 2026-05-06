@@ -1,0 +1,23 @@
+.import <control_flow>
+.import <io>
+.import <json>
+.import <list>
+.import <map>
+
+.main
+  JSON_STR_LOAD $0, #~"{\"name\":\"Ada\",\"scores\":[1,2,3],\"active\":true}"
+  MAP_GET $1, $0, #~"name"
+  MAP_GET $2, $0, #~"scores"
+  LIST_LEN $3, $2
+  JSON_STR_DUMP $4, $0
+  JSON_STR_LOAD $5, $4
+  MAP_GET $6, $5, #~"active"
+  JSON_FILE_DUMP #~"/tmp/axiom_json_fixture.json", $0
+  JSON_FILE_LOAD $7, #~"/tmp/axiom_json_fixture.json"
+  MAP_GET $8, $7, #~"name"
+  PRINTLN $1
+  PRINTLN $3
+  PRINTLN $6
+  PRINTLN $4
+  PRINTLN $8
+  HALT

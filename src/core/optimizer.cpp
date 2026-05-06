@@ -20,6 +20,44 @@ bool is_same_slot(const Operand& lhs, const Operand& rhs) {
     return lhs.kind == OperandKind::Slot && rhs.kind == OperandKind::Slot && lhs.value == rhs.value;
 }
 
+bool values_equal_for_optimizer(const Value& lhs, const Value& rhs) {
+    if (lhs.kind != rhs.kind) {
+        return false;
+    }
+    switch (lhs.kind) {
+        case ValueKind::Integer:
+            return lhs.i == rhs.i;
+        case ValueKind::Float:
+            return lhs.f == rhs.f;
+        case ValueKind::String:
+            return lhs.s == rhs.s;
+        case ValueKind::Boolean:
+            return lhs.b == rhs.b;
+        case ValueKind::Null:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool operands_equal_for_optimizer(const Operand& lhs, const Operand& rhs) {
+    if (lhs.kind != rhs.kind ||
+        lhs.value != rhs.value ||
+        lhs.strval != rhs.strval ||
+        lhs.has_immediate != rhs.has_immediate ||
+        lhs.resolved != rhs.resolved) {
+        return false;
+    }
+    if (lhs.has_immediate) {
+        return values_equal_for_optimizer(lhs.immediate, rhs.immediate);
+    }
+    return true;
+}
+
+bool is_stable_fill_value(const Operand& operand) {
+    return operand.kind == OperandKind::Immediate || operand.kind == OperandKind::Constant;
+}
+
 bool is_unreachable_terminal(OperationKind op) {
     return op == OperationKind::HALT ||
            op == OperationKind::RET ||
@@ -79,6 +117,33 @@ Instruction load_immediate(const Operand& dst, Value value) {
     Instruction out{};
     out.op = OperationKind::LOAD;
     out.operands = {dst, immediate_operand(std::move(value))};
+    sync_operands(out);
+    return out;
+}
+
+Operand int_immediate_operand(int64_t value) {
+    Value out{};
+    out.kind = ValueKind::Integer;
+    out.i = value;
+    return immediate_operand(std::move(out));
+}
+
+Instruction list_fill_instruction(const Operand& list, size_t count, const Operand& value) {
+    Instruction out{};
+    out.op = OperationKind::LIST_FILL;
+    out.operands = {list, int_immediate_operand(static_cast<int64_t>(count)), value};
+    sync_operands(out);
+    return out;
+}
+
+Instruction load_range_instruction(size_t start, size_t end, const Operand& value) {
+    Instruction out{};
+    out.op = OperationKind::LOAD_RANGE;
+    out.operands = {
+        int_immediate_operand(static_cast<int64_t>(start)),
+        int_immediate_operand(static_cast<int64_t>(end)),
+        value,
+    };
     sync_operands(out);
     return out;
 }
@@ -239,6 +304,61 @@ void optimize_function(Program& program, Function& function, OptimizationStats& 
             is_same_slot(ins.operands[0], ins.operands[1])) {
             stats.removed_self_loads++;
             continue;
+        }
+
+        if (ins.op == OperationKind::LOAD &&
+            ins.operands.size() == 2 &&
+            ins.operands[0].kind == OperandKind::Slot) {
+            size_t count = 1;
+            size_t next_slot = static_cast<size_t>(ins.operands[0].value) + 1;
+            while (pc + count < old_size &&
+                   !label_boundaries[pc + count] &&
+                   function.ins[pc + count].op == OperationKind::LOAD &&
+                   function.ins[pc + count].operands.size() == 2 &&
+                   function.ins[pc + count].operands[0].kind == OperandKind::Slot &&
+                   static_cast<size_t>(function.ins[pc + count].operands[0].value) == next_slot &&
+                   operands_equal_for_optimizer(function.ins[pc + count].operands[1], ins.operands[1])) {
+                count++;
+                next_slot++;
+            }
+            if (count >= 2) {
+                const size_t new_pc = optimized.size();
+                old_to_new[pc] = new_pc;
+                for (size_t offset = 1; offset < count; offset++) {
+                    old_to_new[pc + offset] = new_pc;
+                }
+                optimized.push_back(load_range_instruction(static_cast<size_t>(ins.operands[0].value),
+                                                           static_cast<size_t>(ins.operands[0].value) + count - 1,
+                                                           ins.operands[1]));
+                stats.folded_load_range++;
+                pc += count - 1;
+                continue;
+            }
+        }
+
+        if (ins.op == OperationKind::LIST_PUSH &&
+            ins.operands.size() == 2 &&
+            is_stable_fill_value(ins.operands[1])) {
+            size_t count = 1;
+            while (pc + count < old_size &&
+                   !label_boundaries[pc + count] &&
+                   function.ins[pc + count].op == OperationKind::LIST_PUSH &&
+                   function.ins[pc + count].operands.size() == 2 &&
+                   operands_equal_for_optimizer(function.ins[pc + count].operands[0], ins.operands[0]) &&
+                   operands_equal_for_optimizer(function.ins[pc + count].operands[1], ins.operands[1])) {
+                count++;
+            }
+            if (count >= 2) {
+                const size_t new_pc = optimized.size();
+                old_to_new[pc] = new_pc;
+                for (size_t offset = 1; offset < count; offset++) {
+                    old_to_new[pc + offset] = new_pc;
+                }
+                optimized.push_back(list_fill_instruction(ins.operands[0], count, ins.operands[1]));
+                stats.folded_list_fill++;
+                pc += count - 1;
+                continue;
+            }
         }
 
         if (ins.op == OperationKind::JMP &&

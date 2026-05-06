@@ -71,6 +71,7 @@ List operations:
 
 - `LIST_NEW`
 - `LIST_PUSH`
+- `LIST_FILL`
 - `LIST_POP`
 - `LIST_INSERT`
 - `LIST_ERASE`
@@ -101,6 +102,7 @@ Examples:
 
 ```aic
 LIST_PUSH $0, #1
+LIST_FILL $0, #8, #0
 LIST_SET $0, #0, #2
 LIST_ERASE $0, #0
 ```

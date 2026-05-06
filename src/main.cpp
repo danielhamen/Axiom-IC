@@ -26,6 +26,14 @@
 
 namespace {
 
+enum class JsonMode {
+    None,
+    Tokens,
+    Parse,
+    Validate,
+    Dump
+};
+
 struct CliOptions {
     std::optional<uint32_t> seed;
     bool show_help = false;
@@ -44,6 +52,7 @@ struct CliOptions {
     bool dump_functions = false;
     bool dump_symbols = false;
     bool dump_labels = false;
+    JsonMode json_mode = JsonMode::None;
 
     std::vector<std::string> input_files;
 };
@@ -99,6 +108,22 @@ uint32_t parse_seed(std::string_view value) {
     }
 
     return static_cast<uint32_t>(parsed);
+}
+
+JsonMode parse_json_mode(std::string_view value) {
+    if (value.empty() || value == "dump" || value == "load") {
+        return JsonMode::Dump;
+    }
+    if (value == "tokens") {
+        return JsonMode::Tokens;
+    }
+    if (value == "parse") {
+        return JsonMode::Parse;
+    }
+    if (value == "validate") {
+        return JsonMode::Validate;
+    }
+    throw_cli_error("Invalid --json mode: '" + std::string(value) + "' (expected tokens, parse, validate, dump, or load)");
 }
 
 CliOptions parse_cli(int argc, char** argv) {
@@ -169,6 +194,16 @@ CliOptions parse_cli(int argc, char** argv) {
 
         if (arg == "--labels") {
             options.dump_labels = true;
+            continue;
+        }
+
+        if (arg == "--json") {
+            options.json_mode = JsonMode::Dump;
+            continue;
+        }
+
+        if (arg.starts_with("--json=")) {
+            options.json_mode = parse_json_mode(arg.substr(std::string("--json=").size()));
             continue;
         }
 
@@ -555,6 +590,7 @@ void print_help() {
               << "  --functions     Print function list\n"
               << "  --symbols       Print discovered symbol references\n"
               << "  --labels        Print labels per function\n"
+              << "  --json[=MODE]   Emit JSON and do not execute. MODE: tokens, parse, validate, dump, load\n"
               << "  --help          Show this help menu\n";
 }
 
@@ -618,6 +654,226 @@ void print_symbols(const aic::Program& vm) {
     for (const auto& [symbol, count] : counts) {
         std::cout << symbol << " (refs=" << count << ")" << std::endl;
     }
+}
+
+std::string json_escape(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 2);
+    for (char ch : in) {
+        switch (ch) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    std::ostringstream escaped;
+                    escaped << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                            << static_cast<int>(static_cast<unsigned char>(ch));
+                    out += escaped.str();
+                } else {
+                    out += ch;
+                }
+        }
+    }
+    return out;
+}
+
+std::string json_string(const std::string& in) {
+    return "\"" + json_escape(in) + "\"";
+}
+
+std::string string_flavor_to_json(aic::StringFlavor flavor) {
+    switch (flavor) {
+        case aic::StringFlavor::Normal: return "normal";
+        case aic::StringFlavor::SQL: return "sql";
+        case aic::StringFlavor::Regex: return "regex";
+        case aic::StringFlavor::Format: return "format";
+    }
+    return "normal";
+}
+
+std::string token_string_kind_to_json(aic::StringTokenKind kind) {
+    switch (kind) {
+        case aic::StringTokenKind::Normal: return "normal";
+        case aic::StringTokenKind::SQL: return "sql";
+        case aic::StringTokenKind::Regex: return "regex";
+        case aic::StringTokenKind::Format: return "format";
+    }
+    return "normal";
+}
+
+void print_json_value(std::ostream& out, const aic::Value& value) {
+    out << "{";
+    out << "\"kind\":" << json_string(aic::value_kind_to_string(value.kind));
+    switch (value.kind) {
+        case aic::ValueKind::Integer:
+            out << ",\"value\":" << value.i;
+            break;
+        case aic::ValueKind::Float:
+            out << ",\"value\":" << value.f;
+            break;
+        case aic::ValueKind::String:
+            out << ",\"value\":" << json_string(value.s)
+                << ",\"flavor\":" << json_string(string_flavor_to_json(value.string_flavor));
+            break;
+        case aic::ValueKind::Boolean:
+            out << ",\"value\":" << (value.b ? "true" : "false");
+            break;
+        case aic::ValueKind::Null:
+            out << ",\"value\":null";
+            break;
+        default:
+            out << ",\"display\":" << json_string(value.to_str());
+            break;
+    }
+    out << "}";
+}
+
+void print_json_operand(std::ostream& out, const aic::Operand& operand) {
+    out << "{";
+    out << "\"kind\":" << json_string(operand.kindstr());
+    out << ",\"value\":" << operand.value;
+    if (!operand.strval.empty()) {
+        out << ",\"text\":" << json_string(operand.strval);
+    }
+    if (operand.resolved) {
+        out << ",\"resolved\":true";
+    }
+    if (operand.kind == aic::OperandKind::Immediate && operand.has_immediate) {
+        out << ",\"immediate\":";
+        print_json_value(out, operand.immediate);
+    }
+    out << "}";
+}
+
+void print_json_diagnostics(std::ostream& out, const std::vector<aic::VerificationDiagnostic>& diagnostics) {
+    out << "[";
+    for (size_t i = 0; i < diagnostics.size(); i++) {
+        if (i > 0) out << ",";
+        const auto& diagnostic = diagnostics[i];
+        out << "{";
+        out << "\"severity\":" << json_string(diagnostic.severity == aic::DiagnosticSeverity::Error ? "error" : "warning");
+        out << ",\"message\":" << json_string(diagnostic.message);
+        out << ",\"function\":" << json_string(diagnostic.function_name);
+        out << ",\"opcode\":" << json_string(diagnostic.opcode);
+        if (diagnostic.pc != static_cast<size_t>(-1)) {
+            out << ",\"pc\":" << diagnostic.pc;
+        } else {
+            out << ",\"pc\":null";
+        }
+        out << "}";
+    }
+    out << "]";
+}
+
+void print_json_tokens(std::ostream& out, const std::vector<aic::Token>& tokens) {
+    out << "[";
+    for (size_t i = 0; i < tokens.size(); i++) {
+        if (i > 0) out << ",";
+        const aic::Token& token = tokens[i];
+        out << "{";
+        out << "\"type\":" << json_string(aic::token_type_to_string(token.type));
+        out << ",\"lexeme\":" << json_string(token.lexeme);
+        out << ",\"line\":" << token.line;
+        out << ",\"column\":" << token.column;
+        if (token.type == aic::TokenType::String) {
+            out << ",\"stringFlavor\":" << json_string(token_string_kind_to_json(token.string_kind));
+        }
+        out << "}";
+    }
+    out << "]";
+}
+
+void print_json_program(std::ostream& out, const aic::Program& vm) {
+    out << "{";
+    out << "\"module\":" << json_string(vm.module_name);
+    out << ",\"imports\":[";
+    for (size_t i = 0; i < vm.module_imports.size(); i++) {
+        if (i > 0) out << ",";
+        out << json_string(vm.module_imports[i].module_path());
+    }
+    out << "]";
+    out << ",\"importedCategories\":[";
+    size_t category_index = 0;
+    for (const auto& category : vm.imported_categories) {
+        if (category_index++ > 0) out << ",";
+        out << json_string(category);
+    }
+    out << "]";
+    out << ",\"constants\":[";
+    for (size_t i = 0; i < vm.constants.size(); i++) {
+        if (i > 0) out << ",";
+        out << "{\"index\":" << i << ",\"value\":";
+        print_json_value(out, vm.constants[i]);
+        out << "}";
+    }
+    out << "]";
+    out << ",\"constantPools\":[";
+    size_t pool_index = 0;
+    for (const auto& [name, pool] : vm.constant_pools) {
+        if (pool_index++ > 0) out << ",";
+        out << "{\"name\":" << json_string(name)
+            << ",\"start\":" << pool.start
+            << ",\"count\":" << pool.count
+            << "}";
+    }
+    out << "]";
+    out << ",\"functions\":[";
+    for (size_t i = 0; i < vm.functions.size(); i++) {
+        if (i > 0) out << ",";
+        const aic::Function* fn = vm.functions.at(i);
+        out << "{\"index\":" << i
+            << ",\"name\":" << json_string(fn->name)
+            << ",\"argCount\":" << fn->arg_count;
+        out << ",\"labels\":{";
+        size_t label_index = 0;
+        for (const auto& [label, pc] : fn->labels) {
+            if (label_index++ > 0) out << ",";
+            out << json_string(label) << ":" << pc;
+        }
+        out << "},\"instructions\":[";
+        for (size_t pc = 0; pc < fn->ins.size(); pc++) {
+            if (pc > 0) out << ",";
+            const aic::Instruction& ins = fn->ins[pc];
+            out << "{\"pc\":" << pc
+                << ",\"op\":" << json_string(aic::operation_kind_to_string(ins.op))
+                << ",\"operands\":[";
+            for (size_t operand_index = 0; operand_index < ins.operands.size(); operand_index++) {
+                if (operand_index > 0) out << ",";
+                print_json_operand(out, ins.operands[operand_index]);
+            }
+            out << "]}";
+        }
+        out << "]}";
+    }
+    out << "]";
+    out << "}";
+}
+
+void print_json_file(std::ostream& out,
+                     const std::string& filename,
+                     JsonMode mode,
+                     const std::vector<aic::Token>& tokens,
+                     const aic::Program* vm,
+                     const std::vector<aic::VerificationDiagnostic>& diagnostics) {
+    out << "{";
+    out << "\"file\":" << json_string(filename);
+    out << ",\"valid\":" << (aic::has_verification_errors(diagnostics) ? "false" : "true");
+    out << ",\"diagnostics\":";
+    print_json_diagnostics(out, diagnostics);
+    if (mode == JsonMode::Tokens || mode == JsonMode::Parse || mode == JsonMode::Dump) {
+        out << ",\"tokens\":";
+        print_json_tokens(out, tokens);
+    }
+    if (vm != nullptr && (mode == JsonMode::Parse || mode == JsonMode::Dump)) {
+        out << ",\"program\":";
+        print_json_program(out, *vm);
+    }
+    out << "}";
 }
 
 void print_benchmark_stats(const std::vector<std::chrono::nanoseconds>& samples) {
@@ -707,6 +963,50 @@ int main(int argc, char** argv) {
         }
 
         aic::register_operations();
+
+        if (options.json_mode != JsonMode::None) {
+            std::vector<std::string> json_files;
+            bool has_errors = false;
+            std::cout << "{\"files\":[";
+            for (size_t file_index = 0; file_index < options.input_files.size(); file_index++) {
+                const std::string& filename = options.input_files[file_index];
+                if (file_index > 0) {
+                    std::cout << ",";
+                }
+
+                std::vector<aic::Token> tokens;
+                std::vector<aic::VerificationDiagnostic> verification;
+                std::optional<aic::Program> vm;
+                try {
+                    std::string in = read_file(filename);
+                    tokens = aic::tokenize(in);
+                    if (options.json_mode != JsonMode::Tokens) {
+                        vm = load_program_with_modules(filename);
+                        aic::optimize_program(*vm);
+                        verification = aic::verify(*vm);
+                        has_errors = has_errors || aic::has_verification_errors(verification);
+                    }
+                    print_json_file(std::cout,
+                                    filename,
+                                    options.json_mode,
+                                    tokens,
+                                    vm.has_value() ? &*vm : nullptr,
+                                    verification);
+                } catch (const std::exception& err) {
+                    has_errors = true;
+                    std::cout << "{"
+                              << "\"file\":" << json_string(filename)
+                              << ",\"valid\":false"
+                              << ",\"diagnostics\":[{\"severity\":\"error\",\"message\":"
+                              << json_string(err.what())
+                              << ",\"function\":\"\",\"opcode\":\"\",\"pc\":null}]"
+                              << "}";
+                }
+            }
+            std::cout << "]}";
+            std::cout << std::endl;
+            return has_errors ? 1 : 0;
+        }
 
         for (const std::string& filename : options.input_files) {
             std::cout << "=== Running: " << filename << " ===" << std::endl;

@@ -85,6 +85,7 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::ARG_REQUIRE:
         case OperationKind::KWARG_REQUIRE:
         case OperationKind::LIST_PUSH:
+        case OperationKind::LIST_FILL:
         case OperationKind::LIST_INSERT:
         case OperationKind::LIST_ERASE:
         case OperationKind::LIST_CLEAR:
@@ -119,7 +120,9 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::WRITE_FILE:
         case OperationKind::APPEND_FILE:
         case OperationKind::DELETE_FILE:
+        case OperationKind::JSON_FILE_DUMP:
         case OperationKind::SLEEP:
+        case OperationKind::LOAD_RANGE:
         case OperationKind::STORE:
         case OperationKind::CLEAR:
         case OperationKind::TRY:
@@ -138,6 +141,7 @@ bool writes_first_operand(OperationKind op) {
 bool is_mutating_first_operand(OperationKind op) {
     switch (op) {
         case OperationKind::LIST_PUSH:
+        case OperationKind::LIST_FILL:
         case OperationKind::LIST_INSERT:
         case OperationKind::LIST_ERASE:
         case OperationKind::LIST_CLEAR:
@@ -648,7 +652,10 @@ std::vector<VerificationDiagnostic> verify(const Program& program) {
         verify_function(diagnostics, program, *program.functions.at(i));
     }
 
-    verify_supporting_documentation(diagnostics, "../docs/bytecode/operands");
+    const std::filesystem::path parent_docs = "../docs/bytecode/operands";
+    const std::filesystem::path cwd_docs = "docs/bytecode/operands";
+    verify_supporting_documentation(diagnostics,
+                                    std::filesystem::exists(parent_docs) ? parent_docs : cwd_docs);
 
     return diagnostics;
 }

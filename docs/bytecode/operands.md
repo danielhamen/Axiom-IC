@@ -171,6 +171,7 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 
 - [`LIST_NEW`](operands/LIST_NEW.md): `LIST_NEW <dst>, <size>`
 - [`LIST_PUSH`](operands/LIST_PUSH.md): `LIST_PUSH <list>, <value>`
+- [`LIST_FILL`](operands/LIST_FILL.md): `LIST_FILL <list>, <count>, <value>`
 - [`LIST_POP`](operands/LIST_POP.md): `LIST_POP <dst>, <list>`
 - [`LIST_INSERT`](operands/LIST_INSERT.md): `LIST_INSERT <list>, <index>, <value>`
 - [`LIST_ERASE`](operands/LIST_ERASE.md): `LIST_ERASE <list>, <index>`
@@ -307,6 +308,17 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`STR_LOWER`](operands/STR_LOWER.md): `STR_LOWER <dst>, <value>`
 - [`STR_TRIM`](operands/STR_TRIM.md): `STR_TRIM <dst>, <value>`
 - [`STR_EQ`](operands/STR_EQ.md): `STR_EQ <dst>, <lhs>, <rhs>`
+- [`REG_MATCH`](operands/REG_MATCH.md): `REG_MATCH <dst>, <text>, <pattern>`
+- [`REG_FIND`](operands/REG_FIND.md): `REG_FIND <dst>, <text>, <pattern>`
+- [`REG_REPLACE`](operands/REG_REPLACE.md): `REG_REPLACE <dst>, <text>, <pattern>, <replacement>`
+- [`REG_GROUPS`](operands/REG_GROUPS.md): `REG_GROUPS <dst>, <text>, <pattern>`
+- [`SQL_LOAD`](operands/SQL_LOAD.md): `SQL_LOAD <dst>, <rows>`
+- [`SQL_QUERY`](operands/SQL_QUERY.md): `SQL_QUERY <dst>, <rows>, <query>`
+- [`SQL_EXECUTE`](operands/SQL_EXECUTE.md): `SQL_EXECUTE <dst>, <rows>, <query>`
+- [`JSON_STR_LOAD`](operands/JSON_STR_LOAD.md): `JSON_STR_LOAD <dst>, <json>`
+- [`JSON_FILE_LOAD`](operands/JSON_FILE_LOAD.md): `JSON_FILE_LOAD <dst>, <path>`
+- [`JSON_STR_DUMP`](operands/JSON_STR_DUMP.md): `JSON_STR_DUMP <dst>, <value>`
+- [`JSON_FILE_DUMP`](operands/JSON_FILE_DUMP.md): `JSON_FILE_DUMP <path>, <value>`
 
 ## Type and Cast Operations
 
@@ -331,6 +343,7 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 ## Memory and Slot Operations
 
 - [`LOAD`](operands/LOAD.md): `LOAD <dst>, <src>`
+- [`LOAD_RANGE`](operands/LOAD_RANGE.md): `LOAD_RANGE <start_slot_idx>, <end_slot_idx>, <value>`
 - [`STORE`](operands/STORE.md): `STORE <dst>, <value>`
 - [`SWAP`](operands/SWAP.md): `SWAP <a>, <b>`
 - [`CLEAR`](operands/CLEAR.md): `CLEAR <target>`

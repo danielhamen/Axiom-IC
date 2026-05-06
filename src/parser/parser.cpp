@@ -55,6 +55,20 @@ double parse_double_literal(const Token& token, const std::string& usage) {
     }
 }
 
+StringFlavor string_flavor_from_token(const Token& token) {
+    switch (token.string_kind) {
+        case StringTokenKind::Normal:
+            return StringFlavor::Normal;
+        case StringTokenKind::SQL:
+            return StringFlavor::SQL;
+        case StringTokenKind::Regex:
+            return StringFlavor::Regex;
+        case StringTokenKind::Format:
+            return StringFlavor::Format;
+    }
+    return StringFlavor::Normal;
+}
+
 Value parse_immediate_literal(const Token& token) {
     Value out{};
     if (token.type == TokenType::Integer) {
@@ -72,6 +86,7 @@ Value parse_immediate_literal(const Token& token) {
     if (token.type == TokenType::String) {
         out.kind = ValueKind::String;
         out.s = token.lexeme;
+        out.string_flavor = string_flavor_from_token(token);
         return out;
     }
 
@@ -216,6 +231,7 @@ size_t parse_constant_declaration(const std::vector<Token>& line,
         Value v;
         v.kind = ValueKind::String;
         v.s = line[offset + 1].lexeme;
+        v.string_flavor = string_flavor_from_token(line[offset + 1]);
         size_t written = write_constant(vm, explicit_index, v);
         if (!current_pool.empty()) {
             ConstantPoolRange& pool = vm.constant_pools[current_pool];

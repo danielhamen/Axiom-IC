@@ -2,10 +2,12 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace aic {
@@ -154,6 +156,7 @@ enum class OperationKind : int16_t {
      */
     LIST_NEW,
     LIST_PUSH,
+    LIST_FILL,
     LIST_POP,
     LIST_INSERT,
     LIST_ERASE,
@@ -314,6 +317,17 @@ enum class OperationKind : int16_t {
     STR_LOWER,
     STR_TRIM,
     STR_EQ,
+    REG_MATCH,
+    REG_FIND,
+    REG_REPLACE,
+    REG_GROUPS,
+    SQL_LOAD,
+    SQL_QUERY,
+    SQL_EXECUTE,
+    JSON_STR_LOAD,
+    JSON_FILE_LOAD,
+    JSON_STR_DUMP,
+    JSON_FILE_DUMP,
 
     /**
      * =========
@@ -367,6 +381,7 @@ enum class OperationKind : int16_t {
      * ============
      */
     LOAD,
+    LOAD_RANGE,
     STORE,
     SWAP,
     CLEAR,
@@ -443,15 +458,25 @@ enum class ValueKind : uint8_t {
     Error
 };
 
+enum class StringFlavor : uint8_t {
+    Normal,
+    SQL,
+    Regex,
+    Format
+};
+
 struct Value {
     ValueKind kind;
     std::string s{};
+    StringFlavor string_flavor = StringFlavor::Normal;
     int64_t i = 0;
     double f = 0.0;
     bool b = false;
     std::vector<Value> list{};
-    std::map<std::string, Value> map{};
+    std::unordered_map<std::string, Value> map{};
     std::vector<Value> set{};
+    std::shared_ptr<std::unordered_set<std::string>> set_index{};
+    bool set_index_complete = true;
     std::string struct_name{};
     bool struct_sealed = false;
     std::vector<std::string> struct_field_names{};

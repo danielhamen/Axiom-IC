@@ -112,6 +112,7 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     // LISTS
     {OperationKind::LIST_NEW, "LIST_NEW", 2, "list"},
     {OperationKind::LIST_PUSH, "LIST_PUSH", 2, "list"},
+    {OperationKind::LIST_FILL, "LIST_FILL", 3, "list"},
     {OperationKind::LIST_POP, "LIST_POP", 2, "list"},
     {OperationKind::LIST_INSERT, "LIST_INSERT", 3, "list"},
     {OperationKind::LIST_ERASE, "LIST_ERASE", 2, "list"},
@@ -244,6 +245,17 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
     {OperationKind::STR_LOWER, "STR_LOWER", 2, "string"},
     {OperationKind::STR_TRIM, "STR_TRIM", 2, "string"},
     {OperationKind::STR_EQ, "STR_EQ", 3, "string"},
+    {OperationKind::REG_MATCH, "REG_MATCH", 3, "regex"},
+    {OperationKind::REG_FIND, "REG_FIND", 3, "regex"},
+    {OperationKind::REG_REPLACE, "REG_REPLACE", 4, "regex"},
+    {OperationKind::REG_GROUPS, "REG_GROUPS", 3, "regex"},
+    {OperationKind::SQL_LOAD, "SQL_LOAD", 2, "sql"},
+    {OperationKind::SQL_QUERY, "SQL_QUERY", 3, "sql"},
+    {OperationKind::SQL_EXECUTE, "SQL_EXECUTE", 3, "sql"},
+    {OperationKind::JSON_STR_LOAD, "JSON_STR_LOAD", 2, "json"},
+    {OperationKind::JSON_FILE_LOAD, "JSON_FILE_LOAD", 2, "json"},
+    {OperationKind::JSON_STR_DUMP, "JSON_STR_DUMP", 2, "json"},
+    {OperationKind::JSON_FILE_DUMP, "JSON_FILE_DUMP", 2, "json"},
 
     // TYPE/CAST
     {OperationKind::TYPEOF, "TYPEOF", 2, "type"},
@@ -281,6 +293,7 @@ constexpr auto kOperationTable = std::to_array<OperationDefinition>({
 
     // MEMORY/STACK
     {OperationKind::LOAD, "LOAD", 2, "memory"},
+    {OperationKind::LOAD_RANGE, "LOAD_RANGE", 3, "memory"},
     {OperationKind::STORE, "STORE", 2, "memory"},
     {OperationKind::SWAP, "SWAP", 2, "memory"},
     {OperationKind::CLEAR, "CLEAR", 1, "memory"},

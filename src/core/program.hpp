@@ -81,6 +81,7 @@ struct Program {
 
     void exec(const ExecutionOptions& options);
     void exec();
+    const Value& read_operand_ref(const Operand& op);
     Value read_operand(const Operand& op);
     Value read_operand_strict(const Operand& op, ValueKind enforced_type);
     void write_operand(const Operand& op, const Value& v);

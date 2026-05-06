@@ -1,18 +1,24 @@
 #include "program.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <numbers>
 #include <numeric>
 #include <random>
+#include <regex>
+#include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <utility>
+#include <optional>
 
 namespace aic {
 
@@ -173,7 +179,13 @@ size_t read_non_negative_integer_operand(Program& program,
                                          const Operand& op,
                                          const Instruction& ins,
                                          const std::string& operand_name) {
-    Value v = program.read_operand_strict(op, ValueKind::Integer);
+    const Value& v = program.read_operand_ref(op);
+    if (v.kind != ValueKind::Integer) {
+        throw_exec_error(program,
+                         "Type mismatch: expected Integer, actual " + value_kind_to_string(v.kind),
+                         &ins,
+                         "TypeError");
+    }
     if (v.i < 0) {
         throw_exec_error(program,
                          operand_name + " must be non-negative, got " + std::to_string(v.i),
@@ -184,7 +196,7 @@ size_t read_non_negative_integer_operand(Program& program,
 }
 
 double numeric_value_as_double(Program& program, const Operand& op, const Instruction& ins, const std::string& usage) {
-    Value v = program.read_operand(op);
+    const Value& v = program.read_operand_ref(op);
     if (v.kind == ValueKind::Integer) {
         return static_cast<double>(v.i);
     }
@@ -197,8 +209,8 @@ double numeric_value_as_double(Program& program, const Operand& op, const Instru
                      &ins);
 }
 
-Value read_numeric_value(Program& program, const Operand& op, const Instruction& ins, const std::string& usage) {
-    Value v = program.read_operand(op);
+const Value& read_numeric_value(Program& program, const Operand& op, const Instruction& ins, const std::string& usage) {
+    const Value& v = program.read_operand_ref(op);
     if (v.kind == ValueKind::Integer || v.kind == ValueKind::Float) {
         return v;
     }
@@ -239,6 +251,137 @@ bool set_contains_value(const std::vector<Value>& values, const Value& needle) {
         }
     }
     return false;
+}
+
+std::optional<std::string> set_index_key(const Value& value) {
+    switch (value.kind) {
+        case ValueKind::Integer:
+            return "i:" + std::to_string(value.i);
+        case ValueKind::Float:
+            return "f:" + std::to_string(std::bit_cast<uint64_t>(value.f));
+        case ValueKind::String:
+            return "s:" + value.s;
+        case ValueKind::Boolean:
+            return value.b ? "b:1" : "b:0";
+        case ValueKind::Null:
+            return "n:";
+        default:
+            return std::nullopt;
+    }
+}
+
+bool set_value_contains(const Value& set_value, const Value& needle) {
+    if (set_value.set_index_complete) {
+        if (auto key = set_index_key(needle)) {
+            return set_value.set_index != nullptr && set_value.set_index->contains(*key);
+        }
+    }
+    return set_contains_value(set_value.set, needle);
+}
+
+std::unordered_set<std::string>& mutable_set_index(Value& set_value) {
+    if (set_value.set_index == nullptr) {
+        set_value.set_index = std::make_shared<std::unordered_set<std::string>>();
+    } else if (set_value.set_index.use_count() != 1) {
+        set_value.set_index = std::make_shared<std::unordered_set<std::string>>(*set_value.set_index);
+    }
+    return *set_value.set_index;
+}
+
+void set_add_unique(Value& set_value, const Value& item) {
+    if (set_value.set_index_complete) {
+        if (auto key = set_index_key(item)) {
+            auto& index = mutable_set_index(set_value);
+            const auto [_, inserted] = index.insert(*key);
+            if (inserted) {
+                set_value.set.push_back(item);
+            }
+            return;
+        }
+        set_value.set_index_complete = false;
+        set_value.set_index.reset();
+    }
+
+    if (!set_contains_value(set_value.set, item)) {
+        set_value.set.push_back(item);
+    }
+}
+
+bool set_delete_value(Value& set_value, const Value& needle) {
+    auto it = std::find_if(set_value.set.begin(), set_value.set.end(), [&](const Value& value) {
+        return value_equals(value, needle);
+    });
+    if (it == set_value.set.end()) {
+        return false;
+    }
+
+    if (set_value.set_index_complete) {
+        if (auto key = set_index_key(*it)) {
+            if (set_value.set_index != nullptr) {
+                mutable_set_index(set_value).erase(*key);
+            }
+        } else {
+            set_value.set_index_complete = false;
+            set_value.set_index.reset();
+        }
+    }
+    set_value.set.erase(it);
+    return true;
+}
+
+const Value& read_ref_strict(Program& program,
+                             const Operand& op,
+                             ValueKind kind,
+                             const Instruction& ins,
+                             const std::string& opname) {
+    const Value& value = program.read_operand_ref(op);
+    if (value.kind != kind) {
+        throw_exec_error(program,
+                         "Type mismatch: expected " + value_kind_to_string(kind) +
+                             ", actual " + value_kind_to_string(value.kind),
+                         &ins,
+                         "TypeError");
+    }
+    return value;
+}
+
+Value& mutable_operand_ref(Program& program,
+                           const Operand& op,
+                           const Instruction& ins,
+                           const std::string& opname) {
+    if (op.kind == OperandKind::Slot) {
+        return program.slot(static_cast<size_t>(op.value));
+    }
+    if (op.kind == OperandKind::Label) {
+        const auto alias = program.literal_aliases.find(op.strval);
+        if (alias == program.literal_aliases.end()) {
+            throw_exec_error(program, opname + " unknown literal alias destination: " + op.strval, &ins, "NameError");
+        }
+        if (alias->second.kind != OperandKind::Slot) {
+            throw_exec_error(program, opname + " literal alias destination is not writable: " + op.strval, &ins, "TypeError");
+        }
+        return program.slot(static_cast<size_t>(alias->second.value));
+    }
+    throw_exec_error(program,
+                     opname + " expects writable Slot destination, got " + op.kindstr(),
+                     &ins,
+                     "TypeError");
+}
+
+Value& mutable_ref_strict(Program& program,
+                          const Operand& op,
+                          ValueKind kind,
+                          const Instruction& ins,
+                          const std::string& opname) {
+    Value& value = mutable_operand_ref(program, op, ins, opname);
+    if (value.kind != kind) {
+        throw_exec_error(program,
+                         "Type mismatch: expected " + value_kind_to_string(kind) +
+                             ", actual " + value_kind_to_string(value.kind),
+                         &ins,
+                         "TypeError");
+    }
+    return value;
 }
 
 std::string trim_copy(const std::string& in);
@@ -431,10 +574,10 @@ Value make_null_value() {
     return out;
 }
 
-Value make_string_value(const std::string& value) {
+Value make_string_value(std::string value) {
     Value out{};
     out.kind = ValueKind::String;
-    out.s = value;
+    out.s = std::move(value);
     return out;
 }
 
@@ -600,12 +743,6 @@ CallFrame& current_call_frame(Program& program, const Instruction& ins, const st
     return program.call_stack.back();
 }
 
-void set_add_unique(std::vector<Value>& values, const Value& item) {
-    if (!set_contains_value(values, item)) {
-        values.push_back(item);
-    }
-}
-
 Value make_bool_value(bool b) {
     Value out{};
     out.kind = ValueKind::Boolean;
@@ -630,6 +767,363 @@ Value read_matrix_strict(Program& program, const Operand& op) {
 
 Value read_string_strict(Program& program, const Operand& op) {
     return program.read_operand_strict(op, ValueKind::String);
+}
+
+Value sql_query_rows(Program& program, const Value& rows, const std::string& query, const Instruction& ins, const std::string& opname) {
+    if (rows.kind != ValueKind::List) {
+        throw_exec_error(program, opname + " expects a list of map rows", &ins, "TypeError");
+    }
+
+    std::regex where_re(R"SQL(^\s*SELECT\s+\*\s*(?:WHERE\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:'([^']*)'|"([^"]*)"|([^\s;]+)))?\s*;?\s*$)SQL",
+                        std::regex::icase);
+    std::smatch match;
+    if (!std::regex_match(query, match, where_re)) {
+        throw_exec_error(program,
+                         opname + " supports SQL strings shaped like: SELECT * or SELECT * WHERE field = value",
+                         &ins,
+                         "ValueError");
+    }
+
+    const bool has_where = match[1].matched;
+    const std::string key = has_where ? match[1].str() : "";
+    std::string expected;
+    if (has_where) {
+        expected = match[2].matched ? match[2].str()
+                 : match[3].matched ? match[3].str()
+                 : match[4].str();
+    }
+
+    Value out{};
+    out.kind = ValueKind::List;
+    for (const Value& row : rows.list) {
+        if (row.kind != ValueKind::Map) {
+            throw_exec_error(program, opname + " expects every row to be a map", &ins, "TypeError");
+        }
+        if (!has_where) {
+            out.list.push_back(row);
+            continue;
+        }
+        auto it = row.map.find(key);
+        if (it != row.map.end() && it->second.to_str() == expected) {
+            out.list.push_back(row);
+        }
+    }
+    return out;
+}
+
+std::string json_escape_string(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 2);
+    for (char ch : in) {
+        switch (ch) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    std::ostringstream escaped;
+                    escaped << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                            << static_cast<int>(static_cast<unsigned char>(ch));
+                    out += escaped.str();
+                } else {
+                    out += ch;
+                }
+        }
+    }
+    return out;
+}
+
+std::string json_dump_value(const Value& value) {
+    switch (value.kind) {
+        case ValueKind::Null:
+            return "null";
+        case ValueKind::Boolean:
+            return value.b ? "true" : "false";
+        case ValueKind::Integer:
+            return std::to_string(value.i);
+        case ValueKind::Float: {
+            std::ostringstream out;
+            out << std::setprecision(17) << value.f;
+            return out.str();
+        }
+        case ValueKind::String:
+            return "\"" + json_escape_string(value.s) + "\"";
+        case ValueKind::List: {
+            std::string out = "[";
+            for (size_t i = 0; i < value.list.size(); i++) {
+                if (i > 0) {
+                    out += ",";
+                }
+                out += json_dump_value(value.list[i]);
+            }
+            out += "]";
+            return out;
+        }
+        case ValueKind::Map: {
+            std::vector<std::string> keys;
+            keys.reserve(value.map.size());
+            for (const auto& [key, _] : value.map) {
+                keys.push_back(key);
+            }
+            std::sort(keys.begin(), keys.end());
+
+            std::string out = "{";
+            for (size_t i = 0; i < keys.size(); i++) {
+                if (i > 0) {
+                    out += ",";
+                }
+                const std::string& key = keys[i];
+                out += "\"";
+                out += json_escape_string(key);
+                out += "\":";
+                out += json_dump_value(value.map.at(key));
+            }
+            out += "}";
+            return out;
+        }
+        default:
+            throw std::runtime_error("JSON dump supports Null, Boolean, Integer, Float, String, List, and Map values");
+    }
+}
+
+class JsonValueParser {
+public:
+    explicit JsonValueParser(std::string_view input) : input_(input) {}
+
+    Value parse() {
+        Value value = parse_value();
+        skip_ws();
+        if (!at_end()) {
+            fail("unexpected trailing characters");
+        }
+        return value;
+    }
+
+private:
+    std::string_view input_;
+    size_t pos_ = 0;
+
+    bool at_end() const {
+        return pos_ >= input_.size();
+    }
+
+    char peek() const {
+        return at_end() ? '\0' : input_[pos_];
+    }
+
+    char advance() {
+        return at_end() ? '\0' : input_[pos_++];
+    }
+
+    [[noreturn]] void fail(const std::string& message) const {
+        throw std::runtime_error("JSON parse error at byte " + std::to_string(pos_) + ": " + message);
+    }
+
+    void skip_ws() {
+        while (!at_end() && std::isspace(static_cast<unsigned char>(peek()))) {
+            pos_++;
+        }
+    }
+
+    bool consume(char ch) {
+        skip_ws();
+        if (peek() != ch) {
+            return false;
+        }
+        pos_++;
+        return true;
+    }
+
+    void expect(char ch, const std::string& usage) {
+        skip_ws();
+        if (advance() != ch) {
+            fail("expected '" + std::string(1, ch) + "' for " + usage);
+        }
+    }
+
+    Value parse_value() {
+        skip_ws();
+        char ch = peek();
+        if (ch == '"') {
+            return make_string_value(parse_string());
+        }
+        if (ch == '{') {
+            return parse_object();
+        }
+        if (ch == '[') {
+            return parse_array();
+        }
+        if (ch == '-' || std::isdigit(static_cast<unsigned char>(ch))) {
+            return parse_number();
+        }
+        if (input_.substr(pos_, 4) == "true") {
+            pos_ += 4;
+            return make_bool_value(true);
+        }
+        if (input_.substr(pos_, 5) == "false") {
+            pos_ += 5;
+            return make_bool_value(false);
+        }
+        if (input_.substr(pos_, 4) == "null") {
+            pos_ += 4;
+            return make_null_value();
+        }
+        fail("expected JSON value");
+    }
+
+    std::string parse_string() {
+        expect('"', "string");
+        std::string out;
+        while (!at_end()) {
+            char ch = advance();
+            if (ch == '"') {
+                return out;
+            }
+            if (ch != '\\') {
+                out += ch;
+                continue;
+            }
+            if (at_end()) {
+                fail("unterminated escape sequence");
+            }
+            char esc = advance();
+            switch (esc) {
+                case '"': out += '"'; break;
+                case '\\': out += '\\'; break;
+                case '/': out += '/'; break;
+                case 'b': out += '\b'; break;
+                case 'f': out += '\f'; break;
+                case 'n': out += '\n'; break;
+                case 'r': out += '\r'; break;
+                case 't': out += '\t'; break;
+                case 'u': {
+                    if (pos_ + 4 > input_.size()) {
+                        fail("incomplete unicode escape");
+                    }
+                    const std::string hex(input_.substr(pos_, 4));
+                    pos_ += 4;
+                    unsigned long code = 0;
+                    try {
+                        code = std::stoul(hex, nullptr, 16);
+                    } catch (...) {
+                        fail("invalid unicode escape");
+                    }
+                    if (code <= 0x7f) {
+                        out += static_cast<char>(code);
+                    } else {
+                        out += '?';
+                    }
+                    break;
+                }
+                default:
+                    fail("invalid escape character");
+            }
+        }
+        fail("unterminated string");
+    }
+
+    Value parse_number() {
+        skip_ws();
+        const size_t start = pos_;
+        if (peek() == '-') {
+            pos_++;
+        }
+        if (!std::isdigit(static_cast<unsigned char>(peek()))) {
+            fail("invalid number");
+        }
+        while (std::isdigit(static_cast<unsigned char>(peek()))) {
+            pos_++;
+        }
+        bool is_float = false;
+        if (peek() == '.') {
+            is_float = true;
+            pos_++;
+            if (!std::isdigit(static_cast<unsigned char>(peek()))) {
+                fail("invalid fractional number");
+            }
+            while (std::isdigit(static_cast<unsigned char>(peek()))) {
+                pos_++;
+            }
+        }
+        if (peek() == 'e' || peek() == 'E') {
+            is_float = true;
+            pos_++;
+            if (peek() == '+' || peek() == '-') {
+                pos_++;
+            }
+            if (!std::isdigit(static_cast<unsigned char>(peek()))) {
+                fail("invalid exponent");
+            }
+            while (std::isdigit(static_cast<unsigned char>(peek()))) {
+                pos_++;
+            }
+        }
+
+        const std::string text(input_.substr(start, pos_ - start));
+        Value out{};
+        try {
+            if (is_float) {
+                out.kind = ValueKind::Float;
+                out.f = std::stod(text);
+            } else {
+                out.kind = ValueKind::Integer;
+                out.i = std::stoll(text);
+            }
+        } catch (...) {
+            fail("number out of range");
+        }
+        return out;
+    }
+
+    Value parse_array() {
+        expect('[', "array");
+        Value out{};
+        out.kind = ValueKind::List;
+        skip_ws();
+        if (consume(']')) {
+            return out;
+        }
+        while (true) {
+            out.list.push_back(parse_value());
+            skip_ws();
+            if (consume(']')) {
+                return out;
+            }
+            expect(',', "array separator");
+        }
+    }
+
+    Value parse_object() {
+        expect('{', "object");
+        Value out{};
+        out.kind = ValueKind::Map;
+        skip_ws();
+        if (consume('}')) {
+            return out;
+        }
+        while (true) {
+            skip_ws();
+            if (peek() != '"') {
+                fail("object key must be a string");
+            }
+            std::string key = parse_string();
+            expect(':', "object key/value separator");
+            out.map[std::move(key)] = parse_value();
+            skip_ws();
+            if (consume('}')) {
+                return out;
+            }
+            expect(',', "object separator");
+        }
+    }
+};
+
+Value json_parse_value(const std::string& json_text) {
+    return JsonValueParser(json_text).parse();
 }
 
 void ensure_same_vector_size(Program& program,
@@ -998,8 +1492,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::ADD: {
-        Value lhs = read_numeric_value(*this, y, ins, "ADD");
-        Value rhs = read_numeric_value(*this, z, ins, "ADD");
+        const Value& lhs = read_numeric_value(*this, y, ins, "ADD");
+        const Value& rhs = read_numeric_value(*this, z, ins, "ADD");
 
         Value out{};
         if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
@@ -1016,8 +1510,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MUL: {
-        Value lhs = read_numeric_value(*this, y, ins, "MUL");
-        Value rhs = read_numeric_value(*this, z, ins, "MUL");
+        const Value& lhs = read_numeric_value(*this, y, ins, "MUL");
+        const Value& rhs = read_numeric_value(*this, z, ins, "MUL");
 
         Value out{};
         if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
@@ -1034,8 +1528,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::SUB: {
-        Value lhs = read_numeric_value(*this, y, ins, "SUB");
-        Value rhs = read_numeric_value(*this, z, ins, "SUB");
+        const Value& lhs = read_numeric_value(*this, y, ins, "SUB");
+        const Value& rhs = read_numeric_value(*this, z, ins, "SUB");
 
         Value out{};
         if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
@@ -1052,8 +1546,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::DIV: {
-        Value lhs = read_numeric_value(*this, y, ins, "DIV");
-        Value rhs = read_numeric_value(*this, z, ins, "DIV");
+        const Value& lhs = read_numeric_value(*this, y, ins, "DIV");
+        const Value& rhs = read_numeric_value(*this, z, ins, "DIV");
         const double rhs_num = rhs.kind == ValueKind::Integer ? static_cast<double>(rhs.i) : rhs.f;
         if (rhs_num == 0.0) {
             throw_exec_error(*this, "Division by zero", &ins, "ZeroDivisionError");
@@ -1073,8 +1567,14 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MOD: {
-        Value lhs = read_operand_strict(y, ValueKind::Integer);
-        Value rhs = read_operand_strict(z, ValueKind::Integer);
+        const Value& lhs = read_operand_ref(y);
+        const Value& rhs = read_operand_ref(z);
+        if (lhs.kind != ValueKind::Integer || rhs.kind != ValueKind::Integer) {
+            throw_exec_error(*this,
+                             "MOD expects Integer operands",
+                             &ins,
+                             "TypeError");
+        }
 
         if (rhs.i == 0) {
             throw_exec_error(*this, "Modulo by zero", &ins, "ZeroDivisionError");
@@ -1089,7 +1589,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::NEG: {
-        Value v = read_numeric_value(*this, y, ins, "NEG");
+        const Value& v = read_numeric_value(*this, y, ins, "NEG");
         Value out{};
         if (v.kind == ValueKind::Integer) {
             out.kind = ValueKind::Integer;
@@ -1103,7 +1603,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::INC: {
-        Value v = read_numeric_value(*this, y, ins, "INC");
+        const Value& v = read_numeric_value(*this, y, ins, "INC");
         Value out{};
         if (v.kind == ValueKind::Integer) {
             out.kind = ValueKind::Integer;
@@ -1117,7 +1617,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::DEC: {
-        Value v = read_numeric_value(*this, y, ins, "DEC");
+        const Value& v = read_numeric_value(*this, y, ins, "DEC");
         Value out{};
         if (v.kind == ValueKind::Integer) {
             out.kind = ValueKind::Integer;
@@ -1131,7 +1631,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::ABS: {
-        Value v = read_numeric_value(*this, y, ins, "ABS");
+        const Value& v = read_numeric_value(*this, y, ins, "ABS");
         Value out{};
         if (v.kind == ValueKind::Integer) {
             out.kind = ValueKind::Integer;
@@ -1145,12 +1645,12 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::EQ: {
-        write_operand(x, make_bool_value(value_equals(read_operand(y), read_operand(z))));
+        write_operand(x, make_bool_value(value_equals(read_operand_ref(y), read_operand_ref(z))));
         pc++;
         return;
     }
     case OperationKind::NEQ: {
-        write_operand(x, make_bool_value(!value_equals(read_operand(y), read_operand(z))));
+        write_operand(x, make_bool_value(!value_equals(read_operand_ref(y), read_operand_ref(z))));
         pc++;
         return;
     }
@@ -1179,8 +1679,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::AND: {
-        Value lhs = read_operand(y);
-        Value rhs = read_operand(z);
+        const Value& lhs = read_operand_ref(y);
+        const Value& rhs = read_operand_ref(z);
         if (lhs.kind == ValueKind::Boolean && rhs.kind == ValueKind::Boolean) {
             write_operand(x, make_bool_value(lhs.b && rhs.b));
         } else if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
@@ -1195,8 +1695,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::OR: {
-        Value lhs = read_operand(y);
-        Value rhs = read_operand(z);
+        const Value& lhs = read_operand_ref(y);
+        const Value& rhs = read_operand_ref(z);
         if (lhs.kind == ValueKind::Boolean && rhs.kind == ValueKind::Boolean) {
             write_operand(x, make_bool_value(lhs.b || rhs.b));
         } else if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
@@ -1211,7 +1711,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::NOT: {
-        Value v = read_operand(y);
+        const Value& v = read_operand_ref(y);
         if (v.kind == ValueKind::Boolean) {
             write_operand(x, make_bool_value(!v.b));
         } else if (v.kind == ValueKind::Integer) {
@@ -1226,8 +1726,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::XOR: {
-        Value lhs = read_operand(y);
-        Value rhs = read_operand(z);
+        const Value& lhs = read_operand_ref(y);
+        const Value& rhs = read_operand_ref(z);
         if (lhs.kind == ValueKind::Boolean && rhs.kind == ValueKind::Boolean) {
             write_operand(x, make_bool_value(lhs.b != rhs.b));
         } else if (lhs.kind == ValueKind::Integer && rhs.kind == ValueKind::Integer) {
@@ -1605,50 +2105,57 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::LIST_PUSH: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_PUSH");
         Value element = read_operand(y);
-        list_value.list.push_back(element);
-        write_operand(x, list_value);
+        list_value.list.push_back(std::move(element));
+        pc++;
+        return;
+    }
+    case OperationKind::LIST_FILL: {
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_FILL");
+        const size_t count = read_non_negative_integer_operand(*this, y, ins, "LIST_FILL count");
+        Value element = read_operand(z);
+        list_value.list.reserve(list_value.list.size() + count);
+        for (size_t i = 0; i < count; i++) {
+            list_value.list.push_back(element);
+        }
         pc++;
         return;
     }
     case OperationKind::LIST_POP: {
-        Value list_value = read_operand_strict(y, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, y, ValueKind::List, ins, "LIST_POP");
         if (list_value.list.empty()) {
             throw_exec_error(*this, "LIST_POP attempted on an empty list", &ins);
         }
-        Value popped = list_value.list.back();
+        Value popped = std::move(list_value.list.back());
         list_value.list.pop_back();
-        write_operand(y, list_value);
         write_operand(x, popped);
         pc++;
         return;
     }
     case OperationKind::LIST_INSERT: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_INSERT");
         const size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_INSERT index");
         if (index > list_value.list.size()) {
             throw_exec_error(*this, "LIST_INSERT index out of bounds", &ins);
         }
         Value element = read_operand(z);
-        list_value.list.insert(list_value.list.begin() + static_cast<std::ptrdiff_t>(index), element);
-        write_operand(x, list_value);
+        list_value.list.insert(list_value.list.begin() + static_cast<std::ptrdiff_t>(index), std::move(element));
         pc++;
         return;
     }
     case OperationKind::LIST_ERASE: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_ERASE");
         const size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_ERASE index");
         if (index >= list_value.list.size()) {
             throw_exec_error(*this, "LIST_ERASE index out of bounds", &ins);
         }
         list_value.list.erase(list_value.list.begin() + static_cast<std::ptrdiff_t>(index));
-        write_operand(x, list_value);
         pc++;
         return;
     }
     case OperationKind::LIST_SLICE: {
-        Value list_value = read_operand_strict(y, ValueKind::List);
+        const Value& list_value = read_ref_strict(*this, y, ValueKind::List, ins, "LIST_SLICE");
         const size_t start = read_non_negative_integer_operand(*this, z, ins, "LIST_SLICE start");
         if (start > list_value.list.size()) {
             throw_exec_error(*this, "LIST_SLICE start out of bounds", &ins);
@@ -1661,15 +2168,14 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::LIST_CLEAR: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_CLEAR");
         list_value.list.clear();
-        write_operand(x, list_value);
         pc++;
         return;
     }
     case OperationKind::LIST_FIND: {
-        Value list_value = read_operand_strict(y, ValueKind::List);
-        Value needle = read_operand(z);
+        const Value& list_value = read_ref_strict(*this, y, ValueKind::List, ins, "LIST_FIND");
+        const Value& needle = read_operand_ref(z);
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = -1;
@@ -1684,23 +2190,21 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::LIST_SORT: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_SORT");
         std::sort(list_value.list.begin(),
                   list_value.list.end(),
                   [](const Value& a, const Value& b) { return a.to_str() < b.to_str(); });
-        write_operand(x, list_value);
         pc++;
         return;
     }
     case OperationKind::LIST_REVERSE: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_REVERSE");
         std::reverse(list_value.list.begin(), list_value.list.end());
-        write_operand(x, list_value);
         pc++;
         return;
     }
     case OperationKind::LIST_GET: {
-        Value list_value = read_operand_strict(y, ValueKind::List);
+        const Value& list_value = read_ref_strict(*this, y, ValueKind::List, ins, "LIST_GET");
         size_t index = read_non_negative_integer_operand(*this, z, ins, "LIST_GET index");
         if (index >= list_value.list.size()) {
             throw_exec_error(*this,
@@ -1714,7 +2218,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::LIST_SET: {
-        Value list_value = read_operand_strict(x, ValueKind::List);
+        Value& list_value = mutable_ref_strict(*this, x, ValueKind::List, ins, "LIST_SET");
         size_t index = read_non_negative_integer_operand(*this, y, ins, "LIST_SET index");
         if (index >= list_value.list.size()) {
             throw_exec_error(*this,
@@ -1724,12 +2228,11 @@ void Program::resolve(const Instruction& ins) {
         }
 
         list_value.list[index] = read_operand(z);
-        write_operand(x, list_value);
         pc++;
         return;
     }
     case OperationKind::LIST_LEN: {
-        Value list_value = read_operand_strict(y, ValueKind::List);
+        const Value& list_value = read_ref_strict(*this, y, ValueKind::List, ins, "LIST_LEN");
         Value out{};
         out.kind = ValueKind::Integer;
         out.i = static_cast<int64_t>(list_value.list.size());
@@ -1795,10 +2298,11 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::LIST_CONCAT: {
-        Value lhs = read_operand_strict(y, ValueKind::List);
-        Value rhs = read_operand_strict(z, ValueKind::List);
+        const Value& lhs = read_ref_strict(*this, y, ValueKind::List, ins, "LIST_CONCAT");
+        const Value& rhs = read_ref_strict(*this, z, ValueKind::List, ins, "LIST_CONCAT");
         Value out{};
         out.kind = ValueKind::List;
+        out.list.reserve(lhs.list.size() + rhs.list.size());
         out.list = lhs.list;
         out.list.insert(out.list.end(), rhs.list.begin(), rhs.list.end());
         write_operand(x, out);
@@ -1811,7 +2315,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::LIST_DESTRUCTURE: {
-        Value list_value = read_operand_strict(ins.operands[0], ValueKind::List);
+        const Value& list_value = read_ref_strict(*this, ins.operands[0], ValueKind::List, ins, "LIST_DESTRUCTURE");
         const size_t dst_count = ins.operands.size() - 1;
         if (dst_count > list_value.list.size()) {
             throw_exec_error(*this, "LIST_DESTRUCTURE has more destinations than list values", &ins);
@@ -1825,7 +2329,7 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::LIST_VALIDATE:
     case OperationKind::LIST_ASSERT: {
         const bool returns_bool = ins.op == OperationKind::LIST_VALIDATE;
-        Value list_value = read_operand_strict(returns_bool ? y : x, ValueKind::List);
+        const Value& list_value = read_ref_strict(*this, returns_bool ? y : x, ValueKind::List, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
         std::string type_expr = read_type_expression(*this, returns_bool ? z : y, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
         ensure_type_expression_valid(*this, type_expr, ins, returns_bool ? "LIST_VALIDATE" : "LIST_ASSERT");
         const bool ok = collection_values_match_type(*this, list_value.list, type_expr);
@@ -1845,16 +2349,15 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MAP_SET: {
-        Value map_value = read_operand_strict(x, ValueKind::Map);
-        Value key = read_string_strict(*this, y);
+        Value& map_value = mutable_ref_strict(*this, x, ValueKind::Map, ins, "MAP_SET");
+        const Value& key = read_ref_strict(*this, y, ValueKind::String, ins, "MAP_SET key");
         map_value.map[key.s] = read_operand(z);
-        write_operand(x, map_value);
         pc++;
         return;
     }
     case OperationKind::MAP_GET: {
-        Value map_value = read_operand_strict(y, ValueKind::Map);
-        Value key = read_string_strict(*this, z);
+        const Value& map_value = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_GET");
+        const Value& key = read_ref_strict(*this, z, ValueKind::String, ins, "MAP_GET key");
         auto it = map_value.map.find(key.s);
         if (it == map_value.map.end()) {
             throw_exec_error(*this, "MAP_GET missing key: " + key.s, &ins);
@@ -1864,24 +2367,23 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MAP_HAS: {
-        Value map_value = read_operand_strict(y, ValueKind::Map);
-        Value key = read_string_strict(*this, z);
+        const Value& map_value = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_HAS");
+        const Value& key = read_ref_strict(*this, z, ValueKind::String, ins, "MAP_HAS key");
         write_operand(x, make_bool_value(map_value.map.contains(key.s)));
         pc++;
         return;
     }
     case OperationKind::MAP_DELETE: {
-        Value map_value = read_operand_strict(x, ValueKind::Map);
-        Value key = read_string_strict(*this, y);
+        Value& map_value = mutable_ref_strict(*this, x, ValueKind::Map, ins, "MAP_DELETE");
+        const Value& key = read_ref_strict(*this, y, ValueKind::String, ins, "MAP_DELETE key");
         if (map_value.map.erase(key.s) == 0) {
             warn("MAP_DELETE ignored missing key: " + key.s, &ins);
         }
-        write_operand(x, map_value);
         pc++;
         return;
     }
     case OperationKind::MAP_KEYS: {
-        Value map_value = read_operand_strict(y, ValueKind::Map);
+        const Value& map_value = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_KEYS");
         Value out{};
         out.kind = ValueKind::List;
         out.list.reserve(map_value.map.size());
@@ -1896,7 +2398,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MAP_VALUES: {
-        Value map_value = read_operand_strict(y, ValueKind::Map);
+        const Value& map_value = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_VALUES");
         Value out{};
         out.kind = ValueKind::List;
         out.list.reserve(map_value.map.size());
@@ -1908,8 +2410,8 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MAP_MERGE: {
-        Value lhs = read_operand_strict(y, ValueKind::Map);
-        Value rhs = read_operand_strict(z, ValueKind::Map);
+        const Value& lhs = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_MERGE");
+        const Value& rhs = read_ref_strict(*this, z, ValueKind::Map, ins, "MAP_MERGE");
         Value out = lhs;
         for (const auto& [key, value] : rhs.map) {
             out.map[key] = value;
@@ -1919,7 +2421,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MAP_ENTRIES: {
-        Value map_value = read_operand_strict(y, ValueKind::Map);
+        const Value& map_value = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_ENTRIES");
         Value out{};
         out.kind = ValueKind::List;
         out.list.reserve(map_value.map.size());
@@ -1935,7 +2437,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::MAP_VALIDATE: {
-        Value map_value = read_operand_strict(y, ValueKind::Map);
+        const Value& map_value = read_ref_strict(*this, y, ValueKind::Map, ins, "MAP_VALIDATE");
         std::string key_type = read_type_expression(*this, z, ins, "MAP_VALIDATE");
         std::string value_type = read_type_expression(*this, ins.operands[3], ins, "MAP_VALIDATE");
         ensure_type_expression_valid(*this, key_type, ins, "MAP_VALIDATE");
@@ -1960,58 +2462,57 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::SET_ADD: {
-        Value set_value = read_operand_strict(x, ValueKind::Set);
+        Value& set_value = mutable_ref_strict(*this, x, ValueKind::Set, ins, "SET_ADD");
         Value item = read_operand(y);
-        if (set_contains_value(set_value.set, item)) {
+        if (set_value_contains(set_value, item)) {
             warn("SET_ADD ignored duplicate value: " + item.to_str(), &ins);
         }
-        set_add_unique(set_value.set, item);
-        write_operand(x, set_value);
+        set_add_unique(set_value, item);
         pc++;
         return;
     }
     case OperationKind::SET_HAS: {
-        Value set_value = read_operand_strict(y, ValueKind::Set);
-        write_operand(x, make_bool_value(set_contains_value(set_value.set, read_operand(z))));
+        const Value& set_value = read_ref_strict(*this, y, ValueKind::Set, ins, "SET_HAS");
+        write_operand(x, make_bool_value(set_value_contains(set_value, read_operand_ref(z))));
         pc++;
         return;
     }
     case OperationKind::SET_DELETE: {
-        Value set_value = read_operand_strict(x, ValueKind::Set);
-        Value needle = read_operand(y);
-        auto it = std::find_if(set_value.set.begin(), set_value.set.end(), [&](const Value& value) {
-            return value_equals(value, needle);
-        });
-        if (it != set_value.set.end()) {
-            set_value.set.erase(it);
-        } else {
+        Value& set_value = mutable_ref_strict(*this, x, ValueKind::Set, ins, "SET_DELETE");
+        const Value& needle = read_operand_ref(y);
+        if (!set_delete_value(set_value, needle)) {
             warn("SET_DELETE ignored missing value: " + needle.to_str(), &ins);
         }
-        write_operand(x, set_value);
         pc++;
         return;
     }
     case OperationKind::SET_UNION: {
-        Value lhs = read_operand_strict(y, ValueKind::Set);
-        Value rhs = read_operand_strict(z, ValueKind::Set);
+        const Value& lhs = read_ref_strict(*this, y, ValueKind::Set, ins, "SET_UNION");
+        const Value& rhs = read_ref_strict(*this, z, ValueKind::Set, ins, "SET_UNION");
         Value out{};
         out.kind = ValueKind::Set;
-        out.set = lhs.set;
+        out.set.reserve(lhs.set.size() + rhs.set.size());
+        mutable_set_index(out).reserve(lhs.set.size() + rhs.set.size());
+        for (const Value& item : lhs.set) {
+            set_add_unique(out, item);
+        }
         for (const Value& item : rhs.set) {
-            set_add_unique(out.set, item);
+            set_add_unique(out, item);
         }
         write_operand(x, out);
         pc++;
         return;
     }
     case OperationKind::SET_INTERSECT: {
-        Value lhs = read_operand_strict(y, ValueKind::Set);
-        Value rhs = read_operand_strict(z, ValueKind::Set);
+        const Value& lhs = read_ref_strict(*this, y, ValueKind::Set, ins, "SET_INTERSECT");
+        const Value& rhs = read_ref_strict(*this, z, ValueKind::Set, ins, "SET_INTERSECT");
         Value out{};
         out.kind = ValueKind::Set;
+        out.set.reserve(std::min(lhs.set.size(), rhs.set.size()));
+        mutable_set_index(out).reserve(std::min(lhs.set.size(), rhs.set.size()));
         for (const Value& item : lhs.set) {
-            if (set_contains_value(rhs.set, item)) {
-                set_add_unique(out.set, item);
+            if (set_value_contains(rhs, item)) {
+                set_add_unique(out, item);
             }
         }
         write_operand(x, out);
@@ -2019,13 +2520,15 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::SET_DIFFERENCE: {
-        Value lhs = read_operand_strict(y, ValueKind::Set);
-        Value rhs = read_operand_strict(z, ValueKind::Set);
+        const Value& lhs = read_ref_strict(*this, y, ValueKind::Set, ins, "SET_DIFFERENCE");
+        const Value& rhs = read_ref_strict(*this, z, ValueKind::Set, ins, "SET_DIFFERENCE");
         Value out{};
         out.kind = ValueKind::Set;
+        out.set.reserve(lhs.set.size());
+        mutable_set_index(out).reserve(lhs.set.size());
         for (const Value& item : lhs.set) {
-            if (!set_contains_value(rhs.set, item)) {
-                set_add_unique(out.set, item);
+            if (!set_value_contains(rhs, item)) {
+                set_add_unique(out, item);
             }
         }
         write_operand(x, out);
@@ -2033,18 +2536,20 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::SET_SYMMETRIC_DIFF: {
-        Value lhs = read_operand_strict(y, ValueKind::Set);
-        Value rhs = read_operand_strict(z, ValueKind::Set);
+        const Value& lhs = read_ref_strict(*this, y, ValueKind::Set, ins, "SET_SYMMETRIC_DIFF");
+        const Value& rhs = read_ref_strict(*this, z, ValueKind::Set, ins, "SET_SYMMETRIC_DIFF");
         Value out{};
         out.kind = ValueKind::Set;
+        out.set.reserve(lhs.set.size() + rhs.set.size());
+        mutable_set_index(out).reserve(lhs.set.size() + rhs.set.size());
         for (const Value& item : lhs.set) {
-            if (!set_contains_value(rhs.set, item)) {
-                set_add_unique(out.set, item);
+            if (!set_value_contains(rhs, item)) {
+                set_add_unique(out, item);
             }
         }
         for (const Value& item : rhs.set) {
-            if (!set_contains_value(lhs.set, item)) {
-                set_add_unique(out.set, item);
+            if (!set_value_contains(lhs, item)) {
+                set_add_unique(out, item);
             }
         }
         write_operand(x, out);
@@ -2054,7 +2559,7 @@ void Program::resolve(const Instruction& ins) {
     case OperationKind::SET_VALIDATE:
     case OperationKind::SET_ASSERT: {
         const bool returns_bool = ins.op == OperationKind::SET_VALIDATE;
-        Value set_value = read_operand_strict(returns_bool ? y : x, ValueKind::Set);
+        const Value& set_value = read_ref_strict(*this, returns_bool ? y : x, ValueKind::Set, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
         std::string type_expr = read_type_expression(*this, returns_bool ? z : y, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
         ensure_type_expression_valid(*this, type_expr, ins, returns_bool ? "SET_VALIDATE" : "SET_ASSERT");
         const bool ok = collection_values_match_type(*this, set_value.set, type_expr);
@@ -3301,6 +3806,130 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::REG_MATCH: {
+        Value text = read_string_strict(*this, y);
+        Value pattern = read_string_strict(*this, z);
+        try {
+            write_operand(x, make_bool_value(std::regex_search(text.s, std::regex(pattern.s))));
+        } catch (const std::regex_error& err) {
+            throw_exec_error(*this, std::string("REG_MATCH invalid regex: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::REG_FIND: {
+        Value text = read_string_strict(*this, y);
+        Value pattern = read_string_strict(*this, z);
+        try {
+            std::smatch match;
+            Value out{};
+            out.kind = ValueKind::Integer;
+            out.i = std::regex_search(text.s, match, std::regex(pattern.s))
+                        ? static_cast<int64_t>(match.position())
+                        : -1;
+            write_operand(x, out);
+        } catch (const std::regex_error& err) {
+            throw_exec_error(*this, std::string("REG_FIND invalid regex: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::REG_REPLACE: {
+        Value text = read_string_strict(*this, y);
+        Value pattern = read_string_strict(*this, z);
+        Value replacement = read_string_strict(*this, ins.operands[3]);
+        try {
+            write_operand(x, make_string_value(std::regex_replace(text.s, std::regex(pattern.s), replacement.s)));
+        } catch (const std::regex_error& err) {
+            throw_exec_error(*this, std::string("REG_REPLACE invalid regex: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::REG_GROUPS: {
+        Value text = read_string_strict(*this, y);
+        Value pattern = read_string_strict(*this, z);
+        try {
+            std::smatch match;
+            Value out{};
+            out.kind = ValueKind::List;
+            if (std::regex_search(text.s, match, std::regex(pattern.s))) {
+                for (const auto& group : match) {
+                    out.list.push_back(make_string_value(group.str()));
+                }
+            }
+            write_operand(x, out);
+        } catch (const std::regex_error& err) {
+            throw_exec_error(*this, std::string("REG_GROUPS invalid regex: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::SQL_LOAD: {
+        write_operand(x, read_operand_strict(y, ValueKind::List));
+        pc++;
+        return;
+    }
+    case OperationKind::SQL_QUERY:
+    case OperationKind::SQL_EXECUTE: {
+        Value rows = read_operand_strict(y, ValueKind::List);
+        Value query = read_string_strict(*this, z);
+        write_operand(x, sql_query_rows(*this,
+                                        rows,
+                                        query.s,
+                                        ins,
+                                        ins.op == OperationKind::SQL_QUERY ? "SQL_QUERY" : "SQL_EXECUTE"));
+        pc++;
+        return;
+    }
+    case OperationKind::JSON_STR_LOAD: {
+        Value json_text = read_string_strict(*this, y);
+        try {
+            write_operand(x, json_parse_value(json_text.s));
+        } catch (const std::exception& err) {
+            throw_exec_error(*this, std::string("JSON_STR_LOAD failed: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::JSON_FILE_LOAD: {
+        Value path = read_string_strict(*this, y);
+        std::ifstream in(path.s, std::ios::binary);
+        if (!in) {
+            throw_exec_error(*this, "JSON_FILE_LOAD failed to open '" + path.s + "'", &ins, "IOError");
+        }
+        std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        try {
+            write_operand(x, json_parse_value(contents));
+        } catch (const std::exception& err) {
+            throw_exec_error(*this, std::string("JSON_FILE_LOAD failed: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::JSON_STR_DUMP: {
+        try {
+            write_operand(x, make_string_value(json_dump_value(read_operand_ref(y))));
+        } catch (const std::exception& err) {
+            throw_exec_error(*this, std::string("JSON_STR_DUMP failed: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::JSON_FILE_DUMP: {
+        Value path = read_string_strict(*this, x);
+        std::ofstream out(path.s, std::ios::binary | std::ios::trunc);
+        if (!out) {
+            throw_exec_error(*this, "JSON_FILE_DUMP failed to open '" + path.s + "'", &ins, "IOError");
+        }
+        try {
+            out << json_dump_value(read_operand_ref(y));
+        } catch (const std::exception& err) {
+            throw_exec_error(*this, std::string("JSON_FILE_DUMP failed: ") + err.what(), &ins, "ValueError");
+        }
+        pc++;
+        return;
+    }
     case OperationKind::TYPEOF: {
         Value in = read_operand(y);
         Value out{};
@@ -3519,7 +4148,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::JMP_IF: {
-        if (value_truthy(read_operand(y))) {
+        if (value_truthy(read_operand_ref(y))) {
             jump_to_label(*this, x, ins, "JMP_IF");
         } else {
             pc++;
@@ -3536,7 +4165,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::JMP_IF_NOT: {
-        if (!value_truthy(read_operand(y))) {
+        if (!value_truthy(read_operand_ref(y))) {
             jump_to_label(*this, x, ins, "JMP_IF_NOT");
         } else {
             pc++;
@@ -3544,7 +4173,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::JMP_EQ: {
-        if (value_equals(read_operand(y), read_operand(z))) {
+        if (value_equals(read_operand_ref(y), read_operand_ref(z))) {
             jump_to_label(*this, x, ins, "JMP_EQ");
         } else {
             pc++;
@@ -3552,7 +4181,7 @@ void Program::resolve(const Instruction& ins) {
         return;
     }
     case OperationKind::JMP_NEQ: {
-        if (!value_equals(read_operand(y), read_operand(z))) {
+        if (!value_equals(read_operand_ref(y), read_operand_ref(z))) {
             jump_to_label(*this, x, ins, "JMP_NEQ");
         } else {
             pc++;
@@ -3595,12 +4224,31 @@ void Program::resolve(const Instruction& ins) {
         if (x.kind != OperandKind::Slot && x.kind != OperandKind::Label) {
             throw_exec_error(*this, "STORE expects Slot destination or writable literal alias", &ins);
         }
-        write_operand(x, read_operand(y));
+        write_operand(x, read_operand_ref(y));
         pc++;
         return;
     }
     case OperationKind::LOAD: {
-        write_operand(x, read_operand(y));
+        write_operand(x, read_operand_ref(y));
+        pc++;
+        return;
+    }
+    case OperationKind::LOAD_RANGE: {
+        const size_t start = read_non_negative_integer_operand(*this, x, ins, "LOAD_RANGE start slot");
+        const size_t end = read_non_negative_integer_operand(*this, y, ins, "LOAD_RANGE end slot");
+        if (end < start) {
+            throw_exec_error(*this, "LOAD_RANGE end slot must be greater than or equal to start slot", &ins, "ValueError");
+        }
+        Value value = read_operand(z);
+        for (size_t slot_index = start; slot_index <= end; slot_index++) {
+            Operand dst{};
+            dst.kind = OperandKind::Slot;
+            dst.value = static_cast<int64_t>(slot_index);
+            write_operand(dst, value);
+            if (slot_index == static_cast<size_t>(std::numeric_limits<int64_t>::max())) {
+                break;
+            }
+        }
         pc++;
         return;
     }
@@ -3879,33 +4527,29 @@ void Program::warn(const std::string& message, const Instruction* ins) {
 
 namespace {
 
-Value read_operand_resolved(Program& program, const Operand& op, std::unordered_set<std::string>& aliases) {
-    Value v{};
+const Value& null_value_ref() {
+    static const Value null_value{ValueKind::Null};
+    return null_value;
+}
 
+const Value& read_operand_ref_resolved(Program& program, const Operand& op, std::unordered_set<std::string>& aliases) {
     switch (op.kind) {
         case OperandKind::None:
-            v.kind = ValueKind::Null;
-            break;
+            return null_value_ref();
         case OperandKind::Slot:
-            v = program.slot(op.value);
-            break;
+            return program.slot(op.value);
         case OperandKind::Immediate:
             if (op.has_immediate) {
-                v = op.immediate;
-            } else {
-                v.kind = ValueKind::Integer;
-                v.i = op.value;
+                return op.immediate;
             }
-            break;
+            throw_exec_error(program, "Immediate operand is missing its parsed value", nullptr, "RuntimeError");
         case OperandKind::Constant:
-            if (op.value >= program.constants.size()) {
+            if (op.value < 0 || static_cast<size_t>(op.value) >= program.constants.size()) {
                 throw_exec_error(program,
                                  "Constant index out of bounds: requested " + std::to_string(op.value) +
                                      ", constant count " + std::to_string(program.constants.size()));
             }
-
-            v = program.constants.at(op.value);
-            break;
+            return program.constants[static_cast<size_t>(op.value)];
         case OperandKind::Argument:
             if (program.call_stack.empty()) {
                 throw_exec_error(program, "Argument access attempted outside of function call frame");
@@ -3915,8 +4559,7 @@ Value read_operand_resolved(Program& program, const Operand& op, std::unordered_
                 throw_exec_error(program,
                                  "Function argument index out of range: arg" + std::to_string(op.value));
             }
-            v = program.call_stack.back().args.at(static_cast<size_t>(op.value));
-            break;
+            return program.call_stack.back().args[static_cast<size_t>(op.value)];
         case OperandKind::Label: {
             const auto it = program.literal_aliases.find(op.strval);
             if (it == program.literal_aliases.end()) {
@@ -3925,23 +4568,68 @@ Value read_operand_resolved(Program& program, const Operand& op, std::unordered_
             if (!aliases.insert(op.strval).second) {
                 throw_exec_error(program, "Literal alias cycle detected at: " + op.strval, nullptr, "ValueError");
             }
-            v = read_operand_resolved(program, it->second, aliases);
+            const Value& v = read_operand_ref_resolved(program, it->second, aliases);
             aliases.erase(op.strval);
-            break;
+            return v;
         }
         default:
             throw_exec_error(program,
                              "Unsupported operand kind in read_operand: " + op.kindstr());
     }
-
-    return v;
 }
 
 } // namespace
 
-Value Program::read_operand(const Operand& op) {
+const Value& Program::read_operand_ref(const Operand& op) {
+    if (op.kind == OperandKind::None) {
+        return null_value_ref();
+    }
+    if (op.kind == OperandKind::Slot) {
+        return slot(static_cast<size_t>(op.value));
+    }
+    if (op.kind == OperandKind::Immediate && op.has_immediate) {
+        return op.immediate;
+    }
+    if (op.kind == OperandKind::Constant && op.value >= 0 &&
+        static_cast<size_t>(op.value) < constants.size()) {
+        return constants[static_cast<size_t>(op.value)];
+    }
+    if (op.kind == OperandKind::Argument && !call_stack.empty() && op.value >= 0 &&
+        static_cast<size_t>(op.value) < call_stack.back().args.size()) {
+        return call_stack.back().args[static_cast<size_t>(op.value)];
+    }
+
     std::unordered_set<std::string> aliases;
-    return read_operand_resolved(*this, op, aliases);
+    return read_operand_ref_resolved(*this, op, aliases);
+}
+
+Value evaluate_format_string(Program& program, const Value& value) {
+    if (value.kind != ValueKind::String || value.string_flavor != StringFlavor::Format) {
+        return value;
+    }
+
+    std::string out;
+    for (size_t i = 0; i < value.s.size(); i++) {
+        if (value.s[i] != '$' || i + 1 >= value.s.size() ||
+            !std::isdigit(static_cast<unsigned char>(value.s[i + 1]))) {
+            out += value.s[i];
+            continue;
+        }
+
+        size_t j = i + 1;
+        while (j < value.s.size() && std::isdigit(static_cast<unsigned char>(value.s[j]))) {
+            j++;
+        }
+        const size_t slot_index = static_cast<size_t>(std::stoull(value.s.substr(i + 1, j - (i + 1))));
+        out += program.slot(slot_index).to_str();
+        i = j - 1;
+    }
+
+    return make_string_value(std::move(out));
+}
+
+Value Program::read_operand(const Operand& op) {
+    return evaluate_format_string(*this, read_operand_ref(op));
 }
 
 Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {

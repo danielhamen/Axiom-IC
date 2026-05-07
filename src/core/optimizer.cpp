@@ -426,6 +426,9 @@ void resolve_function_operand(Program& program, Instruction& ins, size_t index, 
     if (!function_index.has_value()) {
         return;
     }
+    if (ins.op == OperationKind::CALL && program.functions.is_overloaded(operand.strval)) {
+        return;
+    }
     operand.kind = OperandKind::Function;
     operand.value = static_cast<int64_t>(*function_index);
     operand.resolved = true;

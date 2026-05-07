@@ -180,6 +180,12 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "ARG";
         case OperationKind::KWARG:
             return "KWARG";
+        case OperationKind::SELF:
+            return "SELF";
+        case OperationKind::PARAM:
+            return "PARAM";
+        case OperationKind::PARAM_DEFAULT:
+            return "PARAM_DEFAULT";
         case OperationKind::ARG_ARITY:
             return "ARG_ARITY";
         case OperationKind::KWARG_ARITY:
@@ -188,6 +194,10 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "ARG_GET";
         case OperationKind::KWARG_GET:
             return "KWARG_GET";
+        case OperationKind::ARG_GET_DEFAULT:
+            return "ARG_GET_DEFAULT";
+        case OperationKind::KWARG_GET_DEFAULT:
+            return "KWARG_GET_DEFAULT";
         case OperationKind::KWARG_HAS:
             return "KWARG_HAS";
         case OperationKind::ARG_REQUIRE:
@@ -258,6 +268,22 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "MAP_ENTRIES";
         case OperationKind::MAP_VALIDATE:
             return "MAP_VALIDATE";
+        case OperationKind::NAMESPACE_NEW:
+            return "NAMESPACE_NEW";
+        case OperationKind::NAMESPACE_ADD:
+            return "NAMESPACE_ADD";
+        case OperationKind::NAMESPACE_GET:
+            return "NAMESPACE_GET";
+        case OperationKind::NAMESPACE_HAS:
+            return "NAMESPACE_HAS";
+        case OperationKind::NAMESPACE_DELETE:
+            return "NAMESPACE_DELETE";
+        case OperationKind::NAMESPACE_KEYS:
+            return "NAMESPACE_KEYS";
+        case OperationKind::NAMESPACE_BIND_FN:
+            return "NAMESPACE_BIND_FN";
+        case OperationKind::NAMESPACE_CALL:
+            return "NAMESPACE_CALL";
         case OperationKind::SET_NEW:
             return "SET_NEW";
         case OperationKind::SET_ADD:
@@ -292,6 +318,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STRUCT_DEF_FIELD_IMMUTABLE";
         case OperationKind::STRUCT_DEF_METHOD:
             return "STRUCT_DEF_METHOD";
+        case OperationKind::STRUCT_DEF_STATIC_METHOD:
+            return "STRUCT_DEF_STATIC_METHOD";
         case OperationKind::STRUCT_DEF_VALIDATOR:
             return "STRUCT_DEF_VALIDATOR";
         case OperationKind::STRUCT_DEF_IMPLEMENT:
@@ -322,6 +350,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "STRUCT_EQ";
         case OperationKind::STRUCT_CALL:
             return "STRUCT_CALL";
+        case OperationKind::STRUCT_STATIC_CALL:
+            return "STRUCT_STATIC_CALL";
         case OperationKind::STRUCT_FIELDS:
             return "STRUCT_FIELDS";
         case OperationKind::STRUCT_FIELD_INFO:
@@ -520,6 +550,8 @@ std::string operation_kind_to_string(OperationKind kind) {
             return "LOAD_RANGE";
         case OperationKind::STORE:
             return "STORE";
+        case OperationKind::IMM:
+            return "IMM";
         case OperationKind::SWAP:
             return "SWAP";
         case OperationKind::CLEAR:
@@ -587,6 +619,8 @@ std::string value_kind_to_string(ValueKind kind) {
             return "Interface";
         case ValueKind::Error:
             return "Error";
+        case ValueKind::Namespace:
+            return "Namespace";
     }
 
     throw std::runtime_error("Unmatched ValueKind");
@@ -653,6 +687,10 @@ bool FunctionList::exists(const std::string& fn_name) const {
     return function_indices.contains(fn_name);
 }
 
+bool FunctionList::is_overloaded(const std::string& fn_name) const {
+    return indices_of(fn_name).size() > 1;
+}
+
 Function* FunctionList::find(const std::string& fn_name) {
     const auto it = function_indices.find(fn_name);
     if (it == function_indices.end()) {
@@ -699,6 +737,16 @@ std::optional<size_t> FunctionList::try_index_of(const std::string& fn_name) con
     return it->second;
 }
 
+std::vector<size_t> FunctionList::indices_of(const std::string& fn_name) const {
+    std::vector<size_t> out;
+    for (size_t i = 0; i < functions.size(); i++) {
+        if (functions[i].name == fn_name) {
+            out.push_back(i);
+        }
+    }
+    return out;
+}
+
 size_t FunctionList::index_of(const std::string& fn_name) const {
     const auto index = try_index_of(fn_name);
     if (index.has_value()) {
@@ -709,24 +757,16 @@ size_t FunctionList::index_of(const std::string& fn_name) const {
 }
 
 void FunctionList::insert(const Function& fn) {
-    if (function_indices.contains(fn.name)) {
-        throw std::runtime_error(format_error_context(ErrorPhase::Parse,
-                                                      "Duplicate function declaration: " + fn.name));
-    }
     const size_t index = functions.size();
     functions.push_back(fn);
-    function_indices.emplace(fn.name, index);
+    function_indices.try_emplace(fn.name, index);
 }
 
 void FunctionList::insert(Function&& fn) {
     const std::string name = fn.name;
-    if (function_indices.contains(name)) {
-        throw std::runtime_error(format_error_context(ErrorPhase::Parse,
-                                                      "Duplicate function declaration: " + name));
-    }
     const size_t index = functions.size();
     functions.push_back(std::move(fn));
-    function_indices.emplace(name, index);
+    function_indices.try_emplace(name, index);
 }
 
 size_t FunctionList::size() const {

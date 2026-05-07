@@ -404,6 +404,21 @@
     "body": "KWARG ${1:<key>}, ${2:<value>}$0",
     "description": "Axiom-IC function operation: KWARG <key>, <value>"
   },
+  "SELF": {
+    "prefix": "SELF",
+    "body": "SELF ${1:<dst>}$0",
+    "description": "Axiom-IC function operation: SELF <dst>"
+  },
+  "PARAM": {
+    "prefix": "PARAM",
+    "body": "PARAM ${1:<index>}, ${2:<type>}$0",
+    "description": "Axiom-IC function operation: PARAM <index>, <type>"
+  },
+  "PARAM_DEFAULT": {
+    "prefix": "PARAM_DEFAULT",
+    "body": "PARAM_DEFAULT ${1:<index>}, ${2:<type>}, ${3:<default>}$0",
+    "description": "Axiom-IC function operation: PARAM_DEFAULT <index>, <type>, <default>"
+  },
   "ARG_ARITY": {
     "prefix": "ARG_ARITY",
     "body": "ARG_ARITY ${1:<dst>}$0",
@@ -423,6 +438,16 @@
     "prefix": "KWARG_GET",
     "body": "KWARG_GET ${1:<dst>}, ${2:<key>}$0",
     "description": "Axiom-IC function operation: KWARG_GET <dst>, <key>"
+  },
+  "ARG_GET_DEFAULT": {
+    "prefix": "ARG_GET_DEFAULT",
+    "body": "ARG_GET_DEFAULT ${1:<dst>}, ${2:<index>}, ${3:<default>}$0",
+    "description": "Axiom-IC function operation: ARG_GET_DEFAULT <dst>, <index>, <default>"
+  },
+  "KWARG_GET_DEFAULT": {
+    "prefix": "KWARG_GET_DEFAULT",
+    "body": "KWARG_GET_DEFAULT ${1:<dst>}, ${2:<key>}, ${3:<default>}$0",
+    "description": "Axiom-IC function operation: KWARG_GET_DEFAULT <dst>, <key>, <default>"
   },
   "KWARG_HAS": {
     "prefix": "KWARG_HAS",
@@ -599,6 +624,46 @@
     "body": "MAP_VALIDATE ${1:<dst>}, ${2:<map>}, ${3:<key_type>}, ${4:<value_type>}$0",
     "description": "Axiom-IC map operation: MAP_VALIDATE <dst>, <map>, <key_type>, <value_type>"
   },
+  "NAMESPACE_NEW": {
+    "prefix": "NAMESPACE_NEW",
+    "body": "NAMESPACE_NEW ${1:<dst>}, ${2:<name>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_NEW <dst>, <name>"
+  },
+  "NAMESPACE_ADD": {
+    "prefix": "NAMESPACE_ADD",
+    "body": "NAMESPACE_ADD ${1:<namespace>}, ${2:<path>}, ${3:<value>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_ADD <namespace>, <path>, <value>"
+  },
+  "NAMESPACE_GET": {
+    "prefix": "NAMESPACE_GET",
+    "body": "NAMESPACE_GET ${1:<dst>}, ${2:<namespace>}, ${3:<path>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_GET <dst>, <namespace>, <path>"
+  },
+  "NAMESPACE_HAS": {
+    "prefix": "NAMESPACE_HAS",
+    "body": "NAMESPACE_HAS ${1:<dst>}, ${2:<namespace>}, ${3:<path>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_HAS <dst>, <namespace>, <path>"
+  },
+  "NAMESPACE_DELETE": {
+    "prefix": "NAMESPACE_DELETE",
+    "body": "NAMESPACE_DELETE ${1:<namespace>}, ${2:<path>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_DELETE <namespace>, <path>"
+  },
+  "NAMESPACE_KEYS": {
+    "prefix": "NAMESPACE_KEYS",
+    "body": "NAMESPACE_KEYS ${1:<dst>}, ${2:<namespace>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_KEYS <dst>, <namespace>"
+  },
+  "NAMESPACE_BIND_FN": {
+    "prefix": "NAMESPACE_BIND_FN",
+    "body": "NAMESPACE_BIND_FN ${1:<namespace>}, ${2:<path>}, ${3:<fn>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_BIND_FN <namespace>, <path>, <fn>"
+  },
+  "NAMESPACE_CALL": {
+    "prefix": "NAMESPACE_CALL",
+    "body": "NAMESPACE_CALL ${1:<dst>}, ${2:<namespace>}, ${3:<path>}$0",
+    "description": "Axiom-IC namespace operation: NAMESPACE_CALL <dst>, <namespace>, <path>"
+  },
   "SET_NEW": {
     "prefix": "SET_NEW",
     "body": "SET_NEW ${1:<dst>}$0",
@@ -684,6 +749,11 @@
     "body": "STRUCT_DEF_METHOD ${1:<def>}, ${2:<method>}, ${3:<fn>}$0",
     "description": "Axiom-IC struct operation: STRUCT_DEF_METHOD <def>, <method>, <fn>"
   },
+  "STRUCT_DEF_STATIC_METHOD": {
+    "prefix": "STRUCT_DEF_STATIC_METHOD",
+    "body": "STRUCT_DEF_STATIC_METHOD ${1:<def>}, ${2:<method>}, ${3:<fn>}$0",
+    "description": "Axiom-IC struct operation: STRUCT_DEF_STATIC_METHOD <def>, <method>, <fn>"
+  },
   "STRUCT_DEF_VALIDATOR": {
     "prefix": "STRUCT_DEF_VALIDATOR",
     "body": "STRUCT_DEF_VALIDATOR ${1:<def>}, ${2:<fn>}$0",
@@ -758,6 +828,11 @@
     "prefix": "STRUCT_CALL",
     "body": "STRUCT_CALL ${1:<dst>}, ${2:<struct>}, ${3:<method>}$0",
     "description": "Axiom-IC struct operation: STRUCT_CALL <dst>, <struct>, <method>"
+  },
+  "STRUCT_STATIC_CALL": {
+    "prefix": "STRUCT_STATIC_CALL",
+    "body": "STRUCT_STATIC_CALL ${1:<dst>}, ${2:<struct_or_def>}, ${3:<method>}$0",
+    "description": "Axiom-IC struct operation: STRUCT_STATIC_CALL <dst>, <struct_or_def>, <method>"
   },
   "STRUCT_FIELDS": {
     "prefix": "STRUCT_FIELDS",
@@ -1254,6 +1329,11 @@
     "body": "STORE ${1:<dst>}, ${2:<value>}$0",
     "description": "Axiom-IC memory operation: STORE <dst>, <value>"
   },
+  "IMM": {
+    "prefix": "IMM",
+    "body": "IMM ${1:<slot>}$0",
+    "description": "Axiom-IC memory operation: IMM <slot>"
+  },
   "SWAP": {
     "prefix": "SWAP",
     "body": "SWAP ${1:<a>}, ${2:<b>}$0",
@@ -1388,6 +1468,11 @@
     "prefix": "import map",
     "body": ".import <map>$0",
     "description": "Import Axiom-IC map operations"
+  },
+  "import namespace": {
+    "prefix": "import namespace",
+    "body": ".import <namespace>$0",
+    "description": "Import Axiom-IC namespace operations"
   },
   "import math": {
     "prefix": "import math",

@@ -599,17 +599,25 @@ std::string read_function_name(Program& program, const Operand& op, const Instru
     return name.s;
 }
 
+size_t function_min_args(const Function& function);
+size_t function_max_args(const Function& function);
+
 Value call_function_for_index(Program& program,
                               size_t callee_index,
                               const std::string& function_name,
                               std::vector<Value> args,
+                              std::unordered_map<std::string, Value> kwargs,
                               const Instruction& ins,
-                              const std::string& opname) {
+    const std::string& opname) {
     Function* callee = program.functions.at(callee_index);
-    if (callee->arg_count > args.size()) {
+    const size_t min_args = function_min_args(*callee);
+    const size_t max_args = function_max_args(*callee);
+    if (args.size() < min_args || (!callee->params.empty() && args.size() > max_args)) {
         throw_exec_error(program,
                          opname + " callback " + function_name + " expects " +
-                             std::to_string(callee->arg_count) + " argument(s), got " +
+                             std::to_string(min_args) +
+                             (callee->params.empty() ? "+" : "-" + std::to_string(max_args)) +
+                             " argument(s), got " +
                              std::to_string(args.size()),
                          &ins);
     }
@@ -624,6 +632,7 @@ Value call_function_for_index(Program& program,
     frame.return_fc = caller_fc;
     frame.return_pc = caller_pc;
     frame.args = std::move(args);
+    frame.kwargs = std::move(kwargs);
     program.call_stack.push_back(std::move(frame));
     program.fc = callee_index;
     program.pc = 0;
@@ -656,17 +665,137 @@ Value call_function_for_index(Program& program,
     return out;
 }
 
+size_t function_min_args(const Function& function) {
+    if (function.params.empty()) {
+        return function.arg_count;
+    }
+
+    size_t min_args = 0;
+    for (const auto& param : function.params) {
+        if (!param.has_default) {
+            min_args = std::max(min_args, param.index + 1);
+        }
+    }
+    return min_args;
+}
+
+size_t function_max_args(const Function& function) {
+    if (function.params.empty()) {
+        return function.arg_count;
+    }
+
+    size_t max_args = 0;
+    for (const auto& param : function.params) {
+        max_args = std::max(max_args, param.index + 1);
+    }
+    return max_args;
+}
+
+const Function::Param* find_function_param(const Function& function, size_t index) {
+    for (const auto& param : function.params) {
+        if (param.index == index) {
+            return &param;
+        }
+    }
+    return nullptr;
+}
+
+bool function_matches_args(Program& program, const Function& function, const std::vector<Value>& args) {
+    if (function.params.empty()) {
+        return args.size() >= function.arg_count;
+    }
+
+    if (args.size() < function_min_args(function) || args.size() > function_max_args(function)) {
+        return false;
+    }
+
+    for (size_t i = 0; i < args.size(); i++) {
+        const Function::Param* param = find_function_param(function, i);
+        if (param == nullptr || param->type.empty()) {
+            continue;
+        }
+        if (!type_name_matches_value(program, param->type, args[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::optional<size_t> select_function_overload(Program& program,
+                                               const std::string& function_name,
+                                               const std::vector<Value>& args,
+                                               const Instruction& ins,
+                                               const std::string& opname) {
+    std::vector<size_t> candidates = program.functions.indices_of(function_name);
+    if (candidates.empty()) {
+        return std::nullopt;
+    }
+
+    std::optional<size_t> best;
+    int best_score = -1;
+    bool ambiguous = false;
+    for (size_t index : candidates) {
+        const Function* function = program.functions.at(index);
+        if (!function_matches_args(program, *function, args)) {
+            continue;
+        }
+
+        const int exact_count_bonus = args.size() == function_max_args(*function) ? 1000 : 0;
+        const int typed_param_bonus = static_cast<int>(function->params.size());
+        const int required_bonus = static_cast<int>(function_min_args(*function));
+        const int score = exact_count_bonus + typed_param_bonus + required_bonus;
+        if (score > best_score) {
+            best = index;
+            best_score = score;
+            ambiguous = false;
+        } else if (score == best_score) {
+            ambiguous = true;
+        }
+    }
+
+    if (ambiguous) {
+        throw_exec_error(program,
+                         opname + " ambiguous overload for " + function_name +
+                             " with " + std::to_string(args.size()) + " argument(s)",
+                         &ins,
+                         "NameError");
+    }
+
+    return best;
+}
+
+Value call_function_for_value(Program& program,
+                              const std::string& function_name,
+                              std::vector<Value> args,
+                              std::unordered_map<std::string, Value> kwargs,
+                              const Instruction& ins,
+                              const std::string& opname) {
+    const auto callee_index = select_function_overload(program, function_name, args, ins, opname);
+    if (!callee_index.has_value()) {
+        throw_exec_error(program,
+                         opname + " target function does not exist or no overload matches: " + function_name,
+                         &ins,
+                         "NameError");
+    }
+
+    return call_function_for_index(program, *callee_index, function_name, std::move(args), std::move(kwargs), ins, opname);
+}
+
+Value call_function_for_index(Program& program,
+                              size_t callee_index,
+                              const std::string& function_name,
+                              std::vector<Value> args,
+                              const Instruction& ins,
+                              const std::string& opname) {
+    return call_function_for_index(program, callee_index, function_name, std::move(args), {}, ins, opname);
+}
+
 Value call_function_for_value(Program& program,
                               const std::string& function_name,
                               std::vector<Value> args,
                               const Instruction& ins,
                               const std::string& opname) {
-    const auto callee_index = program.functions.try_index_of(function_name);
-    if (!callee_index.has_value()) {
-        throw_exec_error(program, opname + " target function does not exist: " + function_name, &ins);
-    }
-
-    return call_function_for_index(program, *callee_index, function_name, std::move(args), ins, opname);
+    return call_function_for_value(program, function_name, std::move(args), {}, ins, opname);
 }
 
 bool collection_values_match_type(Program& program, const std::vector<Value>& values, const std::string& type_expr) {
@@ -696,6 +825,7 @@ Value make_struct_from_def(Program& program, const Value& def, const Instruction
     out.struct_field_visibility = def.struct_field_visibility;
     out.struct_field_immutable = def.struct_field_immutable;
     out.struct_methods = def.struct_methods;
+    out.struct_static_methods = def.struct_static_methods;
     out.struct_interfaces = def.struct_interfaces;
     out.struct_validator = def.struct_validator;
     out.struct_values.reserve(def.struct_field_names.size());
@@ -1392,8 +1522,174 @@ bool value_truthy(const Value& value) {
             return !value.interface_name.empty();
         case ValueKind::Error:
             return true;
+        case ValueKind::Namespace:
+            return true;
     }
     return false;
+}
+
+std::vector<std::string> split_namespace_path(Program& program,
+                                              const std::string& path,
+                                              const Instruction& ins,
+                                              const std::string& opname) {
+    std::vector<std::string> parts;
+    std::string current;
+    for (char ch : path) {
+        if (ch == '.') {
+            if (current.empty()) {
+                throw_exec_error(program, opname + " invalid namespace path: " + path, &ins);
+            }
+            parts.push_back(current);
+            current.clear();
+        } else {
+            current.push_back(ch);
+        }
+    }
+    if (current.empty()) {
+        throw_exec_error(program, opname + " invalid namespace path: " + path, &ins);
+    }
+    parts.push_back(current);
+    return parts;
+}
+
+Value make_namespace_value(const std::string& name) {
+    Value out{};
+    out.kind = ValueKind::Namespace;
+    out.namespace_name = name;
+    return out;
+}
+
+Value& namespace_parent_for_path(Program& program,
+                                 Value& root,
+                                 const std::string& path,
+                                 bool create_missing,
+                                 const Instruction& ins,
+                                 const std::string& opname,
+                                 std::string& leaf) {
+    if (root.kind != ValueKind::Namespace) {
+        throw_exec_error(program,
+                         opname + " expects Namespace, got " + value_kind_to_string(root.kind),
+                         &ins);
+    }
+    std::vector<std::string> parts = split_namespace_path(program, path, ins, opname);
+    leaf = parts.back();
+    Value* current = &root;
+    for (size_t i = 0; i + 1 < parts.size(); i++) {
+        const std::string& part = parts[i];
+        auto it = current->namespace_members.find(part);
+        if (it == current->namespace_members.end()) {
+            if (!create_missing) {
+                throw_exec_error(program, opname + " missing namespace path: " + part, &ins);
+            }
+            it = current->namespace_members.emplace(part, make_namespace_value(part)).first;
+        }
+        if (it->second.kind != ValueKind::Namespace) {
+            throw_exec_error(program, opname + " path segment is not a Namespace: " + part, &ins);
+        }
+        current = &it->second;
+    }
+    return *current;
+}
+
+const Value& namespace_parent_for_path(Program& program,
+                                       const Value& root,
+                                       const std::string& path,
+                                       const Instruction& ins,
+                                       const std::string& opname,
+                                       std::string& leaf) {
+    if (root.kind != ValueKind::Namespace) {
+        throw_exec_error(program,
+                         opname + " expects Namespace, got " + value_kind_to_string(root.kind),
+                         &ins);
+    }
+    std::vector<std::string> parts = split_namespace_path(program, path, ins, opname);
+    leaf = parts.back();
+    const Value* current = &root;
+    for (size_t i = 0; i + 1 < parts.size(); i++) {
+        const std::string& part = parts[i];
+        auto it = current->namespace_members.find(part);
+        if (it == current->namespace_members.end()) {
+            throw_exec_error(program, opname + " missing namespace path: " + part, &ins);
+        }
+        if (it->second.kind != ValueKind::Namespace) {
+            throw_exec_error(program, opname + " path segment is not a Namespace: " + part, &ins);
+        }
+        current = &it->second;
+    }
+    return *current;
+}
+
+bool namespace_has_member_path(Program& program,
+                               const Value& root,
+                               const std::string& path,
+                               const Instruction& ins,
+                               const std::string& opname) {
+    if (root.kind != ValueKind::Namespace) {
+        throw_exec_error(program,
+                         opname + " expects Namespace, got " + value_kind_to_string(root.kind),
+                         &ins);
+    }
+    std::vector<std::string> parts = split_namespace_path(program, path, ins, opname);
+    const Value* current = &root;
+    for (size_t i = 0; i + 1 < parts.size(); i++) {
+        auto it = current->namespace_members.find(parts[i]);
+        if (it == current->namespace_members.end() || it->second.kind != ValueKind::Namespace) {
+            return false;
+        }
+        current = &it->second;
+    }
+    const std::string& leaf = parts.back();
+    return current->namespace_members.contains(leaf) || current->namespace_functions.contains(leaf);
+}
+
+std::string namespace_function_path(Program& program,
+                                    const Value& root,
+                                    const std::string& path,
+                                    const Instruction& ins,
+                                    const std::string& opname) {
+    std::string leaf;
+    const Value& parent = namespace_parent_for_path(program, root, path, ins, opname, leaf);
+    auto it = parent.namespace_functions.find(leaf);
+    if (it == parent.namespace_functions.end()) {
+        throw_exec_error(program, opname + " missing function binding: " + path, &ins, "NameError");
+    }
+    return it->second;
+}
+
+const Value& namespace_value_path(Program& program,
+                                  const Value& root,
+                                  const std::string& path,
+                                  const Instruction& ins,
+                                  const std::string& opname) {
+    std::string leaf;
+    const Value& parent = namespace_parent_for_path(program, root, path, ins, opname, leaf);
+    auto it = parent.namespace_members.find(leaf);
+    if (it == parent.namespace_members.end()) {
+        throw_exec_error(program, opname + " missing value binding: " + path, &ins, "NameError");
+    }
+    return it->second;
+}
+
+void namespace_sorted_keys(const Value& ns, std::vector<std::string>& keys) {
+    keys.reserve(ns.namespace_members.size() + ns.namespace_functions.size());
+    for (const auto& [key, _] : ns.namespace_members) {
+        keys.push_back(key);
+    }
+    for (const auto& [key, _] : ns.namespace_functions) {
+        keys.push_back(key);
+    }
+    std::sort(keys.begin(), keys.end());
+    keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+}
+
+Value make_string_list(const std::vector<std::string>& values) {
+    Value out{};
+    out.kind = ValueKind::List;
+    out.list.reserve(values.size());
+    for (const std::string& value : values) {
+        out.list.push_back(make_string_value(value));
+    }
+    return out;
 }
 } // namespace
 
@@ -1918,53 +2214,92 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::SELF: {
+        CallFrame& frame = current_call_frame(*this, ins, "SELF");
+        if (frame.args.empty()) {
+            throw_exec_error(*this, "SELF is only available inside instance method calls", &ins);
+        }
+        if (frame.args[0].kind != ValueKind::Struct) {
+            throw_exec_error(*this,
+                             "SELF expected arg0 to be Struct, got " + value_kind_to_string(frame.args[0].kind),
+                             &ins);
+        }
+        write_operand(x, frame.args[0]);
+        pc++;
+        return;
+    }
     case OperationKind::CALL: {
         if (x.kind != OperandKind::Function) {
             throw_exec_error(*this, "CALL expects a function operand", &ins);
         }
 
-        size_t callee_fc = 0;
-        if (x.resolved) {
-            callee_fc = static_cast<size_t>(x.value);
-            if (callee_fc >= functions.size()) {
-                throw_exec_error(*this, "CALL target function index out of range: " + std::to_string(callee_fc), &ins);
-            }
-        } else {
-            const auto callee_index = functions.try_index_of(x.strval);
-            if (!callee_index.has_value()) {
-                throw_exec_error(*this, "CALL target function does not exist: " + x.strval, &ins);
-            }
-            callee_fc = *callee_index;
-        }
-        Function* callee = functions.at(callee_fc);
         const bool use_pending_args = !pending_args.empty() || !pending_kwargs.empty();
         std::vector<Value> args;
         std::unordered_map<std::string, Value> kwargs;
+        size_t callee_fc = 0;
+        Function* callee = nullptr;
 
         if (use_pending_args) {
-            if (callee->arg_count > pending_args.size()) {
-                throw_exec_error(*this,
-                                 "Not enough pending ARG values for CALL " + x.strval +
-                                     " (expected " + std::to_string(callee->arg_count) +
-                                     ", got " + std::to_string(pending_args.size()) + ")",
-                                 &ins);
-            }
             args = std::move(pending_args);
             kwargs = std::move(pending_kwargs);
             pending_args.clear();
             pending_kwargs.clear();
+
+            if (x.resolved) {
+                callee_fc = static_cast<size_t>(x.value);
+                if (callee_fc >= functions.size()) {
+                    throw_exec_error(*this, "CALL target function index out of range: " + std::to_string(callee_fc), &ins);
+                }
+            } else {
+                const auto selected = select_function_overload(*this, x.strval, args, ins, "CALL");
+                if (!selected.has_value()) {
+                    throw_exec_error(*this,
+                                     "CALL target function does not exist or no overload matches: " + x.strval,
+                                     &ins,
+                                     "NameError");
+                }
+                callee_fc = *selected;
+            }
+            callee = functions.at(callee_fc);
         } else {
-            if (callee->arg_count > stack.size()) {
+            if (x.resolved) {
+                callee_fc = static_cast<size_t>(x.value);
+                if (callee_fc >= functions.size()) {
+                    throw_exec_error(*this, "CALL target function index out of range: " + std::to_string(callee_fc), &ins);
+                }
+            } else {
+                if (functions.is_overloaded(x.strval)) {
+                    throw_exec_error(*this,
+                                     "CALL overloaded function requires pending ARG values: " + x.strval,
+                                     &ins,
+                                     "NameError");
+                }
+                const auto callee_index = functions.try_index_of(x.strval);
+                if (!callee_index.has_value()) {
+                    throw_exec_error(*this, "CALL target function does not exist: " + x.strval, &ins);
+                }
+                callee_fc = *callee_index;
+            }
+            callee = functions.at(callee_fc);
+            const size_t callee_arg_count = function_max_args(*callee);
+            if (callee_arg_count > stack.size()) {
                 throw_exec_error(*this,
                                  "Not enough arguments on stack for CALL " + x.strval +
-                                     " (expected " + std::to_string(callee->arg_count) +
+                                     " (expected " + std::to_string(callee_arg_count) +
                                      ", got " + std::to_string(stack.size()) + ")",
                                  &ins);
             }
 
-            const size_t args_begin = stack.size() - callee->arg_count;
+            const size_t args_begin = stack.size() - callee_arg_count;
             args.assign(stack.begin() + static_cast<std::ptrdiff_t>(args_begin), stack.end());
             stack.resize(args_begin);
+        }
+
+        if (!function_matches_args(*this, *callee, args)) {
+            throw_exec_error(*this,
+                             "CALL argument list does not match selected overload: " + x.strval,
+                             &ins,
+                             "TypeError");
         }
 
         CallFrame frame;
@@ -1978,6 +2313,10 @@ void Program::resolve(const Instruction& ins) {
         pc = 0;
         return;
     }
+    case OperationKind::PARAM:
+    case OperationKind::PARAM_DEFAULT:
+        pc++;
+        return;
     case OperationKind::ARG_ARITY: {
         CallFrame& frame = current_call_frame(*this, ins, "ARG_ARITY");
         Value out{};
@@ -2014,6 +2353,29 @@ void Program::resolve(const Instruction& ins) {
             throw_exec_error(*this, "KWARG_GET missing key: " + key.s, &ins);
         }
         write_operand(x, it->second);
+        pc++;
+        return;
+    }
+    case OperationKind::ARG_GET_DEFAULT: {
+        CallFrame& frame = current_call_frame(*this, ins, "ARG_GET_DEFAULT");
+        size_t index = read_non_negative_integer_operand(*this, y, ins, "ARG_GET_DEFAULT index");
+        if (index < frame.args.size()) {
+            write_operand(x, frame.args[index]);
+        } else {
+            write_operand(x, read_operand(z));
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::KWARG_GET_DEFAULT: {
+        CallFrame& frame = current_call_frame(*this, ins, "KWARG_GET_DEFAULT");
+        Value key = read_string_strict(*this, y);
+        auto it = frame.kwargs.find(key.s);
+        if (it != frame.kwargs.end()) {
+            write_operand(x, it->second);
+        } else {
+            write_operand(x, read_operand(z));
+        }
         pc++;
         return;
     }
@@ -2454,6 +2816,87 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::NAMESPACE_NEW: {
+        const Value& name = read_ref_strict(*this, y, ValueKind::String, ins, "NAMESPACE_NEW name");
+        write_operand(x, make_namespace_value(name.s));
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_ADD: {
+        Value& ns = mutable_ref_strict(*this, x, ValueKind::Namespace, ins, "NAMESPACE_ADD");
+        const Value& path = read_ref_strict(*this, y, ValueKind::String, ins, "NAMESPACE_ADD path");
+        std::string leaf;
+        Value& parent = namespace_parent_for_path(*this, ns, path.s, true, ins, "NAMESPACE_ADD", leaf);
+        parent.namespace_members[leaf] = read_operand(z);
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_GET: {
+        const Value& ns = read_ref_strict(*this, y, ValueKind::Namespace, ins, "NAMESPACE_GET");
+        const Value& path = read_ref_strict(*this, z, ValueKind::String, ins, "NAMESPACE_GET path");
+        write_operand(x, namespace_value_path(*this, ns, path.s, ins, "NAMESPACE_GET"));
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_HAS: {
+        const Value& ns = read_ref_strict(*this, y, ValueKind::Namespace, ins, "NAMESPACE_HAS");
+        const Value& path = read_ref_strict(*this, z, ValueKind::String, ins, "NAMESPACE_HAS path");
+        write_operand(x, make_bool_value(namespace_has_member_path(*this, ns, path.s, ins, "NAMESPACE_HAS")));
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_DELETE: {
+        Value& ns = mutable_ref_strict(*this, x, ValueKind::Namespace, ins, "NAMESPACE_DELETE");
+        const Value& path = read_ref_strict(*this, y, ValueKind::String, ins, "NAMESPACE_DELETE path");
+        std::string leaf;
+        Value& parent = namespace_parent_for_path(*this, ns, path.s, false, ins, "NAMESPACE_DELETE", leaf);
+        const size_t removed_values = parent.namespace_members.erase(leaf);
+        const size_t removed_functions = parent.namespace_functions.erase(leaf);
+        if (removed_values + removed_functions == 0) {
+            warn("NAMESPACE_DELETE ignored missing member: " + path.s, &ins);
+        }
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_KEYS: {
+        const Value& ns = read_ref_strict(*this, y, ValueKind::Namespace, ins, "NAMESPACE_KEYS");
+        std::vector<std::string> keys;
+        namespace_sorted_keys(ns, keys);
+        write_operand(x, make_string_list(keys));
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_BIND_FN: {
+        Value& ns = mutable_ref_strict(*this, x, ValueKind::Namespace, ins, "NAMESPACE_BIND_FN");
+        const Value& path = read_ref_strict(*this, y, ValueKind::String, ins, "NAMESPACE_BIND_FN path");
+        const std::string fn_name = read_function_name(*this, z, ins, "NAMESPACE_BIND_FN");
+        if (!functions.exists(fn_name)) {
+            throw_exec_error(*this, "NAMESPACE_BIND_FN target function does not exist: " + fn_name, &ins);
+        }
+        std::string leaf;
+        Value& parent = namespace_parent_for_path(*this, ns, path.s, true, ins, "NAMESPACE_BIND_FN", leaf);
+        parent.namespace_functions[leaf] = fn_name;
+        pc++;
+        return;
+    }
+    case OperationKind::NAMESPACE_CALL: {
+        const Value& ns = read_ref_strict(*this, y, ValueKind::Namespace, ins, "NAMESPACE_CALL");
+        const Value& path = read_ref_strict(*this, z, ValueKind::String, ins, "NAMESPACE_CALL path");
+        const std::string fn_name = namespace_function_path(*this, ns, path.s, ins, "NAMESPACE_CALL");
+        auto args = std::move(pending_args);
+        auto kwargs = std::move(pending_kwargs);
+        pending_args.clear();
+        pending_kwargs.clear();
+        Value result = call_function_for_value(*this,
+                                               fn_name,
+                                               std::move(args),
+                                               std::move(kwargs),
+                                               ins,
+                                               "NAMESPACE_CALL");
+        write_operand(x, result);
+        pc++;
+        return;
+    }
     case OperationKind::SET_NEW: {
         Value out{};
         out.kind = ValueKind::Set;
@@ -2685,6 +3128,22 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::STRUCT_DEF_STATIC_METHOD: {
+        Value def = read_operand(x);
+        ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_STATIC_METHOD");
+        Value method_name = read_string_strict(*this, y);
+        const std::string fn_name = read_function_name(*this, z, ins, "STRUCT_DEF_STATIC_METHOD");
+        if (method_name.s.empty()) {
+            throw_exec_error(*this, "STRUCT_DEF_STATIC_METHOD requires a non-empty method name", &ins);
+        }
+        if (!functions.exists(fn_name)) {
+            throw_exec_error(*this, "STRUCT_DEF_STATIC_METHOD target function does not exist: " + fn_name, &ins);
+        }
+        def.struct_static_methods[method_name.s] = fn_name;
+        write_operand(x, def);
+        pc++;
+        return;
+    }
     case OperationKind::STRUCT_DEF_VALIDATOR: {
         Value def = read_operand(x);
         ensure_struct_def_mutable(*this, def, ins, "STRUCT_DEF_VALIDATOR");
@@ -2755,6 +3214,13 @@ void Program::resolve(const Instruction& ins) {
                 warn("STRUCT_DEF_EXTEND kept existing method override: " + method, &ins);
             } else {
                 def.struct_methods.emplace(method, fn);
+            }
+        }
+        for (const auto& [method, fn] : parent.struct_static_methods) {
+            if (def.struct_static_methods.contains(method)) {
+                warn("STRUCT_DEF_EXTEND kept existing static method override: " + method, &ins);
+            } else {
+                def.struct_static_methods.emplace(method, fn);
             }
         }
         for (const std::string& iface : parent.struct_interfaces) {
@@ -2848,7 +3314,7 @@ void Program::resolve(const Instruction& ins) {
                                  ins,
                                  "STRUCT_SET");
         obj.struct_values[index] = value;
-        write_operand(x, obj);
+        write_operand(x, obj, true);
         pc++;
         return;
     }
@@ -2885,7 +3351,7 @@ void Program::resolve(const Instruction& ins) {
                                  ins,
                                  "STRUCT_SET_I");
         obj.struct_values[index] = value;
-        write_operand(x, obj);
+        write_operand(x, obj, true);
         pc++;
         return;
     }
@@ -2925,7 +3391,38 @@ void Program::resolve(const Instruction& ins) {
         if (it == obj.struct_methods.end()) {
             throw_exec_error(*this, "STRUCT_CALL missing method: " + method_name.s, &ins);
         }
-        Value result = call_function_for_value(*this, it->second, {obj}, ins, "STRUCT_CALL");
+        std::vector<Value> args;
+        args.reserve(pending_args.size() + 1);
+        args.push_back(obj);
+        args.insert(args.end(), pending_args.begin(), pending_args.end());
+        pending_args.clear();
+        auto kwargs = std::move(pending_kwargs);
+        pending_kwargs.clear();
+        Value result = call_function_for_value(*this, it->second, std::move(args), std::move(kwargs), ins, "STRUCT_CALL");
+        write_operand(x, result);
+        pc++;
+        return;
+    }
+    case OperationKind::STRUCT_STATIC_CALL: {
+        Value value = read_operand(y);
+        if (value.kind != ValueKind::Struct && value.kind != ValueKind::StructDef) {
+            throw_exec_error(*this, "STRUCT_STATIC_CALL expects Struct or StructDef", &ins);
+        }
+        Value method_name = read_string_strict(*this, z);
+        auto it = value.struct_static_methods.find(method_name.s);
+        if (it == value.struct_static_methods.end()) {
+            throw_exec_error(*this, "STRUCT_STATIC_CALL missing static method: " + method_name.s, &ins);
+        }
+        auto args = std::move(pending_args);
+        auto kwargs = std::move(pending_kwargs);
+        pending_args.clear();
+        pending_kwargs.clear();
+        Value result = call_function_for_value(*this,
+                                               it->second,
+                                               std::move(args),
+                                               std::move(kwargs),
+                                               ins,
+                                               "STRUCT_STATIC_CALL");
         write_operand(x, result);
         pc++;
         return;
@@ -4228,6 +4725,21 @@ void Program::resolve(const Instruction& ins) {
         pc++;
         return;
     }
+    case OperationKind::IMM: {
+        if (x.kind != OperandKind::Slot) {
+            throw_exec_error(*this, "IMM expects a slot operand", &ins);
+        }
+        std::vector<bool>& active_immutable_slots = call_stack.empty()
+                                                        ? immutable_slots
+                                                        : call_stack.back().immutable_slots;
+        const size_t index = static_cast<size_t>(x.value);
+        if (index >= active_immutable_slots.size()) {
+            active_immutable_slots.resize(index + 1, false);
+        }
+        active_immutable_slots[index] = true;
+        pc++;
+        return;
+    }
     case OperationKind::LOAD: {
         write_operand(x, read_operand_ref(y));
         pc++;
@@ -4429,6 +4941,7 @@ void Program::exec(const ExecutionOptions& options) {
     literal_aliases.clear();
     type_aliases.clear();
     memory.clear();
+    immutable_slots.clear();
     warnings.clear();
     current_error = make_null_value();
     has_current_error = false;
@@ -4646,6 +5159,10 @@ Value Program::read_operand_strict(const Operand& op, ValueKind enforced_type) {
 }
 
 void Program::write_operand(const Operand& op, const Value& v) {
+    write_operand(op, v, false);
+}
+
+void Program::write_operand(const Operand& op, const Value& v, bool allow_immutable_slot) {
     if (op.kind == OperandKind::Label) {
         const auto it = literal_aliases.find(op.strval);
         if (it == literal_aliases.end()) {
@@ -4657,7 +5174,7 @@ void Program::write_operand(const Operand& op, const Value& v) {
                              nullptr,
                              "TypeError");
         }
-        write_operand(it->second, v);
+        write_operand(it->second, v, allow_immutable_slot);
         return;
     }
 
@@ -4672,6 +5189,16 @@ void Program::write_operand(const Operand& op, const Value& v) {
                                                  ? slot_type_hints
                                                  : call_stack.back().slot_type_hints;
     const size_t index = static_cast<size_t>(op.value);
+    const std::vector<bool>& active_immutable_slots = call_stack.empty()
+                                                          ? immutable_slots
+                                                          : call_stack.back().immutable_slots;
+    if (!allow_immutable_slot && index < active_immutable_slots.size() && active_immutable_slots[index]) {
+        throw_exec_error(*this,
+                         "Cannot reassign immutable slot $" + std::to_string(index),
+                         nullptr,
+                         "TypeError");
+    }
+
     if (index < active_hints.size() && !active_hints[index].empty() &&
         !type_name_matches_value(*this, active_hints[index], v)) {
         throw_exec_error(*this,

@@ -18,6 +18,7 @@ struct CallFrame {
     std::unordered_map<std::string, Value> kwargs;
     std::vector<Value> memory;
     std::vector<std::string> slot_type_hints;
+    std::vector<bool> immutable_slots;
     Value return_value{};
     bool has_return_value = false;
 };
@@ -49,6 +50,7 @@ struct Program {
     // Root frame memory for .main. Called functions store slots in their CallFrame.
     std::vector<Value> memory;
     std::vector<std::string> slot_type_hints;
+    std::vector<bool> immutable_slots;
     std::vector<Value> stack;
     std::vector<Value> pending_args;
     std::unordered_map<std::string, Value> pending_kwargs;
@@ -85,6 +87,7 @@ struct Program {
     Value read_operand(const Operand& op);
     Value read_operand_strict(const Operand& op, ValueKind enforced_type);
     void write_operand(const Operand& op, const Value& v);
+    void write_operand(const Operand& op, const Value& v, bool allow_immutable_slot);
     void warn(const std::string& message, const Instruction* ins = nullptr);
 };
 

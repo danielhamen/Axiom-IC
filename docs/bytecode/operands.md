@@ -159,10 +159,15 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`RETVAL`](operands/RETVAL.md): `RETVAL <value>`
 - [`ARG`](operands/ARG.md): `ARG <value>`
 - [`KWARG`](operands/KWARG.md): `KWARG <key>, <value>`
+- [`SELF`](operands/SELF.md): `SELF <dst>`
+- [`PARAM`](operands/PARAM.md): `PARAM <index>, <type>`
+- [`PARAM_DEFAULT`](operands/PARAM_DEFAULT.md): `PARAM_DEFAULT <index>, <type>, <default>`
 - [`ARG_ARITY`](operands/ARG_ARITY.md): `ARG_ARITY <dst>`
 - [`KWARG_ARITY`](operands/KWARG_ARITY.md): `KWARG_ARITY <dst>`
 - [`ARG_GET`](operands/ARG_GET.md): `ARG_GET <dst>, <index>`
 - [`KWARG_GET`](operands/KWARG_GET.md): `KWARG_GET <dst>, <key>`
+- [`ARG_GET_DEFAULT`](operands/ARG_GET_DEFAULT.md): `ARG_GET_DEFAULT <dst>, <index>, <default>`
+- [`KWARG_GET_DEFAULT`](operands/KWARG_GET_DEFAULT.md): `KWARG_GET_DEFAULT <dst>, <key>, <default>`
 - [`KWARG_HAS`](operands/KWARG_HAS.md): `KWARG_HAS <dst>, <key>`
 - [`ARG_REQUIRE`](operands/ARG_REQUIRE.md): `ARG_REQUIRE <index>, <type>`
 - [`KWARG_REQUIRE`](operands/KWARG_REQUIRE.md): `KWARG_REQUIRE <key>, <type>`
@@ -205,6 +210,17 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - `MAP_ENTRIES <dst>, <map>`: returns a list of `[key, value]` entry lists.
 - `MAP_VALIDATE <dst>, <map>, <key_type>, <value_type>`: returns whether every key/value matches the supplied type expressions.
 
+## Namespace Operations
+
+- [`NAMESPACE_NEW`](operands/NAMESPACE_NEW.md): `NAMESPACE_NEW <dst>, <name>`
+- [`NAMESPACE_ADD`](operands/NAMESPACE_ADD.md): `NAMESPACE_ADD <namespace>, <path>, <value>`
+- [`NAMESPACE_GET`](operands/NAMESPACE_GET.md): `NAMESPACE_GET <dst>, <namespace>, <path>`
+- [`NAMESPACE_HAS`](operands/NAMESPACE_HAS.md): `NAMESPACE_HAS <dst>, <namespace>, <path>`
+- [`NAMESPACE_DELETE`](operands/NAMESPACE_DELETE.md): `NAMESPACE_DELETE <namespace>, <path>`
+- [`NAMESPACE_KEYS`](operands/NAMESPACE_KEYS.md): `NAMESPACE_KEYS <dst>, <namespace>`
+- [`NAMESPACE_BIND_FN`](operands/NAMESPACE_BIND_FN.md): `NAMESPACE_BIND_FN <namespace>, <path>, <fn>`
+- [`NAMESPACE_CALL`](operands/NAMESPACE_CALL.md): `NAMESPACE_CALL <dst>, <namespace>, <path>`
+
 ## Set Operations
 
 - [`SET_NEW`](operands/SET_NEW.md): `SET_NEW <dst>`
@@ -227,6 +243,7 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - `STRUCT_DEF_FIELD_VISIBILITY <def>, <name>, <visibility>`: sets `public`, `private`, or `protected` field metadata.
 - `STRUCT_DEF_FIELD_IMMUTABLE <def>, <name>, <bool>`: marks whether a field can be changed after construction.
 - `STRUCT_DEF_METHOD <def>, <method>, <fn>`: binds a method name to a function.
+- `STRUCT_DEF_STATIC_METHOD <def>, <method>, <fn>`: binds a static method name to a function.
 - `STRUCT_DEF_VALIDATOR <def>, <fn>`: registers a constructor validation hook.
 - `STRUCT_DEF_IMPLEMENT <def>, <interface>`: records and validates an interface/protocol implementation.
 - `STRUCT_DEF_EXTEND <def>, <parent_def>`: copies parent fields, methods, and interfaces into a definition.
@@ -242,6 +259,7 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - `STRUCT_COPY <dst>, <struct>`: copies a structure value.
 - `STRUCT_EQ <dst>, <lhs>, <rhs>`: compares two structures.
 - `STRUCT_CALL <dst>, <struct>, <method>`: calls a bound method with the struct as `arg0`.
+- `STRUCT_STATIC_CALL <dst>, <struct_or_def>, <method>`: calls a static method without implicit `self`.
 - `STRUCT_FIELDS <dst>, <struct_or_def>`: returns field names.
 - `STRUCT_FIELD_INFO <dst>, <struct_or_def>, <field>`: returns field metadata as a map.
 - `STRUCT_METHODS <dst>, <struct_or_def>`: returns method names.
@@ -345,6 +363,7 @@ Each operation below has a full page in `docs/bytecode/operands/<OPCODE>.md`.
 - [`LOAD`](operands/LOAD.md): `LOAD <dst>, <src>`
 - [`LOAD_RANGE`](operands/LOAD_RANGE.md): `LOAD_RANGE <start_slot_idx>, <end_slot_idx>, <value>`
 - [`STORE`](operands/STORE.md): `STORE <dst>, <value>`
+- [`IMM`](operands/IMM.md): `IMM <slot>`
 - [`SWAP`](operands/SWAP.md): `SWAP <a>, <b>`
 - [`CLEAR`](operands/CLEAR.md): `CLEAR <target>`
 

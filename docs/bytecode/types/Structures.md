@@ -150,7 +150,14 @@ Methods bind a structure method name to an existing function:
 STRUCT_DEF_METHOD $0, #~"name", person_name
 ```
 
-`STRUCT_CALL <dst>, <struct>, <method>` calls that function with the struct instance as `arg0`.
+`STRUCT_CALL <dst>, <struct>, <method>` calls that function with the struct instance as `self`. Inside the method, use `SELF <dst>` or `ARG_GET <dst>, #0` to read the receiver. Pending `ARG` and `KWARG` values are forwarded after `self`.
+
+Static methods are bound to the definition and called without an implicit receiver:
+
+```aic
+STRUCT_DEF_STATIC_METHOD $0, #~"origin", point_origin
+STRUCT_STATIC_CALL $1, $0, #~"origin"
+```
 
 Interfaces are runtime protocol values:
 

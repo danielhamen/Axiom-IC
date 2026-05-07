@@ -1,0 +1,32 @@
+.import <arithmetic>
+.import <control_flow>
+.import <function>
+.import <io>
+.import <stack>
+
+.fn use_defaults
+  ARG_GET_DEFAULT $0, #0, #10
+  ARG_GET_DEFAULT $1, #1, #20
+  KWARG_GET_DEFAULT $2, #~"scale", #2
+  ADD $3, $0, $1
+  MUL $4, $3, $2
+  RET $4
+
+.main
+  CALL use_defaults
+  POP $0
+
+  ARG #7
+  CALL use_defaults
+  POP $1
+
+  ARG #3
+  ARG #4
+  KWARG #~"scale", #5
+  CALL use_defaults
+  POP $2
+
+  PRINTLN $0
+  PRINTLN $1
+  PRINTLN $2
+  HALT

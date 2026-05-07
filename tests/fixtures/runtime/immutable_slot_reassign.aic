@@ -1,0 +1,9 @@
+.import <memory>
+.import <arithmetic>
+.import <control_flow>
+
+.main
+  STORE $0, #1
+  IMM $0
+  INC $0, $0
+  HALT

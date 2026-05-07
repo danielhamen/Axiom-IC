@@ -14,7 +14,7 @@ STRUCT_DEF_METHOD <def>, <method>, <fn>
 
 ## Behavior
 
-Registers `<method>` on `<def>` and points it at function `<fn>`.
+Registers `<method>` on `<def>` and points it at function `<fn>`. Instance methods receive the struct instance as `self` when called with `STRUCT_CALL`.
 
 ## Errors
 

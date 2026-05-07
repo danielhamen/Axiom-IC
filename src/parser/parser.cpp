@@ -545,10 +545,6 @@ void parse_line(const std::vector<Token>& line,
             if (!is_symbol(fn_name)) {
                 throw_parse_error(line.at(1), "Invalid function name: " + fn_name);
             }
-            if (vm.functions.exists(fn_name)) {
-                throw_parse_error(line.at(1), "Function already defined: " + fn_name);
-            }
-
             current_directive = Directive::Function;
             parse_mode = ParseMode::FunctionBody;
             vm.fc = vm.functions.size();
@@ -790,6 +786,32 @@ void parse_line(const std::vector<Token>& line,
     }
 
     Function* curr_fn = vm.functions.at(vm.fc);
+    auto upsert_param = [&](size_t param_index, const std::string& type_name, bool has_default) {
+        for (auto& param : curr_fn->params) {
+            if (param.index == param_index) {
+                param.type = type_name;
+                param.has_default = has_default;
+                return;
+            }
+        }
+        curr_fn->params.push_back(Function::Param{param_index, type_name, has_default});
+    };
+    if (ins.op == OperationKind::PARAM || ins.op == OperationKind::PARAM_DEFAULT) {
+        if (parsed_operands[0].kind != OperandKind::Immediate ||
+            !parsed_operands[0].has_immediate ||
+            parsed_operands[0].immediate.kind != ValueKind::Integer ||
+            parsed_operands[0].immediate.i < 0) {
+            throw_parse_error(head_token, "PARAM index must be a non-negative integer immediate");
+        }
+        const size_t param_index = static_cast<size_t>(parsed_operands[0].immediate.i);
+        if (parsed_operands[1].kind != OperandKind::Immediate ||
+            !parsed_operands[1].has_immediate ||
+            parsed_operands[1].immediate.kind != ValueKind::String) {
+            throw_parse_error(head_token, "PARAM type must be a string immediate type expression");
+        }
+        upsert_param(param_index, parsed_operands[1].immediate.s, ins.op == OperationKind::PARAM_DEFAULT);
+        curr_fn->arg_count = std::max(curr_fn->arg_count, param_index + 1);
+    }
     auto update_arg_count = [&](const Operand& op) {
         if (op.kind == OperandKind::Argument) {
             size_t arg_count = static_cast<size_t>(op.value) + 1;

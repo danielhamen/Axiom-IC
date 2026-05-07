@@ -1,0 +1,46 @@
+.import <arithmetic>
+.import <control_flow>
+.import <function>
+.import <io>
+.import <struct>
+
+.fn point_sum_plus
+  SELF $0
+  STRUCT_GET $1, $0, #~"x"
+  STRUCT_GET $2, $0, #~"y"
+  ARG_GET $3, #1
+  ADD $4, $1, $2
+  ADD $5, $4, $3
+  RET $5
+
+.fn static_add
+  ARG_GET $0, #0
+  ARG_GET $1, #1
+  ADD $2, $0, $1
+  RET $2
+
+.main
+  STRUCT_DEF_NEW $0
+  STRUCT_DEF_NAME $0, #~"Point"
+  STRUCT_DEF_FIELD $0, #~"x", #~"Integer"
+  STRUCT_DEF_FIELD $0, #~"y", #~"Integer"
+  STRUCT_DEF_METHOD $0, #~"sum_plus", point_sum_plus
+  STRUCT_DEF_STATIC_METHOD $0, #~"add", static_add
+  STRUCT_DEF_SEAL $0
+
+  STRUCT_INIT $1, $0, #2, #3
+  ARG #5
+  STRUCT_CALL $2, $1, #~"sum_plus"
+
+  ARG #11
+  ARG #31
+  STRUCT_STATIC_CALL $3, $0, #~"add"
+
+  ARG #4
+  ARG #6
+  STRUCT_STATIC_CALL $4, $1, #~"add"
+
+  PRINTLN $2
+  PRINTLN $3
+  PRINTLN $4
+  HALT

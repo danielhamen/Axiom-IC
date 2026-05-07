@@ -1,0 +1,16 @@
+.import <memory>
+.import <struct>
+.import <io>
+.import <control_flow>
+
+.main
+  STRUCT_DEF_NEW $0
+  STRUCT_DEF_NAME $0, #~"Box"
+  STRUCT_DEF_FIELD_DEFAULT $0, #~"value", #~"Integer", #1
+  STRUCT_DEF_SEAL $0
+  STRUCT_NEW $1, $0
+  IMM $1
+  STRUCT_SET $1, #~"value", #2
+  STRUCT_GET $2, $1, #~"value"
+  PRINTLN $2
+  HALT

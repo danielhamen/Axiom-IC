@@ -323,6 +323,8 @@ bool is_link_function_reference(aic::OperationKind op, size_t operand_index) {
         case aic::OperationKind::LIST_FILTER:
         case aic::OperationKind::LIST_REDUCE:
         case aic::OperationKind::STRUCT_DEF_METHOD:
+        case aic::OperationKind::STRUCT_DEF_STATIC_METHOD:
+        case aic::OperationKind::NAMESPACE_BIND_FN:
             return operand_index == 2;
         case aic::OperationKind::STRUCT_DEF_VALIDATOR:
             return operand_index == 1;

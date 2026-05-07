@@ -140,10 +140,15 @@ enum class OperationKind : int16_t {
     RETVAL,
     ARG,
     KWARG,
+    SELF,
+    PARAM,
+    PARAM_DEFAULT,
     ARG_ARITY,
     KWARG_ARITY,
     ARG_GET,
     KWARG_GET,
+    ARG_GET_DEFAULT,
+    KWARG_GET_DEFAULT,
     KWARG_HAS,
     ARG_REQUIRE,
     KWARG_REQUIRE,
@@ -194,6 +199,20 @@ enum class OperationKind : int16_t {
     MAP_VALIDATE,
 
     /**
+     * ====================
+     * NAMESPACE OPERATIONS
+     * ====================
+     */
+    NAMESPACE_NEW,
+    NAMESPACE_ADD,
+    NAMESPACE_GET,
+    NAMESPACE_HAS,
+    NAMESPACE_DELETE,
+    NAMESPACE_KEYS,
+    NAMESPACE_BIND_FN,
+    NAMESPACE_CALL,
+
+    /**
      * ==============
      * SET OPERATIONS
      * ==============
@@ -221,6 +240,7 @@ enum class OperationKind : int16_t {
     STRUCT_DEF_FIELD_VISIBILITY,
     STRUCT_DEF_FIELD_IMMUTABLE,
     STRUCT_DEF_METHOD,
+    STRUCT_DEF_STATIC_METHOD,
     STRUCT_DEF_VALIDATOR,
     STRUCT_DEF_IMPLEMENT,
     STRUCT_DEF_EXTEND,
@@ -236,6 +256,7 @@ enum class OperationKind : int16_t {
     STRUCT_COPY,
     STRUCT_EQ,
     STRUCT_CALL,
+    STRUCT_STATIC_CALL,
     STRUCT_FIELDS,
     STRUCT_FIELD_INFO,
     STRUCT_METHODS,
@@ -383,6 +404,7 @@ enum class OperationKind : int16_t {
     LOAD,
     LOAD_RANGE,
     STORE,
+    IMM,
     SWAP,
     CLEAR,
 
@@ -455,7 +477,8 @@ enum class ValueKind : uint8_t {
     Vector,
     Matrix,
     Interface,
-    Error
+    Error,
+    Namespace
 };
 
 enum class StringFlavor : uint8_t {
@@ -487,12 +510,16 @@ struct Value {
     std::vector<bool> struct_field_has_defaults{};
     std::vector<Value> struct_values{};
     std::map<std::string, std::string> struct_methods{};
+    std::map<std::string, std::string> struct_static_methods{};
     std::vector<std::string> struct_interfaces{};
     std::string struct_validator{};
     std::string interface_name{};
     std::vector<std::string> interface_methods{};
     std::string error_type{};
     std::string error_message{};
+    std::string namespace_name{};
+    std::unordered_map<std::string, Value> namespace_members{};
+    std::unordered_map<std::string, std::string> namespace_functions{};
     std::vector<double> vec{};
     std::vector<double> matrix{};
     size_t rows = 0;
@@ -512,6 +539,7 @@ struct Value {
     bool is_matrix() const { return kind == ValueKind::Matrix; }
     bool is_interface() const { return kind == ValueKind::Interface; }
     bool is_error() const { return kind == ValueKind::Error; }
+    bool is_namespace() const { return kind == ValueKind::Namespace; }
 
     std::string to_str() const {
         switch (kind) {
@@ -546,6 +574,29 @@ struct Value {
                     out += key;
                     out += ": ";
                     out += value.to_str();
+                    idx++;
+                }
+                out += "}";
+                return out;
+            }
+            case ValueKind::Namespace: {
+                std::string out = "namespace ";
+                out += namespace_name.empty() ? "<anonymous>" : namespace_name;
+                out += " {";
+                size_t idx = 0;
+                for (const auto& [key, _] : namespace_members) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += key;
+                    idx++;
+                }
+                for (const auto& [key, _] : namespace_functions) {
+                    if (idx > 0) {
+                        out += ", ";
+                    }
+                    out += key;
+                    out += "()";
                     idx++;
                 }
                 out += "}";
@@ -710,6 +761,12 @@ struct Function {
     std::string name;
     std::unordered_map<std::string, size_t> labels;
     size_t arg_count = 0;
+    struct Param {
+        size_t index = 0;
+        std::string type;
+        bool has_default = false;
+    };
+    std::vector<Param> params;
 };
 
 struct ConstantPoolRange {
@@ -747,11 +804,13 @@ private:
 
 public:
     bool exists(const std::string& fn_name) const;
+    bool is_overloaded(const std::string& fn_name) const;
     Function* find(const std::string& fn_name);
     const Function* find(const std::string& fn_name) const;
     Function* at(size_t idx);
     const Function* at(size_t idx) const;
     std::optional<size_t> try_index_of(const std::string& fn_name) const;
+    std::vector<size_t> indices_of(const std::string& fn_name) const;
     size_t index_of(const std::string& fn_name) const;
     void insert(const Function& fn);
     void insert(Function&& fn);

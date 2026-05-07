@@ -82,6 +82,8 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::CALL:
         case OperationKind::RET:
         case OperationKind::RETVAL:
+        case OperationKind::PARAM:
+        case OperationKind::PARAM_DEFAULT:
         case OperationKind::ARG_REQUIRE:
         case OperationKind::KWARG_REQUIRE:
         case OperationKind::LIST_PUSH:
@@ -94,6 +96,9 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::LIST_SET:
         case OperationKind::MAP_SET:
         case OperationKind::MAP_DELETE:
+        case OperationKind::NAMESPACE_ADD:
+        case OperationKind::NAMESPACE_DELETE:
+        case OperationKind::NAMESPACE_BIND_FN:
         case OperationKind::SET_ADD:
         case OperationKind::SET_DELETE:
         case OperationKind::STRUCT_DEF_NAME:
@@ -102,6 +107,7 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::STRUCT_DEF_FIELD_VISIBILITY:
         case OperationKind::STRUCT_DEF_FIELD_IMMUTABLE:
         case OperationKind::STRUCT_DEF_METHOD:
+        case OperationKind::STRUCT_DEF_STATIC_METHOD:
         case OperationKind::STRUCT_DEF_VALIDATOR:
         case OperationKind::STRUCT_DEF_IMPLEMENT:
         case OperationKind::STRUCT_DEF_EXTEND:
@@ -124,6 +130,7 @@ bool writes_first_operand(OperationKind op) {
         case OperationKind::SLEEP:
         case OperationKind::LOAD_RANGE:
         case OperationKind::STORE:
+        case OperationKind::IMM:
         case OperationKind::CLEAR:
         case OperationKind::TRY:
         case OperationKind::CATCH:
@@ -150,6 +157,9 @@ bool is_mutating_first_operand(OperationKind op) {
         case OperationKind::LIST_SET:
         case OperationKind::MAP_SET:
         case OperationKind::MAP_DELETE:
+        case OperationKind::NAMESPACE_ADD:
+        case OperationKind::NAMESPACE_DELETE:
+        case OperationKind::NAMESPACE_BIND_FN:
         case OperationKind::SET_ADD:
         case OperationKind::SET_DELETE:
         case OperationKind::STRUCT_DEF_NAME:
@@ -158,6 +168,7 @@ bool is_mutating_first_operand(OperationKind op) {
         case OperationKind::STRUCT_DEF_FIELD_VISIBILITY:
         case OperationKind::STRUCT_DEF_FIELD_IMMUTABLE:
         case OperationKind::STRUCT_DEF_METHOD:
+        case OperationKind::STRUCT_DEF_STATIC_METHOD:
         case OperationKind::STRUCT_DEF_VALIDATOR:
         case OperationKind::STRUCT_DEF_IMPLEMENT:
         case OperationKind::STRUCT_DEF_EXTEND:
@@ -214,6 +225,8 @@ bool is_function_reference_operand(OperationKind op, size_t operand_index) {
         case OperationKind::LIST_FILTER:
         case OperationKind::LIST_REDUCE:
         case OperationKind::STRUCT_DEF_METHOD:
+        case OperationKind::STRUCT_DEF_STATIC_METHOD:
+        case OperationKind::NAMESPACE_BIND_FN:
             return operand_index == 2;
         case OperationKind::STRUCT_DEF_VALIDATOR:
             return operand_index == 1;
@@ -229,6 +242,8 @@ bool is_type_expression_operand(OperationKind op, size_t operand_index) {
         case OperationKind::TYPE_ASSERT:
         case OperationKind::TYPE_HINT:
         case OperationKind::TYPE_ALIAS:
+        case OperationKind::PARAM:
+        case OperationKind::PARAM_DEFAULT:
         case OperationKind::ARG_REQUIRE:
         case OperationKind::KWARG_REQUIRE:
         case OperationKind::LIST_ASSERT:
@@ -355,6 +370,9 @@ void verify_operand_shape(std::vector<VerificationDiagnostic>& diagnostics,
 
     if (ins.op == OperationKind::TYPE_HINT && !ins.operands.empty() && ins.operands[0].kind != OperandKind::Slot) {
         add(diagnostics, DiagnosticSeverity::Error, function, pc, ins.op, "TYPE_HINT first operand must be a slot");
+    }
+    if (ins.op == OperationKind::IMM && !ins.operands.empty() && ins.operands[0].kind != OperandKind::Slot) {
+        add(diagnostics, DiagnosticSeverity::Error, function, pc, ins.op, "IMM operand must be a slot");
     }
 
     if (ins.op == OperationKind::TYPE_ALIAS) {

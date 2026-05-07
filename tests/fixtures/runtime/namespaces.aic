@@ -1,0 +1,38 @@
+.import <control_flow>
+.import <function>
+.import <io>
+.import <list>
+.import <namespace>
+
+.fn system_out_println
+  ARG_GET $0, #0
+  RET $0
+
+.main
+  NAMESPACE_NEW $0, #~"System"
+  NAMESPACE_ADD $0, #~"Version", #1
+
+  NAMESPACE_NEW $1, #~"Out"
+  NAMESPACE_ADD $0, #~"Out", $1
+  NAMESPACE_BIND_FN $0, #~"Out.printLn", system_out_println
+
+  NAMESPACE_GET $2, $0, #~"Version"
+  NAMESPACE_HAS $3, $0, #~"Out.printLn"
+
+  ARG #~"hello"
+  NAMESPACE_CALL $4, $0, #~"Out.printLn"
+
+  NAMESPACE_KEYS $5, $0
+  LIST_GET $6, $5, #0
+  LIST_GET $7, $5, #1
+
+  NAMESPACE_DELETE $0, #~"Out.printLn"
+  NAMESPACE_HAS $8, $0, #~"Out.printLn"
+
+  PRINTLN $2
+  PRINTLN $3
+  PRINTLN $4
+  PRINTLN $6
+  PRINTLN $7
+  PRINTLN $8
+  HALT

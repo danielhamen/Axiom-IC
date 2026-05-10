@@ -2269,10 +2269,32 @@ void Program::resolve(const Instruction& ins) {
                 }
             } else {
                 if (functions.is_overloaded(x.strval)) {
-                    throw_exec_error(*this,
-                                     "CALL overloaded function requires pending ARG values: " + x.strval,
-                                     &ins,
-                                     "NameError");
+                    const auto selected = select_function_overload(*this, x.strval, args, ins, "CALL");
+                    if (!selected.has_value()) {
+                        throw_exec_error(*this,
+                                         "CALL target function does not exist or no zero-argument overload matches: " + x.strval,
+                                         &ins,
+                                         "NameError");
+                    }
+                    callee_fc = *selected;
+                    callee = functions.at(callee_fc);
+                    if (!function_matches_args(*this, *callee, args)) {
+                        throw_exec_error(*this,
+                                         "CALL argument list does not match selected overload: " + x.strval,
+                                         &ins,
+                                         "TypeError");
+                    }
+
+                    CallFrame frame;
+                    frame.return_pc = pc + 1;
+                    frame.return_fc = fc;
+                    frame.args = std::move(args);
+                    frame.kwargs = std::move(kwargs);
+                    call_stack.push_back(std::move(frame));
+
+                    fc = callee_fc;
+                    pc = 0;
+                    return;
                 }
                 const auto callee_index = functions.try_index_of(x.strval);
                 if (!callee_index.has_value()) {

@@ -1,0 +1,57 @@
+.import <arithmetic>
+.import <control_flow>
+.import <function>
+.import <io>
+.import <stack>
+
+.fn pick
+  PARAM_DEFAULT #0, #~"Integer", #3
+  ARG_GET_DEFAULT $0, #0, #3
+  MUL $1, $0, #10
+  RET $1
+
+.fn pick
+  PARAM_DEFAULT #0, #~"Integer", #3
+  PARAM #1, #~"Integer"
+  ARG_GET_DEFAULT $0, #0, #3
+  ARG_GET $1, #1
+  ADD $2, $0, $1
+  RET $2
+
+.fn describe
+  PARAM #0, #~"Integer"
+  ARG_GET $0, #0
+  ADD $1, $0, #100
+  RET $1
+
+.fn describe
+  PARAM #0, #~"String"
+  RET #~"string"
+
+.main
+  CALL pick
+  POP $0
+
+  ARG #7
+  CALL pick
+  POP $1
+
+  ARG #4
+  ARG #6
+  CALL pick
+  POP $2
+
+  ARG #5
+  CALL describe
+  POP $3
+
+  ARG #~"hello"
+  CALL describe
+  POP $4
+
+  PRINTLN $0
+  PRINTLN $1
+  PRINTLN $2
+  PRINTLN $3
+  PRINTLN $4
+  HALT
